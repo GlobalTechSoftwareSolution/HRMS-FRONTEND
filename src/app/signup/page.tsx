@@ -1,0 +1,124 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+
+export default function SignupPage() {
+  const [role, setRole] = useState("ceo");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    const url = "http://127.0.0.1:8000/api/accounts/signup/";
+
+    console.log({ role, username, password });
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, username, password }),
+      });
+
+      let data;
+      try {
+        data = await res.json();
+      } catch (err) {
+        throw new Error("Response was not JSON");
+      }
+
+      if (!res.ok) {
+        console.error("Signup failed:", data);
+        throw new Error(data.detail || JSON.stringify(data));
+      }
+
+      setMessage(`Signup successful! You can now log in.`);
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 1500);
+    } catch (err: any) {
+      setMessage(err.message);
+    }
+  }
+
+  return (
+    <main className="flex min-h-screen text-black">
+      {/* Left side - gradient background with heading and info */}
+      <div className="flex flex-col justify-center items-center w-1/2 bg-gradient-to-b from-green-700 to-green-400 text-white p-12">
+        <h1 className="text-5xl font-extrabold mb-6">Welcome to HRMS</h1>
+        <p className="text-lg max-w-md text-center">
+          Join our team and manage your company's human resources efficiently. Create your account to get started with HRMS today!
+        </p>
+      </div>
+
+      {/* Right side - form card */}
+      <div className="flex flex-col justify-center items-center w-1/2 bg-green-50 p-12">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white rounded-lg shadow-lg w-full max-w-md p-8 flex flex-col gap-6"
+        >
+          <h2 className="text-3xl font-bold text-green-700 text-center mb-4">
+            Create an Account
+          </h2>
+
+          <select
+            className="border border-green-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+          >
+            <option value="ceo">CEO</option>
+            <option value="manager">Manager</option>
+            <option value="hr">HR</option>
+            <option value="employee">Employee</option>
+          </select>
+
+          <input
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="border border-green-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={8}
+            required
+            className="border border-green-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+
+          <button
+            type="submit"
+            className="py-3 rounded-md transition-colors font-semibold bg-green-600 text-white hover:bg-green-700"
+          >
+            Signup
+          </button>
+
+          {message && (
+            <p
+              className={`text-center mt-2 font-medium ${
+                message.includes("Ensure")
+                  ? "text-red-600"
+                  : "text-green-700"
+              }`}
+            >
+              {message}
+            </p>
+          )}
+
+          <p className="text-center text-green-600 mt-4">
+            Already have an account?{" "}
+            <Link href="/login" className="font-semibold hover:underline">
+              Login
+            </Link>
+          </p>
+        </form>
+      </div>
+    </main>
+  );
+}
