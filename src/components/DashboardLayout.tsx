@@ -58,6 +58,35 @@ export default function DashboardLayout({ children, role }: Props) {
   const [menuOpen, setMenuOpen] = useState(false); // ✅ mobile menu state
 
   useEffect(() => {
+    // Client-side role protection
+    const storedUser = localStorage.getItem("userInfo");
+    let currentRole = null;
+
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        currentRole = parsedUser.role;
+      } catch {
+        currentRole = null;
+      }
+    }
+
+    // If role not found in localStorage, try cookies
+    if (!currentRole) {
+      const match = document.cookie.match(new RegExp('(^| )role=([^;]+)'));
+      if (match) {
+        currentRole = decodeURIComponent(match[2]);
+      }
+    }
+
+    if (!currentRole) {
+      router.replace("/login");
+    } else if (currentRole !== role) {
+      router.replace("/unauthorized");
+    }
+  }, [role, router]);
+
+  useEffect(() => {
     const storedUser = localStorage.getItem("userInfo");
     if (storedUser) {
       try {
@@ -69,11 +98,17 @@ export default function DashboardLayout({ children, role }: Props) {
   }, []);
 
   const handleLogout = useCallback(() => {
+    // Clear localStorage and sessionStorage
     localStorage.removeItem("authToken");
     localStorage.removeItem("userInfo");
     localStorage.clear();
     sessionStorage.clear();
-    router.replace("/");
+
+    // Clear cookies
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+
+    router.replace("/login");
   }, [router]);
 
   const roleLinks = roleLinksMap[role];
