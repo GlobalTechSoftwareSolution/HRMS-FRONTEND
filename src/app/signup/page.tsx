@@ -12,12 +12,10 @@ export default function SignupPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    const url = "http://127.0.0.1:8000/api/accounts/signup/";
-
-    console.log({ role, username, password });
+    const endpoint = `${process.env.NEXT_PUBLIC_API_BASE}/accounts/signup/`;
 
     try {
-      const res = await fetch(url, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role, username, password }),
@@ -35,7 +33,7 @@ export default function SignupPage() {
         throw new Error(data.detail || JSON.stringify(data));
       }
 
-      setMessage(`Signup successful! You can now log in.`);
+      setMessage("Signup successful! You can now log in.");
       setTimeout(() => {
         window.location.href = "/login";
       }, 1500);

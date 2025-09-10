@@ -1,7 +1,8 @@
 "use client";
-import { ReactNode, useCallback } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { FiLogOut, FiMenu, FiX } from "react-icons/fi";
 
 type Role = "ceo" | "manager" | "hr" | "employee" | "admin";
 
@@ -10,8 +11,62 @@ type Props = {
   role: Role;
 };
 
+type UserInfo = {
+  name?: string;
+  email?: string;
+  picture?: string; // Google profile photo URL
+};
+
+// Map role links with display name and actual path
+const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
+  ceo: [
+    { name: "Overview", path: "/ceo/overview" },
+    { name: "Reports", path: "/ceo/reports" },
+    { name: "Employees", path: "/ceo/employees" },
+  ],
+  manager: [
+    { name: "Team", path: "/team" },
+    { name: "Tasks", path: "/tasks" },
+    { name: "Reports", path: "/reports" },
+  ],
+  hr: [
+    { name: "Employees", path: "/hr/employee" },
+    { name: "Leaves", path: "/hr/leaves" },
+    { name: "Attendance", path: "/hr/attendance" },
+    { name: "Payroll", path: "/hr/payroll" },
+    {name: "Tasks", path: "/hr/tasks"},
+  ],
+  employee: [
+    { name: "Dashboard", path: "/employee/dashboard" },
+    { name: "Profile", path: "/employee/profile" },
+    { name: "Tasks", path: "/employee/tasks" },
+    { name: "Attendance", path: "/employee/attendance" },
+    { name: "Leaves", path: "/employee/leaves" },
+    { name: "Payroll", path: "/employee/payroll" },
+  ],
+  admin: [
+    { name: "User Management", path: "/user-management" },
+    { name: "System Settings", path: "/system-settings" },
+    { name: "Logs", path: "/logs" },
+  ],
+};
+
 export default function DashboardLayout({ children, role }: Props) {
   const router = useRouter();
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false); // ✅ mobile menu state
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("userInfo");
+    if (storedUser) {
+      try {
+        setUserInfo(JSON.parse(storedUser));
+      } catch {
+        setUserInfo(null);
+      }
+    }
+  }, []);
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem("authToken");
@@ -21,51 +76,162 @@ export default function DashboardLayout({ children, role }: Props) {
     router.replace("/");
   }, [router]);
 
-  const links: Record<Role, string[]> = {
-    ceo: ["Overview", "Reports", "Employees"],
-    manager: ["Team", "Tasks", "Reports"],
-    hr: ["Employees", "Payroll", "Leaves"],
-    employee: ["Profile", "Tasks", "Attendance"],
-    admin: ["User Management", "System Settings", "Logs"],
-  };
-
-  const roleLinks = links[role] ?? [];
+  const roleLinks = roleLinksMap[role];
 
   return (
-    <div className="flex min-h-screen bg-gray-50 font-sans text-white">
-      {/* Sidebar */}
-      <aside className="w-64 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex flex-col">
-        <div className="p-6 font-bold text-2xl tracking-wide border-b border-blue-700">
-          {role.toUpperCase()} Dashboard
+    <div className="flex min-h-screen bg-gray-100 font-sans text-gray-800">
+      {/* Sidebar (desktop) */}
+      <aside className="hidden md:flex w-72 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex-col">
+        {/* Profile Section */}
+        <div className="p-6 flex items-center gap-4 border-b border-blue-700">
+          <img
+            src={userInfo?.picture || "/default-profile.png"}
+            alt={userInfo?.name || "Profile"}
+            className="w-16 h-16 rounded-full border-2 border-white shadow-md object-cover"
+          />
+          <div className="flex flex-col">
+            <p className="text-lg font-semibold text-white">
+              {userInfo?.name || "Guest User"}
+            </p>
+            <p className="text-sm text-blue-200">{role.toUpperCase()}</p>
+          </div>
         </div>
-        <nav className="flex flex-col p-4 space-y-3">
-          {roleLinks.map((link) => (
+
+        {/* Links */}
+        <nav className="flex flex-col p-4 space-y-2">
+          {roleLinks?.map((link) => (
             <Link
-              href={`#${link.toLowerCase()}`}
-              key={link}
-              className="px-4 py-2 rounded-md hover:bg-blue-500 font-semibold transition-colors duration-200"
+              href={link.path}
+              key={link.name}
+              className="px-4 py-2 rounded-lg hover:bg-blue-500 hover:shadow-md transition-all font-medium"
             >
-              {link}
+              {link.name}
             </Link>
           ))}
         </nav>
+
+        {/* Logout */}
+        <div className="mt-auto p-4">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all"
+          >
+            <FiLogOut /> Logout
+          </button>
+        </div>
       </aside>
+
+      {/* Mobile Sidebar (slide-in) */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-30 flex">
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-40"
+            onClick={() => setMenuOpen(false)}
+          />
+          {/* Menu */}
+          <div className="relative w-72 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex flex-col z-40">
+            {/* Close button */}
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="absolute top-4 right-4 text-white"
+            >
+              <FiX size={24} />
+            </button>
+
+            {/* Profile Section */}
+            <div className="p-6 flex items-center gap-4 border-b border-blue-700">
+              <img
+                src={userInfo?.picture || "/default-profile.png"}
+                alt={userInfo?.name || "Profile"}
+                className="w-16 h-16 rounded-full border-2 border-white shadow-md object-cover"
+              />
+              <div className="flex flex-col">
+                <p className="text-lg font-semibold text-white">
+                  {userInfo?.name || "Guest User"}
+                </p>
+                <p className="text-sm text-blue-200">{role.toUpperCase()}</p>
+              </div>
+            </div>
+
+            {/* Links */}
+            <nav className="flex flex-col p-4 space-y-2">
+              {roleLinks?.map((link) => (
+                <Link
+                  href={link.path}
+                  key={link.name}
+                  onClick={() => setMenuOpen(false)} // ✅ closes menu when link clicked
+                  className="px-4 py-2 rounded-lg hover:bg-blue-500 hover:shadow-md transition-all font-medium"
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Logout */}
+            <div className="mt-auto p-4">
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  handleLogout();
+                }}
+                className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all"
+              >
+                <FiLogOut /> Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
         {/* Top Navbar */}
-        <header className="bg-white shadow-md p-4 flex justify-between items-center border-b border-gray-200">
-          <h2 className="text-2xl font-semibold text-blue-700">{role.toUpperCase()}</h2>
-          <button
-            onClick={handleLogout}
-            className="bg-red-600 text-white px-5 py-2 rounded-md hover:bg-red-700 transition-colors duration-200"
-          >
-            Logout
-          </button>
+        <header className="bg-white shadow-md p-4 flex justify-between items-center border-b border-gray-200 sticky top-0 z-20">
+          <div className="flex items-center gap-4">
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="md:hidden text-blue-700"
+            >
+              <FiMenu size={24} />
+            </button>
+            <h2 className="text-2xl font-semibold text-blue-700 tracking-wide">
+              {role.toUpperCase()} Dashboard
+            </h2>
+          </div>
+
+          {/* Profile dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setDropdownOpen((prev) => !prev)}
+              className="focus:outline-none"
+            >
+              <img
+                src={userInfo?.picture || "/default-profile.png"}
+                alt={userInfo?.name || "Profile"}
+                className="w-10 h-10 rounded-full border border-gray-300 shadow-sm object-cover cursor-pointer"
+              />
+            </button>
+
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-40 bg-white border rounded-lg shadow-lg py-2 z-20">
+                <p className="px-4 py-2 text-sm text-gray-700 border-b">
+                  {userInfo?.name || "Guest User"}
+                </p>
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-100 transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </header>
 
         {/* Page Content */}
-        <div className="p-6 flex-1">{children}</div>
+        <div className="p-6 flex-1 overflow-auto">{children}</div>
       </main>
     </div>
   );

@@ -1,50 +1,74 @@
 "use client";
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 
 const LoginPage = () => {
-  const [role, setRole] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+  const [role, setRole] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage('');
-    const endpoint = 'http://127.0.0.1:8000/api/accounts/login/';
+    setMessage("");
+    const endpoint = `${process.env.NEXT_PUBLIC_API_BASE}/accounts/login/`;
+    console.log("Login API:", endpoint);
+
     try {
       const response = await fetch(endpoint, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ role, username, password }),
       });
+
       const data = await response.json();
+
       if (response.ok) {
         if (data.user && data.user.role === role) {
-          setMessage('Login successful!');
+          // ✅ Save token & user info
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+          }
+          localStorage.setItem(
+            "userInfo",
+            JSON.stringify({
+              name: data.user.username, // use username from Supabase
+              email: data.user.email || "", // if email exists
+              role: data.user.role,
+              phone: data.user.phone || "", // optional
+              department: data.user.department || "", // optional
+              picture: data.user.picture || "" // optional
+            })
+          );
+
+
+          setMessage("Login successful!");
           setTimeout(() => {
-            if (role === 'ceo') router.push('/ceo');
-            else if (role === 'manager') router.push('/manager');
-            else if (role === 'hr') router.push('/hr');
-            else if (role === 'employee') router.push('/employee');
+            if (role === "ceo") router.push("/ceo");
+            else if (role === "manager") router.push("/manager");
+            else if (role === "hr") router.push("/hr");
+            else if (role === "employee") router.push("/employee");
           }, 1000);
         } else {
-          setMessage(`Role mismatch or check your credentials.`);
+          setMessage("Role mismatch or check your credentials.");
         }
       } else {
-        setMessage(data.detail || 'Login failed. Please check your credentials.');
+        setMessage(
+          data.detail || "Login failed. Please check your credentials."
+        );
       }
     } catch (error) {
-      setMessage('An error occurred. Please try again.');
+      console.error(error);
+      setMessage("An error occurred. Please try again.");
     }
   };
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side with gradient and welcome text */}
+      {/* Left Side */}
       <div className="hidden md:flex w-1/2 bg-gradient-to-br from-blue-400 via-blue-600 to-blue-700 text-white flex-col justify-center items-center p-16">
         <h1 className="text-5xl font-extrabold mb-6 select-none">
           Welcome Back!
@@ -54,17 +78,16 @@ const LoginPage = () => {
         </p>
       </div>
 
-      {/* Right Side with card */}
+      {/* Right Side */}
       <div className="flex flex-col justify-center w-full md:w-1/2 p-10 bg-gray-50">
         <div className="max-w-md w-full mx-auto bg-white rounded-3xl shadow-2xl p-10">
-
           {/* Message */}
           {message && (
             <div
               className={`mb-6 text-center p-3 rounded-lg font-medium transition-colors duration-300 ${
-                message.includes('successful')
-                  ? 'bg-blue-100 text-blue-800'
-                  : 'bg-red-100 text-red-700'
+                message.includes("successful")
+                  ? "bg-blue-100 text-blue-800"
+                  : "bg-red-100 text-red-700"
               }`}
               role="alert"
             >
@@ -74,7 +97,10 @@ const LoginPage = () => {
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="role" className="block mb-2 font-semibold text-gray-700 text-md">
+              <label
+                htmlFor="role"
+                className="block mb-2 font-semibold text-gray-700 text-md"
+              >
                 Role
               </label>
               <select
@@ -92,7 +118,10 @@ const LoginPage = () => {
               </select>
             </div>
             <div>
-              <label htmlFor="username" className="block mb-2 font-semibold text-gray-700 text-md">
+              <label
+                htmlFor="username"
+                className="block mb-2 font-semibold text-gray-700 text-md"
+              >
                 Username
               </label>
               <input
@@ -106,7 +135,10 @@ const LoginPage = () => {
               />
             </div>
             <div>
-              <label htmlFor="password" className="block mb-2 font-semibold text-gray-700 text-md">
+              <label
+                htmlFor="password"
+                className="block mb-2 font-semibold text-gray-700 text-md"
+              >
                 Password
               </label>
               <input
@@ -128,7 +160,7 @@ const LoginPage = () => {
           </form>
           <p
             className="mt-4 text-center text-blue-600 hover:underline cursor-pointer"
-            onClick={() => router.push('/signup')}
+            onClick={() => router.push("/signup")}
           >
             Don't have an account? Sign up
           </p>
