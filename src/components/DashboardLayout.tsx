@@ -23,31 +23,40 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Overview", path: "/ceo/overview" },
     { name: "Reports", path: "/ceo/reports" },
     { name: "Employees", path: "/ceo/employees" },
+    { name: "Finance", path: "/ceo/finance" },
+    { name: "Projects", path: "/ceo/projects" },
+    { name: "Notice", path: "/ceo/notice" },
+    { name: "Profile", path: "/ceo/profile" },
   ],
   manager: [
-    { name: "Team", path: "/team" },
-    { name: "Tasks", path: "/tasks" },
-    { name: "Reports", path: "/reports" },
+    { name: "Tasks", path: "/manager/tasks" },
+    { name: "Reports", path: "/manager/reports" },
+    { name: "Team", path: "/manager/team" },
+    { name: "LeaveApprovals", path: "/manager/leaveapprovals" },
+    { name: "Attendence", path: "/manager/attendence" },
+    { name: "Profile", path: "/manager/profile" },
   ],
   hr: [
     { name: "Employees", path: "/hr/employee" },
     { name: "Leaves", path: "/hr/leaves" },
     { name: "Attendance", path: "/hr/attendance" },
     { name: "Payroll", path: "/hr/payroll" },
-    {name: "Tasks", path: "/hr/tasks"},
+    {name: "Onboarding", path: "/hr/onboardinng"},
+    {name: "Ofboarding", path: "/hr/offboardinng"},
+    {name: "Profile", path: "/hr/profile"},
   ],
   employee: [
     { name: "Dashboard", path: "/employee/dashboard" },
-    { name: "Profile", path: "/employee/profile" },
     { name: "Tasks", path: "/employee/tasks" },
     { name: "Attendance", path: "/employee/attendance" },
     { name: "Leaves", path: "/employee/leaves" },
     { name: "Payroll", path: "/employee/payroll" },
+    { name: "Profile", path: "/employee/profile" },
   ],
   admin: [
-    { name: "User Management", path: "/user-management" },
-    { name: "System Settings", path: "/system-settings" },
-    { name: "Logs", path: "/logs" },
+    { name: "Approvals", path: "/admin/approvals" },
+    { name: "System Settings", path: "/admin/system-settings" },
+    { name: "Profile", path: "/admin/profile" },
   ],
 };
 
@@ -236,33 +245,20 @@ export default function DashboardLayout({ children, role }: Props) {
             </h2>
           </div>
 
-          {/* Profile dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setDropdownOpen((prev) => !prev)}
-              className="focus:outline-none"
-            >
-              <img
-                src={userInfo?.picture || "/default-profile.png"}
-                alt={userInfo?.name || "Profile"}
-                className="w-10 h-10 rounded-full border border-gray-300 shadow-sm object-cover cursor-pointer"
-              />
-            </button>
+       {/* Profile redirect button (Top Right) */}
+<div className="relative">
+  <button
+    onClick={() => router.push(`/${role}/profile`)} // ✅ Redirects to profile page
+    className="focus:outline-none"
+  >
+    <img
+      src={userInfo?.picture || "/default-profile.png"}
+      alt={userInfo?.name || "Profile"}
+      className="w-10 h-10 rounded-full border border-gray-300 shadow-sm object-cover cursor-pointer"
+    />
+  </button>
+</div>
 
-            {dropdownOpen && (
-              <div className="absolute right-0 mt-2 w-40 bg-white border rounded-lg shadow-lg py-2 z-20">
-                <p className="px-4 py-2 text-sm text-gray-700 border-b">
-                  {userInfo?.name || "Guest User"}
-                </p>
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-100 transition-colors"
-                >
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
         </header>
 
         {/* Page Content */}

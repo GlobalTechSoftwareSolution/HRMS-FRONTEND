@@ -24,10 +24,21 @@ const LoginPage = () => {
         body: JSON.stringify({ role, email, password }),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        setMessage("Invalid response from server. Please try again.");
+        return;
+      }
 
       if (response.ok) {
         if (data.user && data.user.role === role) {
+          // Check if is_staff is true
+          if (data.user.is_staff !== true) {
+            setMessage("Your account is waiting for admin approval.");
+            return;
+          }
           // ✅ Save token & user info
           if (data.token) {
             localStorage.setItem("token", data.token);
@@ -44,13 +55,13 @@ const LoginPage = () => {
             })
           );
 
-
           setMessage("Login successful!");
           setTimeout(() => {
             if (role === "ceo") router.push("/ceo");
             else if (role === "manager") router.push("/manager");
             else if (role === "hr") router.push("/hr");
             else if (role === "employee") router.push("/employee");
+            else if (role === "admin") router.push("/admin");
           }, 1000);
         } else {
           setMessage("Role mismatch or check your credentials.");
@@ -115,6 +126,7 @@ const LoginPage = () => {
                 <option value="manager">Manager</option>
                 <option value="hr">HR</option>
                 <option value="employee">Employee</option>
+                <option value="admin">Admin</option>
               </select>
             </div>
             <div>

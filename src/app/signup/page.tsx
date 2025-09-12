@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function SignupPage() {
   const [role, setRole] = useState("ceo");
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
@@ -18,7 +18,7 @@ export default function SignupPage() {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, username, password }),
+        body: JSON.stringify({ role, email, password }),
       });
 
       let data;
@@ -71,13 +71,15 @@ export default function SignupPage() {
             <option value="manager">Manager</option>
             <option value="hr">HR</option>
             <option value="employee">Employee</option>
+            <option value="admin">Admin</option>
           </select>
 
           <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
             className="border border-green-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
           />
           <input
