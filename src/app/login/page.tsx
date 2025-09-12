@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 
 const LoginPage = () => {
   const [role, setRole] = useState("");
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const router = useRouter();
@@ -21,7 +21,7 @@ const LoginPage = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ role, username, password }),
+        body: JSON.stringify({ role, email, password }),
       });
 
       const data = await response.json();
@@ -35,7 +35,7 @@ const LoginPage = () => {
           localStorage.setItem(
             "userInfo",
             JSON.stringify({
-              name: data.user.username, // use username from Supabase
+              name: data.user.email, // use email from Supabase
               email: data.user.email || "", // if email exists
               role: data.user.role,
               phone: data.user.phone || "", // optional
@@ -119,19 +119,19 @@ const LoginPage = () => {
             </div>
             <div>
               <label
-                htmlFor="username"
+                htmlFor="email"
                 className="block mb-2 font-semibold text-gray-700 text-md"
               >
-                Username
+                Email
               </label>
               <input
-                id="username"
-                type="text"
+                id="email"
+                type="email"
                 className="w-full p-3 border rounded-xl text-gray-900 text-md transition duration-300 focus:outline-none focus:ring-4 border-blue-300 focus:ring-blue-300 hover:shadow-md"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
-                autoComplete="username"
+                autoComplete="email"
               />
             </div>
             <div>
