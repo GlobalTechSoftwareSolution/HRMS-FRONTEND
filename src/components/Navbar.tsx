@@ -2,72 +2,52 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Menu, X, Home, User, Mail } from "lucide-react";
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeLink, setActiveLink] = useState("home");
-  const [hoveredLink, setHoveredLink] = useState<string | null>(null);
-  
+  const pathname = usePathname(); // get current route
+
   const toggleMenu = () => setIsOpen(!isOpen);
 
   const navLinks = [
-    { 
-      id: "home", 
-      label: "Home", 
-      href: "/", 
-      icon: <Home size={18} />,
-      hoverColor: "hover:text-indigo-200" 
-    },
-    { 
-      id: "about", 
-      label: "About", 
-      href: "/about", 
-      icon: <User size={18} />,
-      hoverColor: "hover:text-indigo-200" 
-    },
-    { 
-      id: "contact", 
-      label: "Contact", 
-      href: "/contact", 
-      icon: <Mail size={18} />,
-      hoverColor: "hover:text-indigo-200" 
-    },
+    { id: "home", label: "Home", href: "/", icon: <Home size={18} /> },
+    { id: "about", label: "About", href: "/about", icon: <User size={18} /> },
+    { id: "contact", label: "Contact", href: "/contact", icon: <Mail size={18} /> },
   ];
 
   return (
     <motion.nav
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ 
-        duration: 0.6,
-        ease: [0.25, 0.1, 0.25, 1.0]
-      }}
+      transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1.0] }}
       className="bg-gradient-to-r from-blue-700 via-blue-600 to-indigo-700 shadow-lg sticky top-0 z-50"
     >
       <div className="container mx-auto px-6 py-3 flex items-center justify-between">
         {/* Logo */}
         <motion.div
-          className="flex items-center space-x-3 cursor-pointer ml-8 md:ml-28 "
+          className="flex items-center space-x-3 cursor-pointer ml-8 md:ml-28"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
           <motion.div
-            whileHover={{ 
+            whileHover={{
               rotate: [0, -5, 5, -5, 0],
-              transition: { duration: 0.5 }
+              transition: { duration: 0.5 },
             }}
           >
             <Image
               src="/logo/Global.jpg"
               alt="HRMS Logo"
-              width={52}
-              height={52}
+              width={68}
+              height={68}
               className="rounded-full shadow-lg border-2 border-white/20"
             />
           </motion.div>
-          <motion.span 
-            className="text-white text-2xl font-bold bg-gradient-to-r from-white to-indigo-100 bg-clip-text text-transparent"
+          <motion.span
+            className="text-white text-3xl font-bold bg-gradient-to-r from-white to-indigo-100 bg-clip-text text-transparent"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
@@ -78,61 +58,45 @@ export const Navbar: React.FC = () => {
 
         {/* Desktop Menu */}
         <ul className="hidden md:flex space-x-1 mr-24">
-          {navLinks.map((link) => (
-            <motion.li
-              key={link.id}
-              className="relative"
-              onHoverStart={() => setHoveredLink(link.id)}
-              onHoverEnd={() => setHoveredLink(null)}
-              whileHover={{ y: -2 }}
-            >
-              <a
-                href={link.href}
-                className={`relative flex items-center  space-x-2 text-white px-5 py-2.5 font-medium transition-all duration-300 ${link.hoverColor} z-10 rounded-lg`}
-                onClick={() => setActiveLink(link.id)}
-              >
-                <motion.span
-                  animate={{ 
-                    scale: activeLink === link.id ? 1.1 : 1,
-                    color: activeLink === link.id ? "#e0e7ff" : "white"
-                  }}
-                  transition={{ duration: 0.2 }}
+          {navLinks.map((link) => {
+            const isActive = pathname === link.href;
+            return (
+              <motion.li key={link.id} className="relative" whileHover={{ y: -2 }}>
+                <Link
+                  href={link.href}
+                  className={`relative flex items-center space-x-2 text-white px-5 py-2.5 font-medium transition-colors duration-300 rounded-lg`}
                 >
-                  {link.icon}
-                </motion.span>
-                <span>{link.label}</span>
-                
-                {hoveredLink === link.id && (
-                  <motion.div
-                    className="absolute inset-0 bg-white/10 rounded-lg -z-10"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                  <motion.span
+                    animate={{
+                      scale: isActive ? 1.1 : 1,
+                      color: isActive ? "#e0e7ff" : "white",
+                    }}
                     transition={{ duration: 0.2 }}
-                  />
-                )}
-                
-                {activeLink === link.id && (
-                  <motion.div
-                    className="absolute inset-0 bg-white/15 rounded-lg -z-10"
-                    layoutId="activeNavLink"
-                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                  />
-                )}
-              </a>
-              
-              {/* Animated underline effect */}
-              <motion.div
-                className="absolute bottom-0 left-1/2 w-4/5 h-0.5 bg-white rounded-full"
-                initial={{ scaleX: 0, opacity: 0, x: "-50%" }}
-                animate={{ 
-                  scaleX: hoveredLink === link.id ? 1 : 0,
-                  opacity: hoveredLink === link.id ? 1 : 0,
-                  x: "-50%"
-                }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-              />
-            </motion.li>
-          ))}
+                  >
+                    {link.icon}
+                  </motion.span>
+                  <span>{link.label}</span>
+
+                  {/* Active background */}
+                  {isActive && (
+                    <motion.div
+                      className="absolute inset-0 bg-white/10 rounded-lg -z-10"
+                      layoutId="activeNavLink"
+                      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                    />
+                  )}
+                </Link>
+
+                {/* Underline effect (only hover effect kept) */}
+                <motion.div
+                  className="absolute bottom-0 left-1/2 w-4/5 h-0.5 bg-white rounded-full"
+                  initial={{ scaleX: 0, opacity: 0, x: "-50%" }}
+                  whileHover={{ scaleX: 1, opacity: 1 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                />
+              </motion.li>
+            );
+          })}
         </ul>
 
         {/* Mobile Menu Button */}
@@ -168,7 +132,7 @@ export const Navbar: React.FC = () => {
         </motion.button>
       </div>
 
-      {/* Mobile Dropdown with AnimatePresence for smooth exit animations */}
+      {/* Mobile Dropdown */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -179,43 +143,47 @@ export const Navbar: React.FC = () => {
             className="md:hidden bg-white/95 backdrop-blur-sm rounded-b-xl shadow-xl overflow-hidden"
           >
             <ul className="flex flex-col p-2">
-              {navLinks.map((link, index) => (
-                <motion.li
-                  key={link.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1, type: "spring", stiffness: 100 }}
-                  className="border-b border-gray-100 last:border-b-0"
-                >
-                  <a
-                    href={link.href}
-                    className={`flex items-center space-x-3 text-gray-800 px-6 py-4 font-medium transition-all duration-300 rounded-lg ${link.hoverColor} hover:bg-indigo-50`}
-                    onClick={() => {
-                      setIsOpen(false);
-                      setActiveLink(link.id);
+              {navLinks.map((link, index) => {
+                const isActive = pathname === link.href;
+                return (
+                  <motion.li
+                    key={link.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{
+                      delay: index * 0.1,
+                      type: "spring",
+                      stiffness: 100,
                     }}
+                    className="border-b border-gray-100 last:border-b-0"
                   >
-                    <motion.span
-                      animate={{ 
-                        scale: activeLink === link.id ? 1.2 : 1,
-                        color: activeLink === link.id ? "#4f46e5" : "#4b5563"
-                      }}
+                    <Link
+                      href={link.href}
+                      className={`flex items-center space-x-3 text-gray-800 px-6 py-4 font-medium transition-all duration-300 rounded-lg hover:bg-indigo-50`}
+                      onClick={() => setIsOpen(false)}
                     >
-                      {link.icon}
-                    </motion.span>
-                    <span>{link.label}</span>
-                    
-                    {activeLink === link.id && (
-                      <motion.div
-                        className="ml-auto w-2 h-2 bg-indigo-500 rounded-full"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", stiffness: 400 }}
-                      />
-                    )}
-                  </a>
-                </motion.li>
-              ))}
+                      <motion.span
+                        animate={{
+                          scale: isActive ? 1.2 : 1,
+                          color: isActive ? "#4f46e5" : "#4b5563",
+                        }}
+                      >
+                        {link.icon}
+                      </motion.span>
+                      <span>{link.label}</span>
+
+                      {isActive && (
+                        <motion.div
+                          className="ml-auto w-2 h-2 bg-indigo-500 rounded-full"
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ type: "spring", stiffness: 400 }}
+                        />
+                      )}
+                    </Link>
+                  </motion.li>
+                );
+              })}
             </ul>
           </motion.div>
         )}
