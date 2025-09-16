@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Home, User, Mail } from "lucide-react";
+import { Menu, X, Home, User, Mail, LogIn, FileText } from "lucide-react";
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,6 +16,7 @@ export const Navbar: React.FC = () => {
     { id: "home", label: "Home", href: "/", icon: <Home size={18} /> },
     { id: "about", label: "About", href: "/about", icon: <User size={18} /> },
     { id: "contact", label: "Contact", href: "/contact", icon: <Mail size={18} /> },
+    { id: "blogs", label: "Blogs", href: "/blogs", icon: <FileText size={18} /> },
   ];
 
   return (
@@ -57,47 +58,51 @@ export const Navbar: React.FC = () => {
         </motion.div>
 
         {/* Desktop Menu */}
-        <ul className="hidden md:flex space-x-1 mr-24">
-          {navLinks.map((link) => {
-            const isActive = pathname === link.href;
-            return (
-              <motion.li key={link.id} className="relative" whileHover={{ y: -2 }}>
-                <Link
-                  href={link.href}
-                  className={`relative flex items-center space-x-2 text-white px-5 py-2.5 font-medium transition-colors duration-300 rounded-lg`}
-                >
-                  <motion.span
-                    animate={{
-                      scale: isActive ? 1.1 : 1,
-                      color: isActive ? "#e0e7ff" : "white",
-                    }}
-                    transition={{ duration: 0.2 }}
+        <div className="hidden md:flex items-center space-x-4 mr-24">
+          <ul className="flex space-x-1">
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href;
+              return (
+                <motion.li key={link.id} className="relative" whileHover={{ y: -2 }}>
+                  <Link
+                    href={link.href}
+                    className={`relative flex items-center space-x-2 text-white px-5 py-2.5 font-medium transition-colors duration-300 rounded-lg`}
                   >
-                    {link.icon}
-                  </motion.span>
-                  <span>{link.label}</span>
+                    <motion.span
+                      animate={{
+                        scale: isActive ? 1.1 : 1,
+                        color: isActive ? "#e0e7ff" : "white",
+                      }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {link.icon}
+                    </motion.span>
+                    <span>{link.label}</span>
 
-                  {/* Active background */}
-                  {isActive && (
-                    <motion.div
-                      className="absolute inset-0 bg-white/10 rounded-lg -z-10"
-                      layoutId="activeNavLink"
-                      transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                    />
-                  )}
-                </Link>
+                    {isActive && (
+                      <motion.div
+                        className="absolute inset-0 bg-white/10 rounded-lg -z-10"
+                        layoutId="activeNavLink"
+                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                      />
+                    )}
+                  </Link>
+                </motion.li>
+              );
+            })}
+          </ul>
 
-                {/* Underline effect (only hover effect kept) */}
-                <motion.div
-                  className="absolute bottom-0 left-1/2 w-4/5 h-0.5 bg-white rounded-full"
-                  initial={{ scaleX: 0, opacity: 0, x: "-50%" }}
-                  whileHover={{ scaleX: 1, opacity: 1 }}
-                  transition={{ duration: 0.3, ease: "easeOut" }}
-                />
-              </motion.li>
-            );
-          })}
-        </ul>
+          {/* Login Button */}
+          <motion.div whileHover={{ scale: 1.05 }}>
+            <Link
+              href="/login"
+              className="ml-4 px-5 py-2.5 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-lg flex items-center space-x-2 transition-all duration-300"
+            >
+              <LogIn size={18} />
+              <span>Login</span>
+            </Link>
+          </motion.div>
+        </div>
 
         {/* Mobile Menu Button */}
         <motion.button
@@ -184,6 +189,23 @@ export const Navbar: React.FC = () => {
                   </motion.li>
                 );
               })}
+
+              {/* Mobile Login Button */}
+              <motion.li
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: navLinks.length * 0.1, type: "spring", stiffness: 100 }}
+                className="mt-2 px-6 py-4"
+              >
+                <Link
+                  href="/login"
+                  className="flex items-center justify-center space-x-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-500 transition-all duration-300"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <LogIn size={18} />
+                  <span>Login</span>
+                </Link>
+              </motion.li>
             </ul>
           </motion.div>
         )}

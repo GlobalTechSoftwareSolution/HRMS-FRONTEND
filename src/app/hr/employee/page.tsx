@@ -2,19 +2,23 @@
 
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiFilter, FiChevronDown, FiChevronUp, FiUserPlus } from "react-icons/fi";
+import { FiSearch, FiChevronDown, FiChevronUp, FiEye, FiEdit } from "react-icons/fi";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 type Employee = {
   id: number;
-  name: string;
   email: string;
-  role: string;
-  department: string;
-  joinDate: string;
-  status: "active" | "on-leave" | "terminated";
-  avatar?: string;
+  fullname: string;
+  age: number | null;
+  phone: string | null;
+  department: string | null;
+  designation: string | null;
+  date_of_birth: string | null;
+  date_joined: string | null;
+  skills: string | null;
+  profile_picture: string | null;
+  reports_to: string | null;
 };
 
 type SortConfig = {
@@ -23,109 +27,140 @@ type SortConfig = {
 };
 
 export default function HREmployeePage() {
-  const [employees, setEmployees] = useState<Employee[]>([
-    {
-      id: 1,
-      name: "John Doe",
-      email: "john@example.com",
-      role: "Software Engineer",
-      department: "Engineering",
-      joinDate: "2023-05-01",
-      status: "active",
-      avatar: "/avatars/john.jpg"
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      email: "jane@example.com",
-      role: "HR Manager",
-      department: "Human Resources",
-      joinDate: "2022-11-15",
-      status: "active",
-      avatar: "/avatars/jane.jpg"
-    },
-    {
-      id: 3,
-      name: "Robert Johnson",
-      email: "robert@example.com",
-      role: "Product Designer",
-      department: "Design",
-      joinDate: "2023-02-20",
-      status: "on-leave",
-      avatar: "/avatars/robert.jpg"
-    },
-    {
-      id: 4,
-      name: "Sarah Williams",
-      email: "sarah@example.com",
-      role: "Marketing Specialist",
-      department: "Marketing",
-      joinDate: "2022-08-10",
-      status: "active",
-      avatar: "/avatars/sarah.jpg"
-    },
-    {
-      id: 5,
-      name: "Michael Brown",
-      email: "michael@example.com",
-      role: "Sales Executive",
-      department: "Sales",
-      joinDate: "2023-01-15",
-      status: "terminated",
-      avatar: "/avatars/michael.jpg"
-    },
-  ]);
-
-  const [newEmployee, setNewEmployee] = useState({
-    name: "",
-    email: "",
-    role: "",
-    department: "",
-    joinDate: "",
-  });
-
-  const [isAdding, setIsAdding] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [error, setError] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<Employee>>({});
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch(
+          "http://127.0.0.1:8000/api/accounts/employees/"
+        );
+
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+
+        const data = await res.json();
+        console.log("Fetched employees:", data);
+
+        if (!Array.isArray(data)) {
+          throw new Error("Unexpected data format: expected an array");
+        }
+
+        setEmployees(data);
+        setError("");
+      } catch (err: any) {
+        console.error("Failed to fetch employees:", err);
+        setError("Failed to fetch employees. Please check console for details.");
+        toast.error("Failed to fetch employees");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEmployees();
+  }, []);
+
+  // Handle onboard new employee (redirect to signup)
+  const handleOnboardEmployee = () => {
+    window.location.href = "http://127.0.0.1:8000/api/accounts/signup";
+  };
+
+  // Handle edit employee
+  const handleEditEmployee = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setEditFormData(employee);
+    setIsEditing(true);
+  };
+
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Save edited employee data
+  const handleSaveEdit = async () => {
+    if (!selectedEmployee) return;
+
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/accounts/employees/${selectedEmployee.id}/`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(editFormData),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const updatedEmployee = await res.json();
+      
+      // Update the employees list
+      setEmployees(prev => prev.map(emp => 
+        emp.id === selectedEmployee.id ? updatedEmployee : emp
+      ));
+      
+      toast.success("Employee updated successfully");
+      setIsEditing(false);
+      setSelectedEmployee(null);
+    } catch (err: any) {
+      console.error("Failed to update employee:", err);
+      toast.error("Failed to update employee");
+    }
+  };
 
   // Get unique departments for filter
-  const departments = Array.from(new Set(employees.map(emp => emp.department)));
+  const departments = Array.from(new Set(employees.map(emp => emp.department).filter(Boolean))) as string[];
 
   // Filter and sort employees
   const filteredAndSortedEmployees = React.useMemo(() => {
     let filtered = employees.filter(employee => {
-      const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      const matchesSearch = employee.fullname.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           employee.role.toLowerCase().includes(searchTerm.toLowerCase());
+                           (employee.designation && employee.designation.toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesDepartment = filterDepartment === "all" || employee.department === filterDepartment;
-      const matchesStatus = filterStatus === "all" || employee.status === filterStatus;
       
-      return matchesSearch && matchesDepartment && matchesStatus;
+      return matchesSearch && matchesDepartment;
     });
 
-   if (sortConfig) {
-  filtered.sort((a: any, b: any) => {
-    const aValue = a[sortConfig.key];
-    const bValue = b[sortConfig.key];
+    if (sortConfig) {
+      filtered.sort((a: any, b: any) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
 
-    if (aValue == null || bValue == null) return 0;
+        if (aValue == null || bValue == null) return 0;
 
-    if (aValue < bValue) {
-      return sortConfig.direction === "ascending" ? -1 : 1;
+        if (aValue < bValue) {
+          return sortConfig.direction === "ascending" ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === "ascending" ? 1 : -1;
+        }
+        return 0;
+      });
     }
-    if (aValue > bValue) {
-      return sortConfig.direction === "ascending" ? 1 : -1;
-    }
-    return 0;
-  });
-}
 
     return filtered;
-  }, [employees, searchTerm, filterDepartment, filterStatus, sortConfig]);
+  }, [employees, searchTerm, filterDepartment, sortConfig]);
 
   const requestSort = (key: keyof Employee) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -135,53 +170,14 @@ export default function HREmployeePage() {
     setSortConfig({ key, direction });
   };
 
-  const handleAddEmployee = () => {
-    if (!newEmployee.name || !newEmployee.email || !newEmployee.role || !newEmployee.department || !newEmployee.joinDate) {
-      toast.error("Please fill all required fields");
-      return;
-    }
-
-    const newEmp: Employee = {
-      id: Date.now(),
-      ...newEmployee,
-      status: "active",
-      avatar: "/avatars/default.jpg"
-    };
-
-    setEmployees([newEmp, ...employees]);
-    setNewEmployee({ name: "", email: "", role: "", department: "", joinDate: "" });
-    setIsAdding(false);
-    toast.success("Employee added successfully!");
+  const handleViewDetails = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setIsEditing(false);
   };
 
-  const handleDeleteEmployee = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this employee?")) {
-      setEmployees(employees.filter(emp => emp.id !== id));
-      toast.info("Employee deleted");
-    }
-  };
-
-  const handleEditEmployee = (employee: Employee) => {
-    setEditingEmployee(employee);
-  };
-
-  const handleUpdateEmployee = () => {
-    if (!editingEmployee) return;
-
-    setEmployees(employees.map(emp => 
-      emp.id === editingEmployee.id ? editingEmployee : emp
-    ));
-    setEditingEmployee(null);
-    toast.success("Employee updated successfully!");
-  };
-
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case "active": return "bg-green-100 text-green-800";
-      case "on-leave": return "bg-yellow-100 text-yellow-800";
-      case "terminated": return "bg-red-100 text-red-800";
-      default: return "bg-gray-100 text-gray-800";
-    }
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
@@ -190,18 +186,11 @@ export default function HREmployeePage() {
       <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">Employee Management</h2>
-          <button
-            onClick={() => setIsAdding(!isAdding)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center transition"
-          >
-            <FiUserPlus className="mr-2" />
-            {isAdding ? "Cancel" : "Add Employee"}
-          </button>
         </div>
 
         {/* Search and Filter Section */}
         <div className="bg-gray-50 p-4 rounded-md border mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="relative">
               <FiSearch className="absolute left-3 top-3 text-gray-400" />
               <input
@@ -223,275 +212,313 @@ export default function HREmployeePage() {
                 <option key={dept} value={dept}>{dept}</option>
               ))}
             </select>
-            
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border rounded-md w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="on-leave">On Leave</option>
-              <option value="terminated">Terminated</option>
-            </select>
           </div>
         </div>
 
-        {/* Add Employee Form */}
-        {isAdding && (
-          <div className="bg-blue-50 p-6 rounded-md border border-blue-200 mb-6">
-            <h3 className="text-lg font-semibold mb-4 text-blue-800 flex items-center">
-              <FiUserPlus className="mr-2" /> Add New Employee
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                <input
-                  type="text"
-                  placeholder="Full Name"
-                  value={newEmployee.name}
-                  onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })}
-                  className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+        {/* Employee Details/Edit Modal */}
+        {selectedEmployee && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white p-6 rounded-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              <h3 className="text-xl font-semibold mb-4">
+                {isEditing ? "Edit Employee" : "Employee Details"}
+              </h3>
+              
+              <div className="flex items-center mb-6">
+                <div className="flex-shrink-0 h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl">
+                  {selectedEmployee.profile_picture ? (
+                    <img className="h-16 w-16 rounded-full" src={selectedEmployee.profile_picture} alt={selectedEmployee.fullname} />
+                  ) : (
+                    selectedEmployee.fullname.charAt(0)
+                  )}
+                </div>
+                <div className="ml-4">
+                  <h4 className="text-lg font-medium text-gray-900">{selectedEmployee.fullname}</h4>
+                  <p className="text-gray-500">{selectedEmployee.email}</p>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={newEmployee.email}
-                  onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
-                  className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="designation"
+                        value={editFormData.designation || ""}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{selectedEmployee.designation || "N/A"}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="department"
+                        value={editFormData.department || ""}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{selectedEmployee.department || "N/A"}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="phone"
+                        value={editFormData.phone || ""}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{selectedEmployee.phone || "N/A"}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        name="age"
+                        value={editFormData.age || ""}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{selectedEmployee.age || "N/A"}</p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                    {isEditing ? (
+                      <input
+                        type="date"
+                        name="date_of_birth"
+                        value={editFormData.date_of_birth || ""}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{formatDate(selectedEmployee.date_of_birth)}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date Joined</label>
+                    {isEditing ? (
+                      <input
+                        type="date"
+                        name="date_joined"
+                        value={editFormData.date_joined || ""}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{formatDate(selectedEmployee.date_joined)}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reports To</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="reports_to"
+                        value={editFormData.reports_to || ""}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{selectedEmployee.reports_to || "N/A"}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Skills</label>
+                    {isEditing ? (
+                      <textarea
+                        name="skills"
+                        value={editFormData.skills || ""}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border rounded-md"
+                        rows={3}
+                      />
+                    ) : (
+                      <p className="text-gray-900">{selectedEmployee.skills || "N/A"}</p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
-                <input
-                  type="text"
-                  placeholder="Role"
-                  value={newEmployee.role}
-                  onChange={(e) => setNewEmployee({ ...newEmployee, role: e.target.value })}
-                  className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+
+              <div className="mt-6 flex justify-end space-x-3">
+                {isEditing ? (
+                  <>
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveEdit}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                    >
+                      Save Changes
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition flex items-center"
+                    >
+                      <FiEdit className="mr-1" />
+                      Edit Info
+                    </button>
+                    <button
+                      onClick={() => setSelectedEmployee(null)}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+                    >
+                      Close
+                    </button>
+                  </>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Department *</label>
-                <select
-                  value={newEmployee.department}
-                  onChange={(e) => setNewEmployee({ ...newEmployee, department: e.target.value })}
-                  className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select Department</option>
-                  {departments.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Join Date *</label>
-                <input
-                  type="date"
-                  value={newEmployee.joinDate}
-                  onChange={(e) => setNewEmployee({ ...newEmployee, joinDate: e.target.value })}
-                  className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-            <div className="mt-4 text-right">
-              <button
-                onClick={handleAddEmployee}
-                className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition"
-              >
-                Add Employee
-              </button>
             </div>
           </div>
         )}
 
-        {/* Edit Employee Modal */}
-        {editingEmployee && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-lg w-full max-w-md">
-              <h3 className="text-xl font-semibold mb-4">Edit Employee</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                  <input
-                    type="text"
-                    value={editingEmployee.name}
-                    onChange={(e) => setEditingEmployee({...editingEmployee, name: e.target.value})}
-                    className="border rounded-md p-2 w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={editingEmployee.email}
-                    onChange={(e) => setEditingEmployee({...editingEmployee, email: e.target.value})}
-                    className="border rounded-md p-2 w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                  <input
-                    type="text"
-                    value={editingEmployee.role}
-                    onChange={(e) => setEditingEmployee({...editingEmployee, role: e.target.value})}
-                    className="border rounded-md p-2 w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                  <select
-                    value={editingEmployee.department}
-                    onChange={(e) => setEditingEmployee({...editingEmployee, department: e.target.value})}
-                    className="border rounded-md p-2 w-full"
-                  >
-                    {departments.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    value={editingEmployee.status}
-                    onChange={(e) => setEditingEmployee({...editingEmployee, status: e.target.value as any})}
-                    className="border rounded-md p-2 w-full"
-                  >
-                    <option value="active">Active</option>
-                    <option value="on-leave">On Leave</option>
-                    <option value="terminated">Terminated</option>
-                  </select>
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  onClick={() => setEditingEmployee(null)}
-                  className="px-4 py-2 border border-gray-300 rounded-md"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpdateEmployee}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md"
-                >
-                  Update
-                </button>
-              </div>
-            </div>
+        {/* Loading and Error States */}
+        {isLoading && (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-2 text-gray-600">Loading employees...</p>
+          </div>
+        )}
+
+        {error && !isLoading && (
+          <div className="bg-red-50 p-4 rounded-md border border-red-200 mb-6">
+            <p className="text-red-700">{error}</p>
           </div>
         )}
 
         {/* Employee List */}
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th 
-                  className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => requestSort('name')}
-                >
-                  <div className="flex items-center">
-                    <span>Employee</span>
-                    {sortConfig?.key === 'name' && (
-                      sortConfig.direction === 'ascending' ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => requestSort('role')}
-                >
-                  <div className="flex items-center">
-                    <span>Role</span>
-                    {sortConfig?.key === 'role' && (
-                      sortConfig.direction === 'ascending' ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => requestSort('department')}
-                >
-                  <div className="flex items-center">
-                    <span>Department</span>
-                    {sortConfig?.key === 'department' && (
-                      sortConfig.direction === 'ascending' ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th 
-                  className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                  onClick={() => requestSort('joinDate')}
-                >
-                  <div className="flex items-center">
-                    <span>Join Date</span>
-                    {sortConfig?.key === 'joinDate' && (
-                      sortConfig.direction === 'ascending' ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />
-                    )}
-                  </div>
-                </th>
-                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredAndSortedEmployees.map((emp) => (
-                <tr key={emp.id} className="hover:bg-gray-50 transition">
-                  <td className="p-3">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
-                        {emp.avatar ? (
-                          <img className="h-10 w-10 rounded-full" src={emp.avatar} alt={emp.name} />
-                        ) : (
-                          emp.name.charAt(0)
+        {!isLoading && !error && (
+          <>
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th 
+                      className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => requestSort('fullname')}
+                    >
+                      <div className="flex items-center">
+                        <span>Employee</span>
+                        {sortConfig?.key === 'fullname' && (
+                          sortConfig.direction === 'ascending' ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />
                         )}
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{emp.name}</div>
-                        <div className="text-sm text-gray-500">{emp.email}</div>
+                    </th>
+                    <th 
+                      className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => requestSort('designation')}
+                    >
+                      <div className="flex items-center">
+                        <span>Designation</span>
+                        {sortConfig?.key === 'designation' && (
+                          sortConfig.direction === 'ascending' ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />
+                        )}
                       </div>
-                    </div>
-                  </td>
-                  <td className="p-3 text-sm text-gray-700">{emp.role}</td>
-                  <td className="p-3 text-sm text-gray-700">{emp.department}</td>
-                  <td className="p-3 text-sm text-gray-700">{emp.joinDate}</td>
-                  <td className="p-3">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(emp.status)}`}>
-                      {emp.status.charAt(0).toUpperCase() + emp.status.slice(1).replace('-', ' ')}
-                    </span>
-                  </td>
-                  <td className="p-3 text-sm font-medium">
-                    <button
-                      onClick={() => handleEditEmployee(emp)}
-                      className="text-indigo-600 hover:text-indigo-900 mr-3"
+                    </th>
+                    <th 
+                      className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => requestSort('department')}
                     >
-                      <FiEdit2 />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteEmployee(emp.id)}
-                      className="text-red-600 hover:text-red-900"
+                      <div className="flex items-center">
+                        <span>Department</span>
+                        {sortConfig?.key === 'department' && (
+                          sortConfig.direction === 'ascending' ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => requestSort('date_joined')}
                     >
-                      <FiTrash2 />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          
-          {filteredAndSortedEmployees.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No employees found matching your criteria
+                      <div className="flex items-center">
+                        <span>Join Date</span>
+                        {sortConfig?.key === 'date_joined' && (
+                          sortConfig.direction === 'ascending' ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />
+                        )}
+                      </div>
+                    </th>
+                    <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredAndSortedEmployees.map((emp) => (
+                    <tr key={emp.email} className="hover:bg-gray-50 transition">
+                      <td className="p-3">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+                            {emp.profile_picture ? (
+                              <img className="h-10 w-10 rounded-full" src={emp.profile_picture} alt={emp.fullname} />
+                            ) : (
+                              emp.fullname.charAt(0)
+                            )}
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">{emp.fullname}</div>
+                            <div className="text-sm text-gray-500">{emp.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3 text-sm text-gray-700">{emp.designation || "N/A"}</td>
+                      <td className="p-3 text-sm text-gray-700">{emp.department || "N/A"}</td>
+                      <td className="p-3 text-sm text-gray-700">{formatDate(emp.date_joined)}</td>
+                      <td className="p-3 text-sm font-medium">
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={() => handleViewDetails(emp)}
+                            className="text-blue-600 hover:text-blue-900 flex items-center"
+                          >
+                            <FiEye className="mr-1" />
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleEditEmployee(emp)}
+                            className="text-green-600 hover:text-green-900 flex items-center"
+                          >
+                            <FiEdit className="mr-1" />
+                            Edit
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              
+              {filteredAndSortedEmployees.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No employees found matching your criteria
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        
-        <div className="mt-4 text-sm text-gray-500">
-          Showing {filteredAndSortedEmployees.length} of {employees.length} employees
-        </div>
+            
+            <div className="mt-4 text-sm text-gray-500">
+              Showing {filteredAndSortedEmployees.length} of {employees.length} employees
+            </div>
+          </>
+        )}
       </div>
     </DashboardLayout>
   );

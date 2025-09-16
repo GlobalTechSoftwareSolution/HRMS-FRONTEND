@@ -1,10 +1,11 @@
 // src/lib/api.ts
-export const API_BASE = "http://192.168.1.7:8000/api/accounts";
-
 export async function fetchData(endpoint: string, options: RequestInit = {}) {
-  const res = await fetch(`${API_BASE}${endpoint}`, {
+  // Accept full URL directly
+  const url = endpoint;
+  const res = await fetch(url, {
     ...options,
     headers: {
+      "Accept": "application/json",
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
@@ -12,6 +13,11 @@ export async function fetchData(endpoint: string, options: RequestInit = {}) {
 
   if (!res.ok) {
     throw new Error(`API error: ${res.status}`);
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(`Unexpected content type: ${contentType}`);
   }
 
   return res.json();

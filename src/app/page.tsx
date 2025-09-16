@@ -4,6 +4,10 @@ import { Navbar } from "@/components/Navbar";
 import  Mainpage  from "@/app/mainpage/page";
 import  Footer  from "@/components/footer";
 import Services from '@/app/services/page'
+import Hrstandout from '@/app/hrstandout/page'
+import Hrmodules from '@/app/hrmodules/page'
+import Faqs from '@/app/faqs/page'
+import Modules from '@/app/modules/page'
 
 export default function HomePage() {
   return (
@@ -12,7 +16,11 @@ export default function HomePage() {
       <main className="flex-grow flex items-center justify-center">
         <Mainpage />
       </main>
+      <Hrstandout />
+      <Hrmodules />
       <Services />
+      <Modules />
+      <Faqs />
       <Footer />
     </div>
   );

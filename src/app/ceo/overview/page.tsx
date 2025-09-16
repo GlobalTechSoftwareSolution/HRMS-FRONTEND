@@ -49,6 +49,8 @@ interface DashboardData {
   completedReports: number;
   employeeGrowth: number;
   reportCompletionRate: number;
+  totalHR: number;        // 👈 added
+  totalManagers: number;  // 👈 added
 }
 
 export default function OverviewPage() {
@@ -59,6 +61,8 @@ export default function OverviewPage() {
     completedReports: 0,
     employeeGrowth: 0,
     reportCompletionRate: 0,
+    totalHR: 0,
+    totalManagers: 0,
   });
 
   const [performanceData, setPerformanceData] = useState<ChartData<'bar'>>({ datasets: [], labels: [] });
@@ -72,15 +76,20 @@ export default function OverviewPage() {
   useEffect(() => {
     const fetchData = () => {
       // Simulate fetching data from API
-      setDashboardData(prev => ({
-        totalEmployees: prev.totalEmployees + Math.floor(Math.random() * 3), // new employees auto-added
-        totalReports: prev.totalReports + Math.floor(Math.random() * 5),
-        pendingReports: Math.max(0, prev.pendingReports + Math.floor(Math.random() * 2) - 1),
-        completedReports: prev.completedReports + Math.floor(Math.random() * 4),
+      const updatedData = {
+        totalEmployees: dashboardData.totalEmployees + Math.floor(Math.random() * 3),
+        totalReports: dashboardData.totalReports + Math.floor(Math.random() * 5),
+        pendingReports: Math.max(0, dashboardData.pendingReports + Math.floor(Math.random() * 2) - 1),
+        completedReports: dashboardData.completedReports + Math.floor(Math.random() * 4),
         employeeGrowth: parseFloat((Math.random() * 10).toFixed(1)),
         reportCompletionRate: parseFloat((Math.random() * 100).toFixed(1)),
-      }));
+        totalHR: dashboardData.totalHR + Math.floor(Math.random() * 2),          
+        totalManagers: dashboardData.totalManagers + Math.floor(Math.random() * 2),
+      };
 
+      setDashboardData(updatedData);
+
+      // Performance Bar Chart
       setPerformanceData({
         labels: ['Jan','Feb','Mar','Apr','May','Jun'],
         datasets: [
@@ -89,11 +98,24 @@ export default function OverviewPage() {
         ]
       });
 
+      // Department Pie Chart (now includes HR & Managers)
       setDepartmentDistribution({
-        labels:['Engineering','Marketing','Sales','HR','Operations'],
-        datasets:[{ data:[35,20,18,12,15], backgroundColor:['rgba(255,99,132,0.7)','rgba(54,162,235,0.7)','rgba(255,206,86,0.7)','rgba(75,192,192,0.7)','rgba(153,102,255,0.7)'], borderWidth:1 }]
+        labels:['Engineering','Marketing','Sales','Operations','HR','Managers'],
+        datasets:[{
+          data:[35,20,18,15, updatedData.totalHR, updatedData.totalManagers],
+          backgroundColor:[
+            'rgba(255,99,132,0.7)',
+            'rgba(54,162,235,0.7)',
+            'rgba(255,206,86,0.7)',
+            'rgba(153,102,255,0.7)',
+            'rgba(75,192,192,0.7)',
+            'rgba(255,159,64,0.7)'
+          ],
+          borderWidth:1
+        }]
       });
 
+      // Report Trends Line Chart
       setReportTrends({
         labels:['Jan','Feb','Mar','Apr','May','Jun'],
         datasets:[
@@ -116,7 +138,7 @@ export default function OverviewPage() {
     // Auto-refresh every 10 seconds to simulate live updates
     const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, []); // eslint-disable-line
 
   // Chart Options
   const barOptions: ChartOptions<'bar'> = { responsive:true, plugins:{ legend:{position:'top'} }, scales:{ y:{ beginAtZero:true, max:100, ticks:{ callback:(v)=>`${v}%` } } } };
@@ -145,17 +167,18 @@ export default function OverviewPage() {
               <FiBell className="text-gray-600 text-xl cursor-pointer" />
               {unreadNotifications>0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs w-5 h-5 flex items-center justify-center">{unreadNotifications}</span>}
             </div>
-            <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">JD</div>
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 sm:gap-6 mb-6">
           {[
             { label:'Total Employees', value:dashboardData.totalEmployees, icon:<FiUsers className="text-blue-500 text-xl"/>, growth:dashboardData.employeeGrowth, bg:'bg-blue-50', arrow:dashboardData.employeeGrowth>0 ? <FiArrowUp className="text-green-500 mr-1"/> : <FiArrowDown className="text-red-500 mr-1"/> },
             { label:'Total Reports', value:dashboardData.totalReports, icon:<FiFileText className="text-green-500 text-xl"/>, growth:15, bg:'bg-green-50', arrow:<FiArrowUp className="text-green-500 mr-1"/> },
             { label:'Pending Reports', value:dashboardData.pendingReports, icon:<FiPieChart className="text-yellow-500 text-xl"/>, growth:8, bg:'bg-yellow-50', arrow:<FiArrowDown className="text-red-500 mr-1"/> },
             { label:'Completion Rate', value:dashboardData.reportCompletionRate, icon:<FiTrendingUp className="text-purple-500 text-xl"/>, growth:5.2, bg:'bg-purple-50', arrow:<FiArrowUp className="text-green-500 mr-1"/> },
+            { label:'HR Staff', value:dashboardData.totalHR, icon:<FiUsers className="text-pink-500 text-xl"/>, growth:2, bg:'bg-pink-50', arrow:<FiArrowUp className="text-green-500 mr-1"/> },
+            { label:'Managers', value:dashboardData.totalManagers, icon:<FiUsers className="text-indigo-500 text-xl"/>, growth:3, bg:'bg-indigo-50', arrow:<FiArrowUp className="text-green-500 mr-1"/> },
           ].map((stat,i)=>(
             <div key={i} className={`bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100`}>
               <div className="flex justify-between items-start">

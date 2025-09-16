@@ -1,427 +1,903 @@
 "use client";
+
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { FiSearch, FiChevronDown, FiChevronUp, FiEye, FiEdit, FiUserCheck } from "react-icons/fi";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
-type PayrollRecord = {
+type Employee = {
   id: number;
-  employeeName: string;
-  joinDate: string;
-  monthlySalary: number;
-  paymentDate: string;
+  email: string;
+  fullname: string;
+  age: number | null;
+  phone: string | null;
+  department: string | null;
+  designation: string | null;
+  date_of_birth: string | null;
+  date_joined: string | null;
+  skills: string | null;
+  profile_picture: string | null;
+  reports_to: string | null;
+  status: 'active' | 'pending';
 };
 
-export default function HRPayrollDashboard() {
-  const [payrollData, setPayrollData] = useState<PayrollRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+type User = {
+  id: number;
+  email: string;
+  fullname: string;
+  is_staff: boolean;
+  user_type: string;
+};
+
+type SortConfig = {
+  key: keyof Employee;
+  direction: 'ascending' | 'descending';
+};
+
+type TabType = 'all' | 'pending';
+
+export default function HREmployeePage() {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<User[]>([]);
+  const [error, setError] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: "", direction: "ascending" });
-  const [notification, setNotification] = useState({ show: false, message: "", type: "" });
-
-  // Inside your component, update newEmployee state
-const [newEmployee, setNewEmployee] = useState({
-  employeeName: "",
-  email: "",
-  role: "Employee",
-  designation: "",
-  contactNumber: "",
-  address: "",
-  joinDate: "",
-  monthlySalary: "",
-  paymentDate: "",
-});
-
-  // Show notification
-  const showNotification = (message: string, type: "success" | "error" = "success") => {
-    setNotification({ show: true, message, type });
-    setTimeout(() => setNotification({ show: false, message: "", type: "" }), 3000);
-  };
-
-  // Fetch all employees
-  const fetchPayroll = async () => {
-    try {
-      const res = await fetch("/api/payroll");
-      const data = await res.json();
-      setPayrollData(data);
-    } catch (err) {
-      console.error("Error fetching payroll data:", err);
-      showNotification("Failed to fetch payroll data", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [filterDepartment, setFilterDepartment] = useState("all");
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<Employee>>({});
+  const [activeTab, setActiveTab] = useState<TabType>('all');
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
 
   useEffect(() => {
-    fetchPayroll();
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Fetch active employees
+        const empRes = await fetch("http://127.0.0.1:8000/api/accounts/employees/");
+        if (!empRes.ok) throw new Error(`Employee fetch error! status: ${empRes.status}`);
+        const empData = await empRes.json();
+        
+        // Fetch users for pending employees
+        const userRes = await fetch("http://127.0.0.1:8000/api/accounts/users/");
+        if (!userRes.ok) throw new Error(`User fetch error! status: ${userRes.status}`);
+        const userData = await userRes.json();
+        
+        // Filter pending users (employees with is_staff=false)
+        const pending = userData.filter((user: any) => {
+          const role = user.user_type || user.role; // support both field names
+          return role === 'employee' && !user.is_staff;
+        });
+        
+        setEmployees(empData || []);
+        setPendingUsers(pending || []);
+        setError("");
+      } catch (err: any) {
+        console.error("Failed to fetch data:", err);
+        setError("Failed to fetch employee data. Please check console for details.");
+        toast.error("Failed to fetch employee data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
-  // Handle form input
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // State for onboarding modal and form
+  const [isOnboarding, setIsOnboarding] = useState(false);
+  const [onboardFormData, setOnboardFormData] = useState({
+    email: "",
+    password: "",
+    role: "employee",
+  });
+  const [isSubmittingOnboard, setIsSubmittingOnboard] = useState(false);
+
+  // Handle onboard new employee (open modal)
+  const handleOnboardEmployee = () => {
+    setIsOnboarding(true);
+    setOnboardFormData({
+      email: "",
+      password: "",
+      role: "employee",
+    });
+  };
+
+  // Modal input change handler
+  const handleOnboardInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setNewEmployee((prev) => ({ ...prev, [name]: value }));
+    setOnboardFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  // Add employee
-  const handleAddEmployee = async (e: React.FormEvent) => {
+  // Submit new employee form
+  const handleOnboardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmittingOnboard(true);
     try {
-      const res = await fetch("/api/payroll", {
+      // Prepare payload
+      const payload = {
+        email: onboardFormData.email,
+        password: onboardFormData.password,
+        role: onboardFormData.role,
+      };
+      const res = await fetch("http://127.0.0.1:8000/api/accounts/signup/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newEmployee),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
-
-      if (res.ok) {
-        await fetchPayroll(); // refresh list after saving
-        setShowForm(false);
-        setNewEmployee({ employeeName: "",
-  email: "",
-  role: "Employee",
-  designation: "",
-  contactNumber: "",
-  address: "",
-  joinDate: "",
-  monthlySalary: "",
-  paymentDate: "", });
-        showNotification("Employee onboarded successfully");
-      } else {
-        console.error("Failed to add employee");
-        showNotification("Failed to onboard employee", "error");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Failed to onboard employee");
       }
-    } catch (err) {
-      console.error("Error adding employee:", err);
-      showNotification("Error onboarding employee", "error");
+      setIsOnboarding(false);
+      toast.success("Employee onboarded successfully!");
+      // Refresh employees and pending users
+      setIsLoading(true);
+      // fetchData is inside useEffect, so re-run it here:
+      // (copy fetch logic here)
+      try {
+        // Fetch active employees
+        const empRes = await fetch("http://127.0.0.1:8000/api/accounts/employees/");
+        if (!empRes.ok) throw new Error( `Employee fetch error! status: ${empRes.status}`);
+        const empData = await empRes.json();
+        // Fetch users for pending employees
+        const userRes = await fetch("http://127.0.0.1:8000/api/accounts/users/");
+        if (!userRes.ok) throw new Error(`User fetch error! status: ${userRes.status}`);
+        const userData = await userRes.json();
+        // Filter pending users (employees with is_staff=false)
+        const pending = userData.filter((user: any) => {
+          const role = user.user_type || user.role;
+          return role === 'employee' && !user.is_staff;
+        });
+        setEmployees(empData || []);
+        setPendingUsers(pending || []);
+        setError("");
+      } catch (err: any) {
+        setError("Failed to fetch employee data. Please check console for details.");
+        toast.error("Failed to fetch employee data");
+      } finally {
+        setIsLoading(false);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to onboard employee");
+    } finally {
+      setIsSubmittingOnboard(false);
     }
   };
 
-  // Offboard employee
-  const handleOffboard = async (id: number, name: string) => {
-    if (!confirm(`Are you sure you want to offboard ${name}?`)) return;
-    
+  // Handle approve pending employee
+  const handleApproveEmployee = async (user: User) => {
     try {
-      const res = await fetch(`/api/payroll/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        setPayrollData((prev) => prev.filter((emp) => emp.id !== id));
-        showNotification("Employee offboarded successfully");
-      } else {
-        console.error("Failed to offboard employee");
-        showNotification("Failed to offboard employee", "error");
+      // Update user to is_staff=true
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/accounts/users/${user.id}/`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ is_staff: true }),
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
       }
-    } catch (err) {
-      console.error("Error offboarding employee:", err);
-      showNotification("Error offboarding employee", "error");
+
+      // Remove from pending users and refresh data
+      setPendingUsers(prev => prev.filter(u => u.id !== user.id));
+      toast.success( `${user.fullname} has been approved as an employee`);
+      
+      // Refresh employee list
+      const empRes = await fetch("http://127.0.0.1:8000/api/accounts/employees/");
+      if (empRes.ok) {
+        const empData = await empRes.json();
+        setEmployees(empData);
+      }
+    } catch (err: any) {
+      console.error("Failed to approve employee:", err);
+      toast.error("Failed to approve employee");
     }
   };
 
-  // Handle sorting
-  const handleSort = (key: string) => {
-    let direction = "ascending";
-    if (sortConfig.key === key && sortConfig.direction === "ascending") {
-      direction = "descending";
+  // Handle edit employee - populate form with existing data
+  const handleEditEmployee = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    // Pre-populate form with existing employee data
+    setEditFormData({
+      fullname: employee.fullname,
+      age: employee.age,
+      phone: employee.phone,
+      department: employee.department,
+      designation: employee.designation,
+      date_of_birth: employee.date_of_birth,
+      date_joined: employee.date_joined,
+      skills: employee.skills,
+      reports_to: employee.reports_to,
+    });
+    setIsEditing(true);
+    setProfilePictureFile(null);
+  };
+
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value === "" ? null : value
+    }));
+  };
+
+  // Handle profile picture upload
+  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setProfilePictureFile(e.target.files[0]);
+    }
+  };
+
+  // Save edited employee data
+  const handleSaveEdit = async () => {
+    if (!selectedEmployee) return;
+
+    try {
+      // build a clean payload with only allowed fields
+      const payload = {
+        email: selectedEmployee.email, // keep email as PK
+        fullname: editFormData.fullname ?? selectedEmployee.fullname,
+        age: editFormData.age ?? selectedEmployee.age,
+        phone: editFormData.phone ?? selectedEmployee.phone,
+        department: editFormData.department ?? selectedEmployee.department,
+        designation: editFormData.designation ?? selectedEmployee.designation,
+        date_of_birth: editFormData.date_of_birth ?? selectedEmployee.date_of_birth,
+        date_joined: editFormData.date_joined ?? selectedEmployee.date_joined,
+        skills: editFormData.skills ?? selectedEmployee.skills,
+        profile_picture: editFormData.profile_picture ?? selectedEmployee.profile_picture,
+        reports_to: editFormData.reports_to ?? selectedEmployee.reports_to,
+      };
+
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/accounts/employees/${selectedEmployee.email}/`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const updatedEmployee = await res.json();
+
+      setEmployees(prev =>
+        prev.map(emp => (emp.email === selectedEmployee.email ? updatedEmployee : emp))
+      );
+
+      toast.success("Employee updated successfully");
+      setIsEditing(false);
+      setSelectedEmployee(null);
+      setEditFormData({});
+      setProfilePictureFile(null);
+    } catch (err: any) {
+      console.error("Failed to update employee:", err);
+      toast.error("Failed to update employee");
+    }
+  };
+
+  // Get unique departments for filter
+  const departments = Array.from(new Set(employees.map(emp => emp.department).filter(Boolean))) as string[];
+
+  // Filter employees/users based on tab selection
+  const filteredData = React.useMemo(() => {
+    if (activeTab === 'pending') {
+      // Return pending users for pending tab
+      return pendingUsers.filter(user => {
+        const matchesSearch =
+          (user.fullname?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+          user.email.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesSearch;
+      });
+    } else {
+      // Return all employees for all tab
+      return employees.filter(employee => {
+        const matchesSearch = employee.fullname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             (employee.designation && employee.designation.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+        const matchesDepartment = filterDepartment === "all" || employee.department === filterDepartment;
+        
+        return matchesSearch && matchesDepartment;
+      });
+    }
+  }, [employees, pendingUsers, searchTerm, filterDepartment, activeTab]);
+
+  // Sort data
+  const filteredAndSortedData = React.useMemo(() => {
+    let sorted = [...filteredData];
+
+    if (sortConfig && activeTab === 'all') {
+      sorted.sort((a: any, b: any) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+
+        if (aValue == null || bValue == null) return 0;
+
+        if (aValue < bValue) {
+          return sortConfig.direction === "ascending" ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === "ascending" ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return sorted;
+  }, [filteredData, sortConfig, activeTab]);
+
+  const requestSort = (key: keyof Employee) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
     }
     setSortConfig({ key, direction });
   };
 
-  // Filter and sort data
-  const filteredAndSortedData = React.useMemo(() => {
-    let filteredData = payrollData;
-    
-    if (searchTerm) {
-      filteredData = payrollData.filter(employee => 
-        employee.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    if (sortConfig.key) {
-      filteredData = [...filteredData].sort((a, b) => {
-        const aVal = (a as any)[sortConfig.key];
-        const bVal = (b as any)[sortConfig.key];
-        if (aVal < bVal) return sortConfig.direction === "ascending" ? -1 : 1;
-        if (aVal > bVal) return sortConfig.direction === "ascending" ? 1 : -1;
-        return 0;
-      });
-    }
-    
-    return filteredData;
-  }, [payrollData, searchTerm, sortConfig]);
+  const handleViewDetails = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setIsEditing(false);
+  };
 
-  // Calculate payroll summary
-  const payrollSummary = React.useMemo(() => {
-    const totalEmployees = payrollData.length;
-    const monthlyPayroll = payrollData.reduce((sum, emp) => sum + Number(emp.monthlySalary), 0);
-    const annualPayroll = monthlyPayroll * 12;
-    return { totalEmployees, monthlyPayroll, annualPayroll };
-  }, [payrollData]);
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString();
+  };
 
   return (
     <DashboardLayout role="hr">
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
-        {/* Notification */}
-        {notification.show && (
-          <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
-            notification.type === "error" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
-          }`}>
-            {notification.message}
-          </div>
-        )}
-
-        {/* Header */}
-        <div className="mb-8">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">HR Employees Dashboard</h2>
-          <p className="text-gray-600">Manage employee payroll, onboarding, and offboarding</p>
-
-          {/* Payroll Summary */}
-          <div className="mt-4 flex flex-wrap gap-6">
-            <div className="bg-blue-50 p-4 rounded-lg shadow">
-              <p className="text-sm text-gray-500">Total Employees</p>
-              <p className="text-lg font-semibold">{payrollSummary.totalEmployees}</p>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg shadow">
-              <p className="text-sm text-gray-500">Monthly Payroll</p>
-              <p className="text-lg font-semibold">₹{payrollSummary.monthlyPayroll.toLocaleString()}</p>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg shadow">
-              <p className="text-sm text-gray-500">Annual Payroll</p>
-              <p className="text-lg font-semibold">₹{payrollSummary.annualPayroll.toLocaleString()}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
-          <div className="relative w-full sm:w-64">
-            <input
-              type="text"
-              placeholder="Search employees..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-
+      <ToastContainer position="top-right" autoClose={3000} />
+      <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">Employee Management</h2>
           <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
+            onClick={handleOnboardEmployee}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition"
           >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Onboard Employee
+            Onboard New Employee
           </button>
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-          {loading ? (
-            <div className="text-center py-10">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mb-3"></div>
-              <p className="text-gray-500">Loading payroll records...</p>
+        {/* Onboard New Employee Modal */}
+        {isOnboarding && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-semibold mb-4">Onboard New Employee</h3>
+              <form onSubmit={handleOnboardSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={onboardFormData.email}
+                    onChange={handleOnboardInputChange}
+                    required
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={onboardFormData.password}
+                    onChange={handleOnboardInputChange}
+                    required
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <input
+                    type="text"
+                    name="role"
+                    value={onboardFormData.role}
+                    disabled
+                    className="w-full px-3 py-2 border rounded-md bg-gray-100"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setIsOnboarding(false)}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+                    disabled={isSubmittingOnboard}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                    disabled={isSubmittingOnboard}
+                  >
+                    {isSubmittingOnboard ? "Submitting..." : "Add Employee"}
+                  </button>
+                </div>
+              </form>
             </div>
-          ) : filteredAndSortedData.length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-gray-500">No employees found. {searchTerm && "Try a different search term."}</p>
+          </div>
+        )}
+
+        {/* Status Tabs */}
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'all'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              All Employees ({employees.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('pending')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'pending'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Pending Approval ({pendingUsers.length})
+            </button>
+          </nav>
+        </div>
+
+        {/* Search and Filter Section */}
+        <div className="bg-gray-50 p-4 rounded-md border mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-3 text-gray-400" />
+              <input
+                type="text"
+                placeholder={activeTab === 'pending' ? "Search pending users..." : "Search employees..."}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border rounded-md w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+            
+            {activeTab === 'all' && (
+              <select
+                value={filterDepartment}
+                onChange={(e) => setFilterDepartment(e.target.value)}
+                className="px-4 py-2 border rounded-md w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Departments</option>
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+
+        {/* Employee Details/Edit Modal */}
+        {selectedEmployee && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white p-6 rounded-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              <h3 className="text-xl font-semibold mb-4">
+                {isEditing ? "Edit Employee" : "Employee Details"}
+              </h3>
+              <div className="flex items-center mb-6">
+                <div className="flex-shrink-0 h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl overflow-hidden">
+                  {profilePictureFile ? (
+                    <img
+                      className="h-16 w-16 object-cover rounded-full"
+                      src={URL.createObjectURL(profilePictureFile)}
+                      alt="Preview"
+                    />
+                  ) : selectedEmployee.profile_picture ? (
+                    <img
+                      className="h-16 w-16 object-cover rounded-full"
+                      src={selectedEmployee.profile_picture}
+                      alt={selectedEmployee.fullname || selectedEmployee.email}
+                    />
+                  ) : (
+                    (selectedEmployee.fullname && selectedEmployee.fullname.charAt(0)) ||
+                    (selectedEmployee.email && selectedEmployee.email.charAt(0))
+                  )}
+                </div>
+                <div className="ml-4">
+                  <h4 className="text-lg font-medium text-gray-900">{selectedEmployee.fullname}</h4>
+                  <p className="text-gray-500">{selectedEmployee.email}</p>
+                </div>
+              </div>
+              {/* Show profile picture upload only if editing and not in pending tab */}
+              {isEditing && activeTab !== 'pending' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfilePictureChange}
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    {(isEditing && activeTab !== 'pending') ? (
+                      <input
+                        type="text"
+                        name="fullname"
+                        value={editFormData.fullname ?? ""}
+                        onChange={handleInputChange}
+                        placeholder={selectedEmployee.fullname || "Enter full name"}
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{selectedEmployee.fullname || "N/A"}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <p className="text-gray-900">{selectedEmployee.email}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                    {(isEditing && activeTab !== 'pending') ? (
+                      <input
+                        type="text"
+                        name="designation"
+                        value={editFormData.designation ?? ""}
+                        onChange={handleInputChange}
+                        placeholder={selectedEmployee.designation || "Enter designation"}
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{selectedEmployee.designation || "N/A"}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    {(isEditing && activeTab !== 'pending') ? (
+                      <input
+                        type="text"
+                        name="department"
+                        value={editFormData.department ?? ""}
+                        onChange={handleInputChange}
+                        placeholder={selectedEmployee.department || "Enter department"}
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{selectedEmployee.department || "N/A"}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    {(isEditing && activeTab !== 'pending') ? (
+                      <input
+                        type="text"
+                        name="phone"
+                        value={editFormData.phone ?? ""}
+                        onChange={handleInputChange}
+                        placeholder={selectedEmployee.phone || "Enter phone number"}
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{selectedEmployee.phone || "N/A"}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
+                    {(isEditing && activeTab !== 'pending') ? (
+                      <input
+                        type="number"
+                        name="age"
+                        value={editFormData.age ?? ""}
+                        onChange={handleInputChange}
+                        placeholder={
+                          selectedEmployee.age !== null && selectedEmployee.age !== undefined
+                            ? String(selectedEmployee.age)
+                            : "Enter age"
+                        }
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{selectedEmployee.age || "N/A"}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                    {(isEditing && activeTab !== 'pending') ? (
+                      <input
+                        type="date"
+                        name="date_of_birth"
+                        value={editFormData.date_of_birth ?? ""}
+                        onChange={handleInputChange}
+                        placeholder={
+                          selectedEmployee.date_of_birth
+                            ? selectedEmployee.date_of_birth
+                            : "Select date of birth"
+                        }
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{formatDate(selectedEmployee.date_of_birth)}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date Joined</label>
+                    {(isEditing && activeTab !== 'pending') ? (
+                      <input
+                        type="date"
+                        name="date_joined"
+                        value={editFormData.date_joined ?? ""}
+                        onChange={handleInputChange}
+                        placeholder={
+                          selectedEmployee.date_joined
+                            ? selectedEmployee.date_joined
+                            : "Select date joined"
+                        }
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    ) : (
+                      <p className="text-gray-900">{formatDate(selectedEmployee.date_joined)}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reports To</label>
+                  {(isEditing && activeTab !== 'pending') ? (
+                    <input
+                      type="text"
+                      name="reports_to"
+                      value={editFormData.reports_to ?? ""}
+                      onChange={handleInputChange}
+                      placeholder={selectedEmployee.reports_to || "Enter manager/supervisor"}
+                      className="w-full px-3 py-2 border rounded-md"
+                    />
+                  ) : (
+                    <p className="text-gray-900">{selectedEmployee.reports_to || "N/A"}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Skills</label>
+                  {(isEditing && activeTab !== 'pending') ? (
+                    <textarea
+                      name="skills"
+                      value={editFormData.skills ?? ""}
+                      onChange={handleInputChange}
+                      placeholder={selectedEmployee.skills || "Enter skills"}
+                      className="w-full px-3 py-2 border rounded-md"
+                      rows={3}
+                    />
+                  ) : (
+                    <p className="text-gray-900">{selectedEmployee.skills || "N/A"}</p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end space-x-3">
+                {isEditing && activeTab !== 'pending' ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditFormData({});
+                      }}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveEdit}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                    >
+                      Save Changes
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {/* Only show Edit button if not in pending tab */}
+                    {activeTab !== 'pending' && (
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition flex items-center"
+                      >
+                        <FiEdit className="mr-1" />
+                        Edit Info
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setSelectedEmployee(null);
+                        setEditFormData({});
+                      }}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
+                    >
+                      Close
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading and Error States */}
+        {isLoading && (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-2 text-gray-600">Loading data...</p>
+          </div>
+        )}
+
+        {error && !isLoading && (
+          <div className="bg-red-50 p-4 rounded-md border border-red-200 mb-6">
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
+
+        {/* Data List */}
+        {!isLoading && !error && (
+          <>
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    {[{ key: "employeeName", label: "Employee" }, { key: "joinDate", label: "Join Date" }, { key: "monthlySalary", label: "Monthly Salary" }, { key: "", label: "Annual Salary" }, { key: "paymentDate", label: "Payment Date" }, { key: "", label: "Actions" }].map(header => (
-                      <th
-                        key={header.key || header.label}
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                        onClick={() => header.key && handleSort(header.key)}
-                      >
-                        <div className="flex items-center">
-                          {header.label}
-                          {sortConfig.key === header.key && (
-                            <svg className={`w-4 h-4 ml-1 ${sortConfig.direction === "ascending" ? "" : "transform rotate-180"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                            </svg>
-                          )}
-                        </div>
+                    <th 
+                      className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      onClick={() => activeTab === 'all' && requestSort('fullname')}
+                    >
+                      <div className="flex items-center">
+                        <span>{activeTab === 'pending' ? 'User' : 'Employee'}</span>
+                        {sortConfig?.key === 'fullname' && activeTab === 'all' && (
+                          sortConfig.direction === 'ascending' ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />
+                        )}
+                      </div>
+                    </th>
+                    {activeTab === 'all' && (
+                      <>
+                        <th 
+                          className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                          onClick={() => requestSort('designation')}
+                        >
+                          <div className="flex items-center">
+                            <span>Designation</span>
+                            {sortConfig?.key === 'designation' && (
+                              sortConfig.direction === 'ascending' ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />
+                            )}
+                          </div>
+                        </th>
+                        <th 
+                          className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                          onClick={() => requestSort('department')}
+                        >
+                          <div className="flex items-center">
+                            <span>Department</span>
+                            {sortConfig?.key === 'department' && (
+                              sortConfig.direction === 'ascending' ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />
+                            )}
+                          </div>
+                        </th>
+                        <th 
+                          className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                          onClick={() => requestSort('date_joined')}
+                        >
+                          <div className="flex items-center">
+                            <span>Join Date</span>
+                            {sortConfig?.key === 'date_joined' && (
+                              sortConfig.direction === 'ascending' ? <FiChevronUp className="ml-1" /> : <FiChevronDown className="ml-1" />
+                            )}
+                          </div>
+                        </th>
+                      </>
+                    )}
+                    {activeTab === 'pending' && (
+                      <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
                       </th>
-                    ))}
+                    )}
+                    <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredAndSortedData.map((record) => (
-                    <tr key={record.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                  {filteredAndSortedData.map((item: any) => (
+                    <tr key={item.email} className="hover:bg-gray-50 transition">
+                      <td className="p-3">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium">
-                            {record.employeeName.charAt(0)}
+                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold overflow-hidden">
+                            {activeTab === 'all' && item.profile_picture ? (
+                              <img className="h-10 w-10 object-cover rounded-full" src={item.profile_picture} alt={item.fullname || item.email} />
+                            ) : (
+                              (item.fullname && item.fullname.charAt(0)) ||
+                                (item.email && item.email.charAt(0))
+                            )}
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{record.employeeName}</div>
-                            <div className="text-sm text-gray-500">ID: {record.id}</div>
+                            <div className="text-sm font-medium text-gray-900">{item.fullname}</div>
+                            <div className="text-sm text-gray-500">{item.email}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{new Date(record.joinDate).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">₹{Number(record.monthlySalary).toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-700">₹{(Number(record.monthlySalary) * 12).toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(record.paymentDate).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <button onClick={() => handleOffboard(record.id, record.employeeName)} className="flex items-center text-red-600 hover:text-red-800 transition-colors">
-                          Offboard
-                        </button>
+                      {activeTab === 'all' && (
+                        <>
+                          <td className="p-3 text-sm text-gray-700">{item.designation || "N/A"}</td>
+                          <td className="p-3 text-sm text-gray-700">{item.department || "N/A"}</td>
+                          <td className="p-3 text-sm text-gray-700">{formatDate(item.date_joined)}</td>
+                        </>
+                      )}
+                      {activeTab === 'pending' && (
+                        <td className="p-3">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            Pending Approval
+                          </span>
+                        </td>
+                      )}
+                      <td className="p-3 text-sm font-medium">
+                        <div className="flex space-x-3">
+                          <>
+                            <button
+                              onClick={() => handleViewDetails(item)}
+                              className="text-blue-600 hover:text-blue-900 flex items-center"
+                            >
+                              <FiEye className="mr-1" />
+                              View
+                            </button>
+                            {/* Only show Edit button if not in pending tab */}
+                            {activeTab !== 'pending' && (
+                              <button
+                                onClick={() => handleEditEmployee(item)}
+                                className="text-green-600 hover:text-green-900 flex items-center"
+                              >
+                                <FiEdit className="mr-1" />
+                                Edit
+                              </button>
+                            )}
+                          </>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              
+              {filteredAndSortedData.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  {activeTab === 'pending' 
+                    ? "No pending users found matching your criteria"
+                    : "No employees found matching your criteria"
+                  }
+                </div>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Onboarding Form Modal */}
-        {showForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-xl font-bold text-gray-800">Onboard New Employee</h3>
-              </div>
-           <form onSubmit={handleAddEmployee} className="p-6 space-y-4">
-  <div>
-    <label className="block text-sm font-medium text-gray-700">Employee Name</label>
-    <input
-      type="text"
-      name="employeeName"
-      value={newEmployee.employeeName}
-      onChange={handleInputChange}
-      required
-      placeholder="Enter full name"
-      className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-
-  <div>
-    <label className="block text-sm font-medium text-gray-700">Email</label>
-    <input
-      type="email"
-      name="email"
-      value={newEmployee.email}
-      onChange={handleInputChange}
-      required
-      placeholder="Enter email address"
-      className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-
-  <div>
-    <label className="block text-sm font-medium text-gray-700">Role</label>
-    <select
-      name="role"
-      value={newEmployee.role}
-      onChange={handleInputChange}
-      className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500"
-    >
-      <option value="HR">HR</option>
-      <option value="Manager">Manager</option>
-      <option value="Employee">Employee</option>
-      <option value="CEO">CEO</option>
-    </select>
-  </div>
-
-  <div>
-    <label className="block text-sm font-medium text-gray-700">Designation</label>
-    <input
-      type="text"
-      name="designation"
-      value={newEmployee.designation}
-      onChange={handleInputChange}
-      placeholder="Enter designation"
-      className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-
-  <div>
-    <label className="block text-sm font-medium text-gray-700">Contact Number</label>
-    <input
-      type="text"
-      name="contactNumber"
-      value={newEmployee.contactNumber}
-      onChange={handleInputChange}
-      placeholder="Enter contact number"
-      className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-
-  <div>
-    <label className="block text-sm font-medium text-gray-700">Address</label>
-    <textarea
-      name="address"
-      value={newEmployee.address}
-      onChange={handleInputChange}
-      placeholder="Enter address"
-      className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-
-  <div>
-    <label className="block text-sm font-medium text-gray-700">Join Date</label>
-    <input
-      type="date"
-      name="joinDate"
-      value={newEmployee.joinDate}
-      onChange={handleInputChange}
-      required
-      className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-
-  <div>
-    <label className="block text-sm font-medium text-gray-700">Monthly Salary (₹)</label>
-    <input
-      type="number"
-      name="monthlySalary"
-      value={newEmployee.monthlySalary}
-      onChange={handleInputChange}
-      required
-      min="0"
-      step="0.01"
-      placeholder="0.00"
-      className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-
-  <div>
-    <label className="block text-sm font-medium text-gray-700">Payment Date</label>
-    <input
-      type="date"
-      name="paymentDate"
-      value={newEmployee.paymentDate}
-      onChange={handleInputChange}
-      required
-      className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500"
-    />
-  </div>
-
-  <div className="flex justify-end gap-3 pt-4">
-    <button
-      type="button"
-      onClick={() => setShowForm(false)}
-      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
-    >
-      Cancel
-    </button>
-    <button
-      type="submit"
-      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-    >
-      Save Employee
-    </button>
-  </div>
-</form>
-
+            
+            <div className="mt-4 text-sm text-gray-500">
+              {activeTab === 'pending' 
+                ? `Showing ${filteredAndSortedData.length} of ${pendingUsers.length} pending users`
+                : `Showing ${filteredAndSortedData.length} of ${employees.length} employees`
+              }
             </div>
-          </div>
+          </>
         )}
       </div>
     </DashboardLayout>
+
   );
 }

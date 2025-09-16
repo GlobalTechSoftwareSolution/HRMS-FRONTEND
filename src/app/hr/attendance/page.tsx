@@ -2,55 +2,43 @@
 
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { createClient } from "@supabase/supabase-js";
 
 type Attendance = {
   id: number;
-  employeeId: string;
-  name: string;
+  email_id: string;
+  role: string; // employee role
   date: string;
-  status: "Present" | "Absent" | "Leave" | "Late";
-  checkIn?: string;
-  checkOut?: string;
+  check_in?: string;
+  check_out?: string;
 };
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function HRAttendancePage() {
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAttendance = async () => {
       try {
-        const leaveRes = await fetch("/api/leaves?status=Approved");
-        const approvedLeaves = await leaveRes.json();
-
-        const res = await fetch("/api/attendance");
-        const scannedData = await res.json();
-
-        const today = new Date().toISOString().split("T")[0];
-
-        const allEmployees = [...scannedData];
-        const updated = allEmployees.map((record: Attendance) => {
-          const onLeave = approvedLeaves.find(
-            (l: any) =>
-              l.employeeId === record.employeeId &&
-              today >= l.startDate &&
-              today <= l.endDate
-          );
-
-          if (onLeave) {
-            return { ...record, status: "Leave", checkIn: "-", checkOut: "-" };
-          }
-
-          if (record.status === "Present" || record.status === "Late") {
-            return record;
-          }
-
-          return { ...record, status: "Absent", checkIn: "-", checkOut: "-" };
-        });
-
-        setAttendance(updated);
+        const { data, error } = await supabase
+          .from<Attendance>("accounts_attendance")
+          .select("*");
+        if (error) {
+          setError(error.message);
+          setAttendance([]);
+        } else if (data) {
+          setAttendance(data);
+          setError(null);
+        }
       } catch (err) {
-        console.error("Error fetching attendance:", err);
+        setError("Unexpected error fetching attendance.");
+        setAttendance([]);
       } finally {
         setLoading(false);
       }
@@ -59,80 +47,191 @@ export default function HRAttendancePage() {
     fetchAttendance();
   }, []);
 
-  if (loading) return <p className="text-center py-10">Loading attendance records...</p>;
+  const getStatus = (record: Attendance) => {
+    if (record.check_in && record.check_out) return "Present";
+    if (record.check_in && !record.check_out) return "Active";
+    return "Absent";
+  };
+
+  if (loading)
+    return (
+      <div className="flex justify-center items-center h-64 animate-pulse text-gray-400">
+        Loading attendance records...
+      </div>
+    );
+
+  if (error)
+    return (
+      <div className="flex justify-center items-center h-64 text-red-600 font-semibold">
+        Error: {error}
+      </div>
+    );
 
   return (
     <DashboardLayout role="hr">
-      <div className="max-w-full md:max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-4 md:p-6">
-        <h2 className="text-xl md:text-2xl font-bold mb-4 text-center md:text-left">
+      <div className="max-w-full md:max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-800 animate-fadeIn">
           Employee Attendance Records
         </h2>
 
         {attendance.length === 0 ? (
-          <p className="text-gray-500 text-center py-10">
+          <div className="text-center py-20 text-gray-500 animate-pulse">
             No attendance data available.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse">
-              <thead className="bg-gray-100">
-                <tr className="hidden sm:table-row">
-                  <th className="p-2 border">Employee ID</th>
-                  <th className="p-2 border">Name</th>
-                  <th className="p-2 border">Date</th>
-                  <th className="p-2 border">Check-In</th>
-                  <th className="p-2 border">Check-Out</th>
-                  <th className="p-2 border">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attendance.map((record) => (
-                  <tr
-                    key={record.id}
-                    className="block sm:table-row mb-4 sm:mb-0 border sm:border-none rounded-lg sm:rounded-none bg-gray-50 sm:bg-white p-2 sm:p-0"
-                  >
-                    {/* Mobile view */}
-                    <td className="block sm:table-cell border-b sm:border-none p-2 sm:p-0">
-                      <span className="font-semibold sm:hidden">Employee ID: </span>
-                      {record.employeeId}
-                    </td>
-                    <td className="block sm:table-cell border-b sm:border-none p-2 sm:p-0">
-                      <span className="font-semibold sm:hidden">Name: </span>
-                      {record.name}
-                    </td>
-                    <td className="block sm:table-cell border-b sm:border-none p-2 sm:p-0">
-                      <span className="font-semibold sm:hidden">Date: </span>
-                      {record.date}
-                    </td>
-                    <td className="block sm:table-cell border-b sm:border-none p-2 sm:p-0">
-                      <span className="font-semibold sm:hidden">Check-In: </span>
-                      {record.checkIn || "-"}
-                    </td>
-                    <td className="block sm:table-cell border-b sm:border-none p-2 sm:p-0">
-                      <span className="font-semibold sm:hidden">Check-Out: </span>
-                      {record.checkOut || "-"}
-                    </td>
-                    <td
-                      className={`block sm:table-cell p-2 font-medium ${
-                        record.status === "Present"
-                          ? "text-green-600"
-                          : record.status === "Absent"
-                          ? "text-red-600"
-                          : record.status === "Late"
-                          ? "text-yellow-600"
-                          : "text-blue-600"
-                      }`}
-                    >
-                      <span className="font-semibold sm:hidden">Status: </span>
-                      {record.status}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
+        ) : (
+          <>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+              {[
+                { label: "Present", color: "green", icon: "✔️" },
+                { label: "Active", color: "yellow", icon: "⏳" },
+                { label: "Absent", color: "red", icon: "❌" },
+              ].map((item) => {
+                const count = attendance.filter(
+                  (rec) => getStatus(rec) === item.label
+                ).length;
+                return (
+                  <div
+                    key={item.label}
+                    className={`bg-white rounded-xl shadow-lg p-5 flex items-center space-x-4 transform transition-transform hover:scale-105 duration-300`}
+                  >
+                    <div
+                      className={`text-${item.color}-500 text-3xl bg-${item.color}-100 p-3 rounded-full animate-bounce`}
+                    >
+                      {item.icon}
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-700">{count}</h3>
+                      <p className="text-gray-500">{item.label}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Table */}
+            <div className="overflow-hidden bg-white shadow-lg rounded-xl animate-fadeIn mt-6">
+              <table className="w-full table-auto border-collapse">
+                <thead className="bg-gray-100">
+                  <tr className="text-gray-700 uppercase text-sm tracking-wide">
+                    <th className="p-3 border-b">Email</th>
+                    <th className="p-3 border-b">Role</th>
+                    <th className="p-3 border-b">Date</th>
+                    <th className="p-3 border-b">Check-In</th>
+                    <th className="p-3 border-b">Check-Out</th>
+                    <th className="p-3 border-b">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendance.map((record) => {
+                    const status = getStatus(record);
+                    const statusColors: Record<string, string> = {
+                      Present: "bg-green-100 text-green-800",
+                      Active: "bg-yellow-100 text-yellow-800",
+                      Absent: "bg-red-100 text-red-800",
+                    };
+                    return (
+                      <tr
+                        key={record.id}
+                        className="hover:bg-gray-50 transition-colors duration-300 border-b"
+                      >
+                        <td className="p-3 break-words">{record.email_id}</td>
+                        <td className="p-3 font-medium">{record.role}</td>
+                        <td className="p-3">{record.date}</td>
+                        <td className="p-3">{record.check_in || "-"}</td>
+                        <td className="p-3">{record.check_out || "-"}</td>
+                        <td className="p-3">
+                          <span
+                            className={`px-3 py-1 rounded-full text-sm font-semibold ${statusColors[status]}`}
+                          >
+                            {status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
+
+      {/* Animations & Responsive Styles */}
+      <style jsx>{`
+        .animate-fadeIn {
+          animation: fadeIn 0.8s ease-in-out;
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-bounce {
+          animation: bounce 1.2s infinite alternate;
+        }
+        @keyframes bounce {
+          from {
+            transform: translateY(0);
+          }
+          to {
+            transform: translateY(-5px);
+          }
+        }
+
+        /* Media Queries for Responsive Design */
+        @media (max-width: 1024px) {
+          table th, table td {
+            padding: 10px;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .grid {
+            grid-template-columns: 1fr 1fr !important;
+          }
+          table thead {
+            display: none;
+          }
+          table, table tbody, table tr, table td {
+            display: block;
+            width: 100%;
+          }
+          table tr {
+            margin-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+          }
+          table td {
+            padding: 8px 10px;
+            text-align: right;
+            position: relative;
+          }
+          table td::before {
+            content: attr(data-label);
+            position: absolute;
+            left: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 12px;
+            color: #555;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .grid {
+            grid-template-columns: 1fr !important;
+          }
+          table td {
+            font-size: 13px;
+            padding: 6px 8px;
+          }
+        }
+      `}</style>
     </DashboardLayout>
   );
 }

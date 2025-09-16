@@ -1,7 +1,7 @@
 // components/Footer.tsx
 "use client";
 import React from "react";
-import { Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin, Instagram, Facebook, Youtube } from "lucide-react";
 import Image from "next/image";
 
 export const Footer: React.FC = () => {
@@ -29,6 +29,34 @@ export const Footer: React.FC = () => {
             A modern Human Resource Management System to manage employees,
             payroll, and productivity — designed for growing businesses.
           </p>
+
+          {/* Social Media Icons */}
+          <div className="flex items-center gap-4 mt-4">
+            <a
+              href="https://www.instagram.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-300 hover:text-pink-500 transition-colors"
+            >
+              <Instagram size={24} />
+            </a>
+            <a
+              href="https://www.facebook.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-300 hover:text-blue-500 transition-colors"
+            >
+              <Facebook size={24} />
+            </a>
+            <a
+              href="https://www.youtube.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-300 hover:text-red-600 transition-colors"
+            >
+              <Youtube size={24} />
+            </a>
+          </div>
         </div>
 
         {/* Quick Links */}
@@ -63,7 +91,7 @@ export const Footer: React.FC = () => {
               <Mail size={20} className="text-indigo-400 mt-1" />
               <a
                 href="mailto:hrglobaltechsoftwaresolutions@gmail.com"
-                className="hover:text-white transition"
+                className="hover:text-white transition md:ml-5"
               >
                 hrglobaltechsoftwaresolutions@gmail.com
               </a>

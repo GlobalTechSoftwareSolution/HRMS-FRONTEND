@@ -343,7 +343,7 @@ export default function ReportsPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    {["Title", "Department", "Type", "Date", "Size", "Status", "Actions"].map((head) => (
+                    {["Title", "Department", "Type", "Date", "Size", "Status"].map((head) => (
                       <th key={head} className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         {head}
                       </th>
@@ -359,19 +359,6 @@ export default function ReportsPage() {
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-gray-600">{report.date}</td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap text-gray-600">{report.size}</td>
                       <td className="px-4 md:px-6 py-4 whitespace-nowrap">{getStatusBadge(report.status)}</td>
-                      <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <button className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
-                            <FiEye className="text-lg" />
-                          </button>
-                          <button className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
-                            <FiDownload className="text-lg" />
-                          </button>
-                          <button className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
-                            <FiMoreVertical className="text-lg" />
-                          </button>
-                        </div>
-                      </td>
                     </tr>
                   ))}
                 </tbody>

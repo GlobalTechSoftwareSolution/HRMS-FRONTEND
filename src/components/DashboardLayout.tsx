@@ -15,6 +15,8 @@ type UserInfo = {
   name?: string;
   email?: string;
   picture?: string; // Google profile photo URL
+  profile_profile_picture?: string; // backend profile pic
+  role?: string;
 };
 
 // Map role links with display name and actual path
@@ -41,9 +43,9 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Leaves", path: "/hr/leaves" },
     { name: "Attendance", path: "/hr/attendance" },
     { name: "Payroll", path: "/hr/payroll" },
-    {name: "Onboarding", path: "/hr/onboardinng"},
-    {name: "Ofboarding", path: "/hr/offboardinng"},
-    {name: "Profile", path: "/hr/profile"},
+    { name: "Onboarding", path: "/hr/onboardinng" },
+    { name: "Offboarding", path: "/hr/offboardinng" },
+    { name: "Profile", path: "/hr/profile" },
   ],
   employee: [
     { name: "Dashboard", path: "/employee/dashboard" },
@@ -63,13 +65,12 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
 export default function DashboardLayout({ children, role }: Props) {
   const router = useRouter();
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false); // ✅ mobile menu state
+  const [menuOpen, setMenuOpen] = useState(false);
 
+  // ✅ Role protection
   useEffect(() => {
-    // Client-side role protection
     const storedUser = localStorage.getItem("userInfo");
-    let currentRole = null;
+    let currentRole: string | null = null;
 
     if (storedUser) {
       try {
@@ -80,12 +81,9 @@ export default function DashboardLayout({ children, role }: Props) {
       }
     }
 
-    // If role not found in localStorage, try cookies
     if (!currentRole) {
-      const match = document.cookie.match(new RegExp('(^| )role=([^;]+)'));
-      if (match) {
-        currentRole = decodeURIComponent(match[2]);
-      }
+      const match = document.cookie.match(new RegExp("(^| )role=([^;]+)"));
+      if (match) currentRole = decodeURIComponent(match[2]);
     }
 
     if (!currentRole) {
@@ -95,41 +93,69 @@ export default function DashboardLayout({ children, role }: Props) {
     }
   }, [role, router]);
 
+  // ✅ Fetch user data from backend
   useEffect(() => {
     const storedUser = localStorage.getItem("userInfo");
-    if (storedUser) {
-      try {
-        setUserInfo(JSON.parse(storedUser));
-      } catch {
-        setUserInfo(null);
-      }
+    if (!storedUser) return;
+
+    try {
+      const parsedUser = JSON.parse(storedUser);
+      const email = parsedUser.email;
+
+      const fetchUser = async () => {
+        try {
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE_URL}api/accounts/${role}s/${email}/`,
+            {
+              method: "GET",
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+
+          if (!res.ok) throw new Error("Failed to fetch user data");
+
+          const data = await res.json();
+          setUserInfo({
+            name: data.fullname,
+            email: data.email,
+            picture: parsedUser.picture, // Google pic (if any)
+            profile_profile_picture: data.profile_picture, // backend pic
+            role: parsedUser.role,
+          });
+        } catch (error) {
+          console.error("Error fetching user:", error);
+          setUserInfo(parsedUser); // fallback to localStorage
+        }
+      };
+
+      fetchUser();
+    } catch {
+      setUserInfo(null);
     }
-  }, []);
+  }, [role]);
 
   const handleLogout = useCallback(() => {
-    // Clear localStorage and sessionStorage
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("userInfo");
     localStorage.clear();
     sessionStorage.clear();
-
-    // Clear cookies
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     document.cookie = "role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-
     router.replace("/login");
   }, [router]);
 
   const roleLinks = roleLinksMap[role];
 
+  const profilePic =
+    userInfo?.profile_profile_picture ||
+    userInfo?.picture ||
+    "/default-profile.png";
+
   return (
     <div className="flex min-h-screen bg-gray-100 font-sans text-gray-800">
       {/* Sidebar (desktop) */}
       <aside className="hidden md:flex w-72 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex-col">
-        {/* Profile Section */}
         <div className="p-6 flex items-center gap-4 border-b border-blue-700">
           <img
-            src={userInfo?.picture || "/default-profile.png"}
+            src={profilePic}
             alt={userInfo?.name || "Profile"}
             className="w-16 h-16 rounded-full border-2 border-white shadow-md object-cover"
           />
@@ -141,7 +167,6 @@ export default function DashboardLayout({ children, role }: Props) {
           </div>
         </div>
 
-        {/* Links */}
         <nav className="flex flex-col p-4 space-y-2">
           {roleLinks?.map((link) => (
             <Link
@@ -154,7 +179,6 @@ export default function DashboardLayout({ children, role }: Props) {
           ))}
         </nav>
 
-        {/* Logout */}
         <div className="mt-auto p-4">
           <button
             onClick={handleLogout}
@@ -165,17 +189,14 @@ export default function DashboardLayout({ children, role }: Props) {
         </div>
       </aside>
 
-      {/* Mobile Sidebar (slide-in) */}
+      {/* Mobile Sidebar */}
       {menuOpen && (
         <div className="fixed inset-0 z-30 flex">
-          {/* Overlay */}
           <div
             className="fixed inset-0 bg-black bg-opacity-40"
             onClick={() => setMenuOpen(false)}
           />
-          {/* Menu */}
           <div className="relative w-72 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex flex-col z-40">
-            {/* Close button */}
             <button
               onClick={() => setMenuOpen(false)}
               className="absolute top-4 right-4 text-white"
@@ -183,10 +204,9 @@ export default function DashboardLayout({ children, role }: Props) {
               <FiX size={24} />
             </button>
 
-            {/* Profile Section */}
             <div className="p-6 flex items-center gap-4 border-b border-blue-700">
               <img
-                src={userInfo?.picture || "/default-profile.png"}
+                src={profilePic}
                 alt={userInfo?.name || "Profile"}
                 className="w-16 h-16 rounded-full border-2 border-white shadow-md object-cover"
               />
@@ -198,13 +218,12 @@ export default function DashboardLayout({ children, role }: Props) {
               </div>
             </div>
 
-            {/* Links */}
             <nav className="flex flex-col p-4 space-y-2">
               {roleLinks?.map((link) => (
                 <Link
                   href={link.path}
                   key={link.name}
-                  onClick={() => setMenuOpen(false)} // ✅ closes menu when link clicked
+                  onClick={() => setMenuOpen(false)}
                   className="px-4 py-2 rounded-lg hover:bg-blue-500 hover:shadow-md transition-all font-medium"
                 >
                   {link.name}
@@ -212,7 +231,6 @@ export default function DashboardLayout({ children, role }: Props) {
               ))}
             </nav>
 
-            {/* Logout */}
             <div className="mt-auto p-4">
               <button
                 onClick={() => {
@@ -230,10 +248,8 @@ export default function DashboardLayout({ children, role }: Props) {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col">
-        {/* Top Navbar */}
         <header className="bg-white shadow-md p-4 flex justify-between items-center border-b border-gray-200 sticky top-0 z-20">
           <div className="flex items-center gap-4">
-            {/* Mobile Menu Button */}
             <button
               onClick={() => setMenuOpen(true)}
               className="md:hidden text-blue-700"
@@ -245,23 +261,20 @@ export default function DashboardLayout({ children, role }: Props) {
             </h2>
           </div>
 
-       {/* Profile redirect button (Top Right) */}
-<div className="relative">
-  <button
-    onClick={() => router.push(`/${role}/profile`)} // ✅ Redirects to profile page
-    className="focus:outline-none"
-  >
-    <img
-      src={userInfo?.picture || "/default-profile.png"}
-      alt={userInfo?.name || "Profile"}
-      className="w-10 h-10 rounded-full border border-gray-300 shadow-sm object-cover cursor-pointer"
-    />
-  </button>
-</div>
-
+          <div className="relative">
+            <button
+              onClick={() => router.push(`/${role}/profile`)}
+              className="focus:outline-none"
+            >
+              <img
+                src={profilePic}
+                alt={userInfo?.name || "Profile"}
+                className="w-10 h-10 rounded-full border border-gray-300 shadow-sm object-cover cursor-pointer"
+              />
+            </button>
+          </div>
         </header>
 
-        {/* Page Content */}
         <div className="p-6 flex-1 overflow-auto">{children}</div>
       </main>
     </div>
