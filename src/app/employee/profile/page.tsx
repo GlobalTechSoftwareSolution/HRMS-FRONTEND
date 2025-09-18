@@ -10,6 +10,7 @@ import {
   FiMail,
   FiCamera,
 } from "react-icons/fi";
+import { supabase } from "@/app/lib/supabaseClient";
 
 type UserProfile = {
   name: string;
@@ -19,6 +20,19 @@ type UserProfile = {
   phone?: string;
   department?: string;
 };
+
+function dataURLtoFile(dataUrl: string, filename: string): File {
+  const arr = dataUrl.split(",");
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : "";
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+}
 
 export default function Profile() {
   const [user, setUser] = useState<UserProfile>({
@@ -34,12 +48,9 @@ export default function Profile() {
   const [saveMessage, setSaveMessage] = useState({ type: "", text: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 🔹 Load user info from localStorage when component mounts
   useEffect(() => {
     const storedUser = localStorage.getItem("userInfo");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    if (storedUser) setUser(JSON.parse(storedUser));
   }, []);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,40 +59,77 @@ export default function Profile() {
 
     const reader = new FileReader();
     reader.onload = () => {
-      setUser({ ...user, picture: reader.result as string });
+      setUser((prev) => ({ ...prev, picture: reader.result as string }));
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (
       user.phone &&
       !/^[\+]?[1-9][\d]{0,15}$/.test(user.phone.replace(/\s/g, ""))
     ) {
-      setSaveMessage({
-        type: "error",
-        text: "Please enter a valid phone number",
-      });
+      setSaveMessage({ type: "error", text: "Please enter a valid phone number" });
       return;
     }
 
     setIsSaving(true);
 
-    setTimeout(() => {
-      localStorage.setItem("userInfo", JSON.stringify(user));
-      setIsSaving(false);
+    try {
+      let pictureUrl = user.picture;
+
+      if (user.picture?.startsWith("data:image/")) {
+        const fileExt = user.picture.substring(
+          user.picture.indexOf("/") + 1,
+          user.picture.indexOf(";")
+        );
+        // Use timestamp for unique filename to avoid cache issues
+        const timestamp = Date.now();
+        const fileName = `${user.email}-profile-${timestamp}.${fileExt}`;
+        const file = dataURLtoFile(user.picture, fileName);
+
+        const { error: uploadError } = await supabase.storage
+          .from("profile-pictures")
+          .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        pictureUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/profile-pictures/${fileName}`;
+      }
+
+      const { error } = await supabase
+        .from("accounts_employee")
+        .upsert({
+          email_id: user.email,
+          fullname: user.name,
+          phone: user.phone,
+          designation: user.role || "Employee",
+          department: user.department,
+          profile_picture: pictureUrl,
+        });
+
+      if (error) throw error;
+
+      const updatedUser = { ...user, picture: pictureUrl };
+      setUser(updatedUser);
+      localStorage.setItem("userInfo", JSON.stringify(updatedUser));
+
+      window.dispatchEvent(new Event("profile-updated"));
+
       setIsEditing(false);
       setSaveMessage({ type: "success", text: "Profile updated successfully!" });
-
       setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
-    }, 800);
+    } catch (error: any) {
+      console.error("Supabase Upsert Error:", error);
+      setSaveMessage({ type: "error", text: "Failed to update profile. Try again." });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
     const storedUser = localStorage.getItem("userInfo");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    if (storedUser) setUser(JSON.parse(storedUser));
     setIsEditing(false);
     setSaveMessage({ type: "", text: "" });
   };
@@ -89,14 +137,12 @@ export default function Profile() {
   return (
     <DashboardLayout role="employee">
       <div className="max-w-4xl mx-auto p-4 sm:p-6 bg-white rounded-xl shadow-md">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">
             Profile Information
           </h1>
         </div>
 
-        {/* Save Message */}
         {saveMessage.text && (
           <div
             className={`mb-6 p-3 rounded-md text-sm sm:text-base ${
@@ -109,9 +155,7 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Profile Info */}
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
-          {/* Profile Picture */}
           <div className="relative flex-shrink-0">
             <img
               src={user.picture || "/default-profile.png"}
@@ -138,9 +182,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Form Fields */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {/* Full Name */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
               <FiUser size={14} />
@@ -155,7 +197,6 @@ export default function Profile() {
             />
           </div>
 
-          {/* Email */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
               <FiMail size={14} />
@@ -170,7 +211,6 @@ export default function Profile() {
             <p className="text-xs text-gray-500">Email cannot be changed</p>
           </div>
 
-          {/* Phone */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
               <FiPhone size={14} />
@@ -186,7 +226,6 @@ export default function Profile() {
             />
           </div>
 
-          {/* Department */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
               <FiBriefcase size={14} />
@@ -209,7 +248,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {!isEditing ? (
+        {!isEditing && (
           <button
             onClick={() => setIsEditing(true)}
             className="flex items-center mt-5 justify-center gap-2 bg-blue-600 text-white px-4 py-2 text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors"
@@ -217,9 +256,8 @@ export default function Profile() {
             <FiEdit size={16} />
             Edit Profile
           </button>
-        ) : null}
+        )}
 
-        {/* Action Buttons */}
         {isEditing && (
           <div className="mt-8 flex flex-col sm:flex-row justify-end gap-3">
             <button

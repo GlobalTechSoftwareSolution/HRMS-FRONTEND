@@ -37,7 +37,7 @@ export default function DashboardOverview() {
           },
         });
 
-        if (!res.ok) throw new Error("Failed to fetch dashboard data");
+        // if (!res.ok) throw new Error("Failed to fetch dashboard data");
 
         const data = await res.json();
 

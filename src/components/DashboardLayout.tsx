@@ -19,7 +19,6 @@ type UserInfo = {
   role?: string;
 };
 
-// Map role links with display name and actual path
 const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
   ceo: [
     { name: "Overview", path: "/ceo/overview" },
@@ -67,33 +66,37 @@ export default function DashboardLayout({ children, role }: Props) {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // ✅ Role protection
+  // ✅ Load user info from localStorage and listen for updates
   useEffect(() => {
-    const storedUser = localStorage.getItem("userInfo");
-    let currentRole: string | null = null;
-
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        currentRole = parsedUser.role;
-      } catch {
-        currentRole = null;
+    const loadUserInfo = () => {
+      const storedUser = localStorage.getItem("userInfo");
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUserInfo({
+            name: parsedUser.name || "Guest User",
+            email: parsedUser.email || "",
+            picture: parsedUser.picture || "/default-profile.png",
+            profile_profile_picture: parsedUser.profile_profile_picture || "",
+            role: parsedUser.role || role.toUpperCase(),
+          });
+        } catch (error) {
+          console.error("Error parsing stored user info:", error);
+        }
       }
-    }
+    };
 
-    if (!currentRole) {
-      const match = document.cookie.match(new RegExp("(^| )role=([^;]+)"));
-      if (match) currentRole = decodeURIComponent(match[2]);
-    }
+    loadUserInfo();
 
-    if (!currentRole) {
-      router.replace("/login");
-    } else if (currentRole !== role) {
-      router.replace("/unauthorized");
-    }
-  }, [role, router]);
+    // Listen for profile updates from Profile page
+    window.addEventListener("profile-updated", loadUserInfo);
 
-  // ✅ Fetch user data from backend
+    return () => {
+      window.removeEventListener("profile-updated", loadUserInfo);
+    };
+  }, [role]);
+
+  // ✅ Fetch user data from backend (if email exists)
   useEffect(() => {
     const storedUser = localStorage.getItem("userInfo");
     if (!storedUser) return;
@@ -104,22 +107,23 @@ export default function DashboardLayout({ children, role }: Props) {
 
       const fetchUser = async () => {
         try {
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_BASE_URL}api/accounts/${role}s/${email}/`,
-            {
-              method: "GET",
-              headers: { "Content-Type": "application/json" },
-            }
-          );
+          // Ensure URL ends with slash
+          const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+          const url = `${baseUrl.endsWith("/") ? baseUrl : baseUrl + "/"}api/accounts/${role}s/${encodeURIComponent(email)}/`;
+
+          const res = await fetch(url, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
 
           if (!res.ok) throw new Error("Failed to fetch user data");
 
           const data = await res.json();
           setUserInfo({
-            name: data.fullname,
+            name: data.fullname || parsedUser.name,
             email: data.email,
-            picture: parsedUser.picture, // Google pic (if any)
-            profile_profile_picture: data.profile_picture, // backend pic
+            picture: parsedUser.picture, // Google profile pic fallback
+            profile_profile_picture: data.profile_picture, // Supabase/backend pic
             role: parsedUser.role,
           });
         } catch (error) {
