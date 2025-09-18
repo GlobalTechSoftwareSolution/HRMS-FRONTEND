@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Home, User, Mail, LogIn, FileText } from "lucide-react";
+import { Menu, X, Home, User, Mail, LogIn, FileText, Users } from "lucide-react";
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,6 +17,7 @@ export const Navbar: React.FC = () => {
     { id: "about", label: "About", href: "/about", icon: <User size={18} /> },
     { id: "contact", label: "Contact", href: "/contact", icon: <Mail size={18} /> },
     { id: "blogs", label: "Blogs", href: "/blogs", icon: <FileText size={18} /> },
+    { id: "attendance", label: "Attendance", href: "/attendance", icon: <Users size={18} /> },
   ];
 
   return (

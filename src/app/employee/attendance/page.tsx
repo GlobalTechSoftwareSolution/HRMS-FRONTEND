@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 
 type AttendanceRecord = {
@@ -9,6 +9,7 @@ type AttendanceRecord = {
   checkIn: string;
   checkOut: string | null;
   hoursWorked: string | null;
+  email: string;
 };
 
 type AttendanceStats = {
@@ -20,6 +21,7 @@ type AttendanceStats = {
 };
 
 export default function AttendancePortal() {
+  const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [scanning, setScanning] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -27,606 +29,417 @@ export default function AttendancePortal() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  const today = new Date();
-  const todayFormatted = today.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const [modalOpen, setModalOpen] = useState(false);
+  const [recognizedName, setRecognizedName] = useState<string | null>(null);
+  const [recognizedStatus, setRecognizedStatus] = useState<string | null>(null);
+  const [recognizedEmail, setRecognizedEmail] = useState<string | null>(null);
+  const [attendanceCompleted, setAttendanceCompleted] = useState(false);
 
-  // Update current time every minute
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [fetchedAttendance, setFetchedAttendance] = useState<AttendanceRecord[]>([]);
+  const [loadingFetchedAttendance, setLoadingFetchedAttendance] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const today = new Date();
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // Check if user already checked in today
-  const todayRecord = attendance.find(record => 
-    new Date(record.date).toDateString() === today.toDateString()
-  );
+  useEffect(() => {
+    const stored = localStorage.getItem("attendance");
+    if (stored) setAttendance(JSON.parse(stored));
+  }, []);
 
-  // Calculate attendance statistics
+  useEffect(() => {
+    const storedEmail = localStorage.getItem("user_email") || localStorage.getItem("loggedInUser");
+    if (storedEmail) {
+      setLoggedInEmail(storedEmail);
+      console.log("✅ Logged in as:", storedEmail);
+    } else {
+      console.warn("⚠ No logged in user found in localStorage.");
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("attendance", JSON.stringify(attendance));
+  }, [attendance]);
+
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      setLoadingFetchedAttendance(true);
+      setFetchError(null);
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/accounts/list_attendance/");
+        if (!res.ok) throw new Error(`Error fetching attendance: ${res.statusText}`);
+        const data = await res.json();
+
+        const transformed = (data.attendance || []).map((rec: any, idx: number) => ({
+          id: idx.toString(),
+          date: rec.date,
+          status: rec.status || "",
+          checkIn: rec.check_in || "-",
+          checkOut: rec.check_out || "-",
+          hoursWorked: "-",
+          email: rec.email,
+        }));
+
+        setFetchedAttendance(transformed);
+      } catch (err: any) {
+        setFetchError(err.message || "Unknown error");
+      } finally {
+        setLoadingFetchedAttendance(false);
+      }
+    };
+    fetchAttendance();
+  }, []);
+
   const stats: AttendanceStats = attendance.reduce(
     (acc, record) => {
       if (record.status === "Present") acc.present++;
       if (record.status === "Absent") acc.absent++;
       if (record.status === "Late") acc.late++;
       if (record.status === "Half Day") acc.halfDay++;
-      if (record.hoursWorked) {
-        acc.totalHours += parseFloat(record.hoursWorked);
-      }
+      if (record.hoursWorked) acc.totalHours += parseFloat(record.hoursWorked);
       return acc;
     },
     { present: 0, absent: 0, late: 0, halfDay: 0, totalHours: 0 }
   );
 
-  const handleCheckIn = () => {
+  const startWebcam = async () => {
+    setRecognizedName(null);
+    setRecognizedStatus(null);
+    setRecognizedEmail(null);
+    setAttendanceCompleted(false);
+    setModalOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch (err) {
+      console.error("Error accessing webcam:", err);
+    }
+  };
+
+  const stopWebcam = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  const handleScanFace = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
     setScanning(true);
-
-    // Simulate face scanning delay
-    setTimeout(() => {
-      const now = new Date();
-      const checkInTime = now.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      
-      // Determine if late (after 9:30 AM)
-      const isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 30);
-      
-      const newRecord: AttendanceRecord = {
-        id: Date.now().toString(),
-        date: today.toISOString().split("T")[0],
-        status: isLate ? "Late" : "Present",
-        checkIn: checkInTime,
-        checkOut: null,
-        hoursWorked: null,
-      };
-
-      setAttendance(prev => [newRecord, ...prev]);
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
       setScanning(false);
-      alert(`Check-in successful at ${checkInTime}! ${isLate ? "You are late today." : ""}`);
-    }, 2000);
+      return;
+    }
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL("image/jpg");
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/api/accounts/recognize_face/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: imageData }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.username && data.email) {
+        setRecognizedName(data.username);
+        setRecognizedEmail(data.email);
+
+        if (data.email !== loggedInEmail) {
+          setRecognizedStatus("❌ Scanned face email does not match logged-in user.");
+          setAttendanceCompleted(false);
+          setScanning(false);
+          return;
+        }
+
+        const userTodayRecord = attendance.find(
+          (record) =>
+            new Date(record.date).toDateString() === today.toDateString() &&
+            record.email === data.email
+        );
+
+        if (!userTodayRecord) {
+          setRecognizedStatus("Ready to Check In");
+          setAttendanceCompleted(false);
+        } else if (userTodayRecord && !userTodayRecord.checkOut) {
+          setRecognizedStatus("Ready to Check Out");
+          setAttendanceCompleted(false);
+        } else {
+          setRecognizedStatus("Attendance completed for today");
+          setAttendanceCompleted(true);
+          stopWebcam();
+        }
+      } else {
+        setRecognizedName("Unknown");
+        setRecognizedEmail(null);
+        setRecognizedStatus("Face not recognized");
+        setAttendanceCompleted(false);
+      }
+    } catch (err) {
+      console.error(err);
+      setRecognizedName("Error");
+      setRecognizedEmail(null);
+      setRecognizedStatus("Scan failed");
+      setAttendanceCompleted(false);
+    }
+    setScanning(false);
+  };
+
+  const handleCheckIn = () => {
+    if (!recognizedEmail || !recognizedName) return;
+    if (recognizedEmail !== loggedInEmail) return;
+
+    const nowTime = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const newRecord: AttendanceRecord = {
+      id: Date.now().toString(),
+      date: today.toISOString().split("T")[0],
+      status: "Present",
+      checkIn: nowTime,
+      checkOut: null,
+      hoursWorked: null,
+      email: recognizedEmail,
+    };
+    setAttendance((prev) => [newRecord, ...prev]);
+    setRecognizedStatus("Checked In");
   };
 
   const handleCheckOut = () => {
-    setScanning(true);
+    if (!recognizedEmail || !recognizedName) return;
+    if (recognizedEmail !== loggedInEmail) return;
 
-    // Simulate face scanning delay
-    setTimeout(() => {
-      const now = new Date();
-      const checkOutTime = now.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      // Calculate hours worked
-      const checkInTime = todayRecord?.checkIn;
-      if (checkInTime) {
-        const [inHour, inMinute] = checkInTime.split(":").map(Number);
-        const [outHour, outMinute] = checkOutTime.split(":").map(Number);
-        
-        let hoursWorked = outHour - inHour + (outMinute - inMinute) / 60;
-        if (hoursWorked < 0) hoursWorked += 24; // Handle overnight
-        
-        const hoursWorkedFormatted = hoursWorked.toFixed(1);
-
-        setAttendance(prev =>
-          prev.map(record =>
-            record.id === todayRecord.id
-              ? {
-                  ...record,
-                  checkOut: checkOutTime,
-                  hoursWorked: hoursWorkedFormatted,
-                }
-              : record
-          )
-        );
-      }
-
-      setScanning(false);
-      alert(`Check-out successful at ${checkOutTime}!`);
-    }, 2000);
-  };
-
-  // Filter attendance by selected month and year
-  const filteredAttendance = attendance.filter(record => {
-    const recordDate = new Date(record.date);
-    return (
-      recordDate.getMonth() === selectedMonth && 
-      recordDate.getFullYear() === selectedYear
+    const userTodayRecord = attendance.find(
+      (record) =>
+        new Date(record.date).toDateString() === today.toDateString() &&
+        record.email === recognizedEmail &&
+        !record.checkOut
     );
-  });
+    if (!userTodayRecord) return;
 
-  // Generate calendar days for the selected month and year
-  const getCalendarDays = () => {
-    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    const days = [];
-    
-    for (let i = 1; i <= daysInMonth; i++) {
-      const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-      const record = attendance.find(r => r.date === dateStr);
-      
-      days.push({
-        date: dateStr,
-        day: i,
-        record,
-      });
-    }
-    
-    return days;
+    const nowTime = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const [inHour, inMinute] = userTodayRecord.checkIn.split(":").map(Number);
+    const [outHour, outMinute] = nowTime.split(":").map(Number);
+    let hoursWorked = outHour - inHour + (outMinute - inMinute) / 60;
+    if (hoursWorked < 0) hoursWorked += 24;
+
+    const updated = { ...userTodayRecord, checkOut: nowTime, hoursWorked: hoursWorked.toFixed(1) };
+    setAttendance((prev) => prev.map((r) => (r.id === userTodayRecord.id ? updated : r)));
+    setRecognizedStatus(`Checked Out at ${nowTime}`);
+    setAttendanceCompleted(true);
+    stopWebcam();
   };
-
-  const calendarDays = getCalendarDays();
-
-  useEffect(() => {
-    // Initialize from localStorage
-    const stored = localStorage.getItem("attendance");
-    if (stored) setAttendance(JSON.parse(stored));
-  }, []);
-
-  useEffect(() => {
-    // Save attendance to localStorage
-    localStorage.setItem("attendance", JSON.stringify(attendance));
-  }, [attendance]);
 
   return (
     <DashboardLayout role="employee">
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
-            <div>
-              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-800">Attendance Portal</h1>
-              <p className="text-gray-500 text-sm md:text-base mt-1">Track your daily attendance and working hours</p>
-            </div>
-            <div className="bg-blue-100 text-blue-800 px-3 py-1 md:px-4 md:py-2 rounded-full flex items-center text-xs md:text-sm">
-              <span className="mr-1 md:mr-2">📅</span>
-              <span>{todayFormatted}</span>
-            </div>
-          </div>
+        {/* Modal */}
+        {modalOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-xl w-full max-w-md relative">
+              <button
+                onClick={() => {
+                  setModalOpen(false);
+                  setRecognizedName(null);
+                  setRecognizedEmail(null);
+                  setRecognizedStatus(null);
+                  setAttendanceCompleted(false);
+                  stopWebcam();
+                }}
+                className="absolute top-2 right-2 text-gray-500 hover:text-gray-800"
+              >
+                ✖
+              </button>
+              <h2 className="text-xl font-semibold mb-2">Face Scan</h2>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-6 md:mb-8">
-            <div className="bg-white p-3 md:p-4 rounded-lg md:rounded-xl shadow-sm border border-gray-100">
-              <div className="flex items-center">
-                <div className="rounded-full bg-green-100 p-2 md:p-3 mr-2 md:mr-4">
-                  <span className="text-green-600 text-lg md:text-xl">✅</span>
-                </div>
-                <div>
-                  <h3 className="text-xs md:text-sm text-gray-500">Present</h3>
-                  <p className="text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{stats.present}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white p-3 md:p-4 rounded-lg md:rounded-xl shadow-sm border border-gray-100">
-              <div className="flex items-center">
-                <div className="rounded-full bg-red-100 p-2 md:p-3 mr-2 md:mr-4">
-                  <span className="text-red-600 text-lg md:text-xl">❌</span>
-                </div>
-                <div>
-                  <h3 className="text-xs md:text-sm text-gray-500">Absent</h3>
-                  <p className="text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{stats.absent}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white p-3 md:p-4 rounded-lg md:rounded-xl shadow-sm border border-gray-100">
-              <div className="flex items-center">
-                <div className="rounded-full bg-yellow-100 p-2 md:p-3 mr-2 md:mr-4">
-                  <span className="text-yellow-600 text-lg md:text-xl">⏰</span>
-                </div>
-                <div>
-                  <h3 className="text-xs md:text-sm text-gray-500">Late</h3>
-                  <p className="text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{stats.late}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white p-3 md:p-4 rounded-lg md:rounded-xl shadow-sm border border-gray-100">
-              <div className="flex items-center">
-                <div className="rounded-full bg-blue-100 p-2 md:p-3 mr-2 md:mr-4">
-                  <span className="text-blue-600 text-lg md:text-xl">🕑</span>
-                </div>
-                <div>
-                  <h3 className="text-xs md:text-sm text-gray-500">Half Day</h3>
-                  <p className="text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{stats.halfDay}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white p-3 md:p-4 rounded-lg md:rounded-xl shadow-sm border border-gray-100 col-span-2 md:col-span-1">
-              <div className="flex items-center">
-                <div className="rounded-full bg-purple-100 p-2 md:p-3 mr-2 md:mr-4">
-                  <span className="text-purple-600 text-lg md:text-xl">⏱️</span>
-                </div>
-                <div>
-                  <h3 className="text-xs md:text-sm text-gray-500">Total Hours</h3>
-                  <p className="text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{stats.totalHours.toFixed(1)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
+              {!attendanceCompleted && (
+                <>
+                  <video ref={videoRef} autoPlay className="w-full rounded-lg border border-gray-200" />
+                  <canvas ref={canvasRef} className="hidden" />
 
-          {/* Check-in/out Panel */}
-          <div className="bg-white p-4 md:p-6 rounded-lg md:rounded-xl shadow-sm border border-gray-100 mb-6 md:mb-8">
-            <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-3 md:mb-4">Today's Attendance</h2>
-            
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-6">
-              <div className="flex-1">
-                <div className="text-2xl md:text-3xl font-bold text-gray-800 mb-1 md:mb-2">
-                  {currentTime.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
-                <div className="text-gray-500 text-sm md:text-base">
-                  {currentTime.toLocaleDateString("en-US", {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </div>
-              </div>
-              
-              <div className="flex-1">
-                {todayRecord ? (
-                  <div className="space-y-2 md:space-y-3">
-                    <div className="flex justify-between text-sm md:text-base">
-                      <span className="text-gray-600">Check-in:</span>
-                      <span className="font-medium">{todayRecord.checkIn}</span>
+                  {!recognizedName ? (
+                    <button
+                      onClick={handleScanFace}
+                      disabled={scanning}
+                      className="mt-3 w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      {scanning ? "Scanning..." : "Scan Face"}
+                    </button>
+                  ) : (
+                    <div className="text-center mt-4">
+                      <div className="text-3xl font-bold mb-2">👋 {recognizedName}</div>
+                      <div className="text-lg mb-1">{recognizedStatus}</div>
+                      <div className="text-gray-500">{currentTime.toLocaleTimeString()}</div>
+
+                      {recognizedEmail && recognizedEmail === loggedInEmail && (
+                        <>
+                          {recognizedStatus === "Ready to Check In" && (
+                            <button
+                              onClick={handleCheckIn}
+                              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 w-full"
+                            >
+                              📥 Check In
+                            </button>
+                          )}
+                          {recognizedStatus === "Ready to Check Out" && (
+                            <button
+                              onClick={handleCheckOut}
+                              className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 w-full"
+                            >
+                              📤 Check Out
+                            </button>
+                          )}
+                          {(recognizedStatus === "Checked In" || recognizedStatus?.startsWith("Checked Out") || recognizedStatus === "Attendance completed for today") && (
+                            <button
+                              onClick={handleScanFace}
+                              disabled={scanning}
+                              className="mt-4 w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                            >
+                              {scanning ? "Scanning..." : "Scan Again"}
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      {recognizedEmail && recognizedEmail !== loggedInEmail && (
+                        <>
+                          <div className="text-red-600 font-semibold my-2">
+                            ❌ Scanned face email does not match logged-in user.
+                          </div>
+                          <button
+                            onClick={handleScanFace}
+                            disabled={scanning}
+                            className="mt-4 w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                          >
+                            {scanning ? "Scanning..." : "Scan Again"}
+                          </button>
+                        </>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setModalOpen(false);
+                          setRecognizedName(null);
+                          setRecognizedEmail(null);
+                          setRecognizedStatus(null);
+                          setAttendanceCompleted(false);
+                          stopWebcam();
+                        }}
+                        className="mt-4 px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 w-full"
+                      >
+                        Close
+                      </button>
                     </div>
-                    {todayRecord.checkOut ? (
-                      <>
-                        <div className="flex justify-between text-sm md:text-base">
-                          <span className="text-gray-600">Check-out:</span>
-                          <span className="font-medium">{todayRecord.checkOut}</span>
-                        </div>
-                        <div className="flex justify-between text-sm md:text-base">
-                          <span className="text-gray-600">Hours worked:</span>
-                          <span className="font-medium">{todayRecord.hoursWorked} hrs</span>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex justify-between text-sm md:text-base">
-                        <span className="text-gray-600">Status:</span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          todayRecord.status === "Present" 
-                            ? "bg-green-100 text-green-800" 
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}>
-                          {todayRecord.status}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-sm md:text-base">No attendance recorded today</p>
-                )}
-              </div>
-              
-              <div className="flex flex-col gap-2 md:gap-3 w-full md:w-auto">
-                {!todayRecord ? (
-                  <button
-                    disabled={scanning}
-                    onClick={handleCheckIn}
-                    className={`px-4 md:px-6 py-2 md:py-3 rounded-lg text-white font-medium transition-colors flex items-center justify-center text-sm md:text-base ${
-                      scanning
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700"
-                    }`}
-                  >
-                    {scanning ? (
-                      <>
-                        <span className="mr-1 md:mr-2">🔍</span> Scanning...
-                      </>
-                    ) : (
-                      <>
-                        <span className="mr-1 md:mr-2">📸</span> Check In
-                      </>
-                    )}
-                  </button>
-                ) : !todayRecord.checkOut ? (
-                  <button
-                    disabled={scanning}
-                    onClick={handleCheckOut}
-                    className={`px-4 md:px-6 py-2 md:py-3 rounded-lg text-white font-medium transition-colors flex items-center justify-center text-sm md:text-base ${
-                      scanning
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-green-600 hover:bg-green-700"
-                    }`}
-                  >
-                    {scanning ? (
-                      <>
-                        <span className="mr-1 md:mr-2">🔍</span> Scanning...
-                      </>
-                    ) : (
-                      <>
-                        <span className="mr-1 md:mr-2">🚪</span> Check Out
-                      </>
-                    )}
-                  </button>
-                ) : (
-                  <div className="text-center text-green-600 font-semibold py-2 md:py-3 text-sm md:text-base">
-                    ✅ Attendance completed for today
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+                  )}
+                </>
+              )}
 
-          {/* Navigation Tabs */}
-          <div className="bg-white p-3 md:p-4 rounded-lg md:rounded-xl shadow-sm border border-gray-100 mb-4 md:mb-6">
-            <div className="flex flex-wrap gap-1 md:gap-2">
-              <button
-                className={`px-3 md:px-4 py-1 md:py-2 rounded-lg transition-colors text-xs md:text-sm ${
-                  view === "today"
-                    ? "bg-blue-100 text-blue-800"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-                onClick={() => setView("today")}
-              >
-                Today
-              </button>
-              <button
-                className={`px-3 md:px-4 py-1 md:py-2 rounded-lg transition-colors text-xs md:text-sm ${
-                  view === "history"
-                    ? "bg-blue-100 text-blue-800"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-                onClick={() => setView("history")}
-              >
-                History
-              </button>
-              <button
-                className={`px-3 md:px-4 py-1 md:py-2 rounded-lg transition-colors text-xs md:text-sm ${
-                  view === "stats"
-                    ? "bg-blue-100 text-blue-800"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
-                onClick={() => setView("stats")}
-              >
-                Statistics
-              </button>
-            </div>
-          </div>
-
-          {/* Content based on view */}
-          {view === "today" && (
-            <div className="bg-white p-4 md:p-6 rounded-lg md:rounded-xl shadow-sm border border-gray-100">
-              <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-3 md:mb-4">Recent Attendance</h2>
-              {attendance.length === 0 ? (
-                <div className="text-center py-6 md:py-10">
-                  <div className="text-3xl md:text-4xl mb-2 md:mb-3">📊</div>
-                  <p className="text-gray-500 text-sm md:text-base">No attendance records yet</p>
-                  <p className="text-xs md:text-sm text-gray-400 mt-1">Check in to start recording your attendance</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200 text-left text-xs md:text-sm text-gray-600">
-                        <th className="pb-2 md:pb-3">Date</th>
-                        <th className="pb-2 md:pb-3">Status</th>
-                        <th className="pb-2 md:pb-3">Check-in</th>
-                        <th className="pb-2 md:pb-3">Check-out</th>
-                        <th className="pb-2 md:pb-3">Hours</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {attendance.slice(0, 5).map((record) => (
-                        <tr key={record.id} className="border-b border-gray-100">
-                          <td className="py-3 md:py-4 text-xs md:text-sm">
-                            {new Date(record.date).toLocaleDateString("en-US", {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </td>
-                          <td className="py-3 md:py-4">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                record.status === "Present"
-                                  ? "bg-green-100 text-green-800"
-                                  : record.status === "Absent"
-                                  ? "bg-red-100 text-red-800"
-                                  : record.status === "Late"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-blue-100 text-blue-800"
-                              }`}
-                            >
-                              {record.status}
-                            </span>
-                          </td>
-                          <td className="py-3 md:py-4 text-xs md:text-sm">{record.checkIn}</td>
-                          <td className="py-3 md:py-4 text-xs md:text-sm">{record.checkOut || "-"}</td>
-                          <td className="py-3 md:py-4 text-xs md:text-sm">{record.hoursWorked || "-"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              {attendanceCompleted && (
+                <div className="text-center mt-4">
+                  <div className="text-3xl font-bold mb-2">✅ {recognizedName}</div>
+                  <div className="text-lg mb-1">{recognizedStatus}</div>
+                  <div className="text-gray-500">{currentTime.toLocaleTimeString()}</div>
+                  <button
+                    onClick={() => {
+                      setModalOpen(false);
+                      setRecognizedName(null);
+                      setRecognizedEmail(null);
+                      setRecognizedStatus(null);
+                      setAttendanceCompleted(false);
+                    }}
+                    className="mt-4 px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 w-full"
+                  >
+                    Close
+                  </button>
                 </div>
               )}
             </div>
-          )}
+          </div>
+        )}
 
-          {view === "history" && (
-            <div className="bg-white p-4 md:p-6 rounded-lg md:rounded-xl shadow-sm border border-gray-100">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-6 gap-3 md:gap-4">
-                <h2 className="text-lg md:text-xl font-semibold text-gray-800">Attendance History</h2>
-                <div className="flex gap-1 md:gap-2">
-                  <select
-                    className="border border-gray-300 rounded-lg px-2 md:px-3 py-1 md:py-2 text-xs md:text-sm"
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                  >
-                    {Array.from({ length: 12 }, (_, i) => (
-                      <option key={i} value={i}>
-                        {new Date(0, i).toLocaleDateString("en-US", { month: "short" })}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="border border-gray-300 rounded-lg px-2 md:px-3 py-1 md:py-2 text-xs md:text-sm"
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  >
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <option key={i} value={today.getFullYear() - 2 + i}>
-                        {today.getFullYear() - 2 + i}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+        {!modalOpen && (
+          <div className="flex flex-col gap-2 md:gap-3 w-full md:w-auto">
+            <button
+              onClick={startWebcam}
+              className="px-4 md:px-6 py-2 md:py-3 rounded-lg text-white font-medium bg-blue-600 hover:bg-blue-700"
+            >
+              📸 Scan Face to Mark Attendance
+            </button>
+          </div>
+        )}
 
-              {filteredAttendance.length === 0 ? (
-                <div className="text-center py-6 md:py-10">
-                  <div className="text-3xl md:text-4xl mb-2 md:mb-3">📅</div>
-                  <p className="text-gray-500 text-sm md:text-base">No attendance records for this period</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200 text-left text-xs md:text-sm text-gray-600">
-                        <th className="pb-2 md:pb-3">Date</th>
-                        <th className="pb-2 md:pb-3">Status</th>
-                        <th className="pb-2 md:pb-3">Check-in</th>
-                        <th className="pb-2 md:pb-3">Check-out</th>
-                        <th className="pb-2 md:pb-3">Hours</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredAttendance.map((record) => (
-                        <tr key={record.id} className="border-b border-gray-100">
-                          <td className="py-3 md:py-4 text-xs md:text-sm">
-                            {new Date(record.date).toLocaleDateString("en-US", {
-                              weekday: "short",
-                              month: "short",
-                              day: "numeric",
-                            })}
+        <div className="mt-10">
+          <h2 className="text-xl font-semibold mb-4">Your Attendance Records</h2>
+          {loadingFetchedAttendance && <p>Loading attendance records...</p>}
+          {fetchError && <p className="text-red-600">Error: {fetchError}</p>}
+          {!loadingFetchedAttendance && !fetchError && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border border-gray-300 rounded-lg">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="border border-gray-300 px-4 py-2 text-left">Date</th>
+                    <th className="border border-gray-300 px-4 py-2 text-left">Status</th>
+                    <th className="border border-gray-300 px-4 py-2 text-left">Check-In</th>
+                    <th className="border border-gray-300 px-4 py-2 text-left">Check-Out</th>
+                    <th className="border border-gray-300 px-4 py-2 text-left">Hours Worked</th>
+                    <th className="border border-gray-300 px-4 py-2 text-left">Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const userAttendance = fetchedAttendance.filter((rec) => rec.email === loggedInEmail);
+                    if (userAttendance.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={6} className="text-center py-4">
+                            No attendance records found.
                           </td>
-                          <td className="py-3 md:py-4">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                record.status === "Present"
-                                  ? "bg-green-100 text-green-800"
-                                  : record.status === "Absent"
-                                  ? "bg-red-100 text-red-800"
-                                  : record.status === "Late"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-blue-100 text-blue-800"
-                              }`}
-                            >
-                              {record.status}
-                            </span>
-                          </td>
-                          <td className="py-3 md:py-4 text-xs md:text-sm">{record.checkIn}</td>
-                          <td className="py-3 md:py-4 text-xs md:text-sm">{record.checkOut || "-"}</td>
-                          <td className="py-3 md:py-4 text-xs md:text-sm">{record.hoursWorked || "-"}</td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {view === "stats" && (
-            <div className="bg-white p-4 md:p-6 rounded-lg md:rounded-xl shadow-sm border border-gray-100">
-              <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-4 md:mb-6">Monthly Calendar View</h2>
-              
-              <div className="grid grid-cols-7 gap-1 md:gap-2 mb-3 md:mb-4">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
-                  <div key={day} className="text-center font-medium text-gray-500 py-1 md:py-2 text-xs md:text-sm">
-                    {day}
-                  </div>
-                ))}
-                
-                {calendarDays.map(day => (
-                  <div 
-                    key={day.date}
-                    className={`p-1 md:p-2 rounded border text-center text-xs md:text-sm ${
-                      day.record
-                        ? day.record.status === "Present"
-                          ? "bg-green-50 border-green-200"
-                          : day.record.status === "Absent"
-                          ? "bg-red-50 border-red-200"
-                          : day.record.status === "Late"
-                          ? "bg-yellow-50 border-yellow-200"
-                          : "bg-blue-50 border-blue-200"
-                        : "bg-gray-50 border-gray-200"
-                    }`}
-                  >
-                    <div className="font-medium">{day.day}</div>
-                    {day.record && (
-                      <div className="mt-0 md:mt-1">
-                        {day.record.status === "Present" && "✅"}
-                        {day.record.status === "Absent" && "❌"}
-                        {day.record.status === "Late" && "⏰"}
-                        {day.record.status === "Half Day" && "🕑"}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              
-              <div className="flex flex-wrap gap-2 md:gap-4 mt-4 md:mt-6">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 md:w-4 md:h-4 bg-green-200 rounded mr-1 md:mr-2"></div>
-                  <span className="text-xs md:text-sm text-gray-600">Present</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 md:w-4 md:h-4 bg-red-200 rounded mr-1 md:mr-2"></div>
-                  <span className="text-xs md:text-sm text-gray-600">Absent</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 md:w-4 md:h-4 bg-yellow-200 rounded mr-1 md:mr-2"></div>
-                  <span className="text-xs md:text-sm text-gray-600">Late</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-3 h-3 md:w-4 md:h-4 bg-blue-200 rounded mr-1 md:mr-2"></div>
-                  <span className="text-xs md:text-sm text-gray-600">Half Day</span>
-                </div>
-              </div>
+                      );
+                    }
+                    return userAttendance.map((record, index) => {
+                      let hoursWorked = "-";
+                      let status = record.status || "-";
+                      if (record.checkIn && record.checkOut && record.checkIn !== "-" && record.checkOut !== "-") {
+                        const checkInDate = new Date(`${record.date}T${record.checkIn}`);
+                        const checkOutDate = new Date(`${record.date}T${record.checkOut}`);
+                        hoursWorked = ((checkOutDate.getTime() - checkInDate.getTime()) / 3600000).toFixed(2);
+                        status = "Present";
+                      } else if (record.checkIn && record.checkIn !== "-") {
+                        status = "Working In";
+                      }
+                      return (
+                        <tr key={`${record.email}-${record.date}-${index}`} className="even:bg-gray-50">
+                          <td className="border border-gray-300 px-4 py-2">{record.date}</td>
+                          <td className="border border-gray-300 px-4 py-2">{status}</td>
+                          <td className="border border-gray-300 px-4 py-2">{record.checkIn}</td>
+                          <td className="border border-gray-300 px-4 py-2">{record.checkOut || "-"}</td>
+                          <td className="border border-gray-300 px-4 py-2">{hoursWorked}</td>
+                          <td className="border border-gray-300 px-4 py-2">{record.email}</td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
       </div>
-
-      <style jsx>{`
-        @media (max-width: 640px) {
-          .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-          .stats-grid > div:last-child {
-            grid-column: span 2;
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .calendar-grid {
-            font-size: 0.75rem;
-          }
-        }
-        
-        @media (max-width: 1024px) {
-          .table-responsive {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-          }
-          .table-responsive table {
-            min-width: 600px;
-          }
-        }
-      `}</style>
     </DashboardLayout>
   );
 }

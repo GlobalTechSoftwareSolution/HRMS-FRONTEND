@@ -11,41 +11,47 @@ type Leave = {
   status: "Pending" | "Approved" | "Rejected";
   daysRequested: number;
   submittedDate: string;
+  department: string;
 };
 
 export default function LeaveSection() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [email, setEmail] = useState("");
+  const [department, setDepartment] = useState("");
   const [reason, setReason] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const email = localStorage.getItem("userInfo")
-    ? JSON.parse(localStorage.getItem("userInfo")!).email
-    : "";
+  // Get user email and department from localStorage
+  useEffect(() => {
+    const userInfo = localStorage.getItem("userInfo");
+    if (userInfo) {
+      const parsed = JSON.parse(userInfo);
+      if (parsed.email) setEmail(parsed.email);
+      if (parsed.department) setDepartment(parsed.department);
+    }
+  }, []);
 
   // Calculate business days
-  const calculateBusinessDays = (start: string, end: string): number => {
+  const calculateBusinessDays = (start: string, end: string) => {
     const startDate = new Date(start);
     const endDate = new Date(end);
     let count = 0;
-
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      const dayOfWeek = d.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) count++;
+      const day = d.getDay();
+      if (day !== 0 && day !== 6) count++;
     }
-
     return count;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
     });
-  };
 
   const getStatusIcon = (status: Leave["status"]) => {
     switch (status) {
@@ -58,62 +64,65 @@ export default function LeaveSection() {
     }
   };
 
-  // Fetch leaves from Supabase
-  const fetchLeaves = async () => {
+  // Fetch leaves after email is available
+  useEffect(() => {
     if (!email) return;
 
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("accounts_leave")
-        .select("*")
-        .eq("email_id", email)
-        .order("applied_on", { ascending: false });
+    const fetchLeaves = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("accounts_leave")
+          .select("*")
+          .eq("email_id", email)
+          .order("applied_on", { ascending: false });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const mappedLeaves: Leave[] = (data || []).map((leave: any) => ({
-        id: leave.id,
-        reason: leave.reason,
-        startDate: leave.start_date,
-        endDate: leave.end_date,
-        status: leave.status as "Pending" | "Approved" | "Rejected",
-        daysRequested: calculateBusinessDays(leave.start_date, leave.end_date),
-        submittedDate: leave.applied_on,
-      }));
+        const mappedLeaves: Leave[] = (data || []).map((leave: any) => ({
+          id: leave.id,
+          reason: leave.reason,
+          startDate: leave.start_date,
+          endDate: leave.end_date,
+          status: leave.status,
+          daysRequested: calculateBusinessDays(leave.start_date, leave.end_date),
+          submittedDate: leave.applied_on,
+          department: leave.department || "",
+        }));
 
-      setLeaves(mappedLeaves);
-    } catch (err) {
-      console.error("Failed to fetch leaves:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+        setLeaves(mappedLeaves);
+      } catch (err) {
+        console.error("Failed to fetch leaves:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  useEffect(() => {
     fetchLeaves();
-  }, []);
+  }, [email]);
 
-  // Add new leave
+  // Submit new leave
   const handleAddLeave = async () => {
     if (!reason || !startDate || !endDate) {
       alert("Please fill all fields");
       return;
     }
-
     if (new Date(startDate) > new Date(endDate)) {
       alert("End date cannot be before start date");
+      return;
+    }
+    if (!email || !department) {
+      alert("User info not found. Please login again.");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const daysRequested = calculateBusinessDays(startDate, endDate);
-
-      const { data, error } = await supabase.from("accounts_leave").insert([
+      const { error } = await supabase.from("accounts_leave").insert([
         {
           email_id: email,
+          department: department,
           reason,
           start_date: startDate,
           end_date: endDate,
@@ -122,16 +131,40 @@ export default function LeaveSection() {
         },
       ]);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase insert error:", error);
+        alert("Failed to submit leave request: " + error.message);
+        return;
+      }
 
+      // Reset form
       setReason("");
       setStartDate("");
       setEndDate("");
 
-      fetchLeaves(); // Refresh list
+      // Refresh leaves
+      const { data } = await supabase
+        .from("accounts_leave")
+        .select("*")
+        .eq("email_id", email)
+        .order("applied_on", { ascending: false });
+
+      if (data) {
+        const mappedLeaves: Leave[] = data.map((leave: any) => ({
+          id: leave.id,
+          reason: leave.reason,
+          startDate: leave.start_date,
+          endDate: leave.end_date,
+          status: leave.status,
+          daysRequested: calculateBusinessDays(leave.start_date, leave.end_date),
+          submittedDate: leave.applied_on,
+          department: leave.department || "",
+        }));
+        setLeaves(mappedLeaves);
+      }
     } catch (err) {
-      console.error("Failed to add leave:", err);
-      alert("Failed to submit leave request");
+      console.error("Unexpected error:", err);
+      alert("Failed to submit leave request: " + (err as Error).message);
     } finally {
       setIsSubmitting(false);
     }

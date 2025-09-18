@@ -1,144 +1,132 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import { supabase } from "@/app/lib/supabaseClient";
 
-type Employee = { id: string; name: string };
-type AttendanceRecord = { employeeId: string; date: string; status: "Present" | "Absent" | "Late" | "Half Day" };
-type Task = { id: string; title: string; assignedTo: string; status: "Pending" | "Completed"; };
-type LeaveRequest = { id: string; employeeId: string; reason: string; date: string; status: "Pending" | "Approved" | "Rejected"; };
+type AttendanceRecord = {
+  email: string;
+  name: string;
+  date: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  hours: number;
+};
 
 export default function ManagerDashboard() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-  
-  const todayDate = new Date().toISOString().split("T")[0];
+
+  const today = new Date();
 
   useEffect(() => {
-    const storedEmployees = localStorage.getItem("employees");
-    const storedAttendance = localStorage.getItem("attendance");
-    const storedTasks = localStorage.getItem("manager_tasks");
-    const storedLeaves = localStorage.getItem("leave_requests");
-    if (storedEmployees) setEmployees(JSON.parse(storedEmployees));
-    if (storedAttendance) setAttendance(JSON.parse(storedAttendance));
-    if (storedTasks) setTasks(JSON.parse(storedTasks));
-    if (storedLeaves) setLeaveRequests(JSON.parse(storedLeaves));
+    const fetchData = async () => {
+      try {
+        // ✅ Fetch employees (email + fullname)
+        const { data: empData, error: empError } = await supabase
+          .from("accounts_employee")
+          .select("email_id, fullname");
+        if (empError) throw new Error(empError.message);
+
+        // ✅ Fetch today's attendance
+        const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
+        const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+
+        const { data: attData, error: attError } = await supabase
+          .from("accounts_attendance")
+          .select("email_id, date, check_in, check_out")
+          .gte("date", startOfDay)
+          .lte("date", endOfDay);
+
+        if (attError) throw new Error(attError.message);
+
+        // ✅ Merge attendance with employee names
+        const mappedAttendance: AttendanceRecord[] = (attData || []).map(a => {
+  const emp = empData?.find(e => e.email_id === a.email_id);
+
+  // Combine date + check_in/out to get proper DateTime
+  const dateStr = a.date; // "2025-09-18"
+  const checkInStr = a.check_in ? `${dateStr}T${a.check_in}` : null;
+  const checkOutStr = a.check_out ? `${dateStr}T${a.check_out}` : null;
+
+  let hours = 0;
+  if (checkInStr && checkOutStr) {
+    const inTime = new Date(checkInStr).getTime();
+    const outTime = new Date(checkOutStr).getTime();
+    hours = Math.max(0, (outTime - inTime) / (1000 * 60 * 60)); // ms → hrs
+  }
+
+  return {
+    email: a.email_id,
+    name: emp?.fullname || "Unknown",
+    date: a.date,
+    checkIn: checkInStr,
+    checkOut: checkOutStr,
+    hours: parseFloat(hours.toFixed(2)),
+  };
+});
+
+
+        setAttendance(mappedAttendance);
+      } catch (err: any) {
+        console.error("Error fetching data from Supabase:", err.message || err);
+      }
+    };
+
+    fetchData();
   }, []);
-
-  const approveLeave = (id: string) => {
-    const updated = leaveRequests.map(lr => lr.id === id ? { ...lr, status: "Approved" } : lr);
-    setLeaveRequests(updated);
-    localStorage.setItem("leave_requests", JSON.stringify(updated));
-  };
-
-  const rejectLeave = (id: string) => {
-    const updated = leaveRequests.map(lr => lr.id === id ? { ...lr, status: "Rejected" } : lr);
-    setLeaveRequests(updated);
-    localStorage.setItem("leave_requests", JSON.stringify(updated));
-  };
-
-  const getTodayAttendance = (employeeId: string) => {
-    const record = attendance.find(a => a.employeeId === employeeId && a.date === todayDate);
-    return record ? record.status : "Absent";
-  };
-
-  const presentEmployees = employees.filter(e => {
-    const status = getTodayAttendance(e.id);
-    return status === "Present" || status === "Late" || status === "Half Day";
-  });
-
-  const absentEmployees = employees.filter(e => getTodayAttendance(e.id) === "Absent");
 
   return (
     <DashboardLayout role="manager">
       <div className="min-h-screen bg-gray-50 p-4 md:p-6 max-w-6xl mx-auto">
+        <h1 className="text-2xl md:text-3xl font-bold mb-6">
+          Manager Dashboard 📋
+        </h1>
 
-        <h1 className="text-2xl md:text-3xl font-bold mb-6">Manager Dashboard 📋</h1>
-
-        {/* Attendance Summary */}
         <h2 className="text-xl font-semibold mb-3">Today's Attendance</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 
-          <div className="bg-green-50 border border-green-300 p-4 rounded-xl">
-            <h3 className="font-semibold text-green-800">Present</h3>
-            <ul className="text-gray-700 text-sm mt-1">
-              {presentEmployees.length > 0 ? (
-                presentEmployees.map(e => <li key={e.id}>✅ {e.name}</li>)
+        <div className="overflow-x-auto bg-white rounded-xl shadow">
+          <table className="w-full text-sm text-left border-collapse">
+            <thead className="bg-gray-100 text-gray-700">
+              <tr>
+                <th className="px-4 py-2 border">Email</th>
+                <th className="px-4 py-2 border">Name</th>
+                <th className="px-4 py-2 border">Date</th>
+                <th className="px-4 py-2 border">Check-in</th>
+                <th className="px-4 py-2 border">Check-out</th>
+                <th className="px-4 py-2 border">Hours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {attendance.length ? (
+                attendance.map((rec, idx) => (
+                  <tr key={idx} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 border">{rec.email}</td>
+                    <td className="px-4 py-2 border">{rec.name}</td>
+                    <td className="px-4 py-2 border">
+                      {new Date(rec.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-2 border">
+                      {rec.checkIn
+                        ? new Date(rec.checkIn).toLocaleTimeString()
+                        : "--"}
+                    </td>
+                    <td className="px-4 py-2 border">
+                      {rec.checkOut
+                        ? new Date(rec.checkOut).toLocaleTimeString()
+                        : "--"}
+                    </td>
+                    <td className="px-4 py-2 border">{rec.hours}</td>
+                  </tr>
+                ))
               ) : (
-                <li className="text-gray-400 italic">No one present</li>
+                <tr>
+                  <td colSpan={6} className="text-center p-4 text-gray-500">
+                    No attendance records found for today.
+                  </td>
+                </tr>
               )}
-            </ul>
-          </div>
-
-          <div className="bg-red-50 border border-red-300 p-4 rounded-xl">
-            <h3 className="font-semibold text-red-800">Absent</h3>
-            <ul className="text-gray-700 text-sm mt-1">
-              {absentEmployees.length > 0 ? (
-                absentEmployees.map(e => <li key={e.id}>❌ {e.name}</li>)
-              ) : (
-                <li className="text-gray-400 italic">No one absent</li>
-              )}
-            </ul>
-          </div>
-
+            </tbody>
+          </table>
         </div>
-
-        {/* Team Report */}
-        <h2 className="text-xl font-semibold mb-3">Team Tasks & Reports</h2>
-        {employees.map(emp => {
-          const empTasks = tasks.filter(t => t.assignedTo === emp.id);
-          const completed = empTasks.filter(t => t.status === "Completed").length;
-          const pending = empTasks.filter(t => t.status === "Pending").length;
-
-          return (
-            <div key={emp.id} className="bg-white p-4 md:p-6 rounded-xl shadow border border-gray-100 mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-semibold text-gray-800">{emp.name}</h3>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    getTodayAttendance(emp.id) === "Absent" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
-                  }`}
-                >
-                  {getTodayAttendance(emp.id)}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 mb-2">
-                Tasks: Total {empTasks.length}, Completed {completed}, Pending {pending}
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {empTasks.map(t => (
-                  <div key={t.id} className={`p-2 rounded border text-sm ${t.status === "Completed" ? "bg-green-50 border-green-300" : "bg-yellow-50 border-yellow-300"}`}>
-                    {t.title} - {t.status}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Leave Approvals */}
-        <h2 className="text-xl font-semibold mb-3">Leave Approvals</h2>
-        {leaveRequests.filter(lr => lr.status === "Pending").length === 0 ? (
-          <p className="text-gray-500 mb-6">No pending leave requests</p>
-        ) : (
-          <div className="flex flex-col gap-4 mb-6">
-            {leaveRequests.filter(lr => lr.status === "Pending").map(lr => (
-              <div key={lr.id} className="bg-white p-4 md:p-6 rounded-xl shadow border border-gray-100 flex justify-between items-center">
-                <div>
-                  <p className="font-medium text-gray-800">{employees.find(e => e.id === lr.employeeId)?.name}</p>
-                  <p className="text-gray-600 text-sm">Date: {lr.date}</p>
-                  <p className="text-gray-600 text-sm">Reason: {lr.reason}</p>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => approveLeave(lr.id)} className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm">Approve</button>
-                  <button onClick={() => rejectLeave(lr.id)} className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm">Reject</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
       </div>
     </DashboardLayout>
   );

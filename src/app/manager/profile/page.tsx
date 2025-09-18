@@ -13,7 +13,7 @@ import {
 import { supabase } from "@/app/lib/supabaseClient";
 
 type UserProfile = {
-  name: string;
+  fullname: string;
   email: string;
   picture?: string;
   role: string;
@@ -36,7 +36,7 @@ function dataURLtoFile(dataUrl: string, filename: string): File {
 
 export default function Profile() {
   const [user, setUser] = useState<UserProfile>({
-    name: "",
+    fullname: "",
     email: "",
     picture: "",
     role: "",
@@ -64,68 +64,77 @@ export default function Profile() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = async () => {
-    if (
-      user.phone &&
-      !/^[\+]?[1-9][\d]{0,15}$/.test(user.phone.replace(/\s/g, ""))
-    ) {
-      setSaveMessage({ type: "error", text: "Please enter a valid phone number" });
-      return;
+const handleSave = async () => {
+  setIsSaving(true);
+
+  try {
+    let pictureUrl = user.picture;
+
+    // ✅ Upload new profile picture if it's base64
+    if (user.picture?.startsWith("data:image/")) {
+      const fileExt = user.picture.substring(
+        user.picture.indexOf("/") + 1,
+        user.picture.indexOf(";")
+      );
+      const fileName = `${user.email}-profile-${Date.now()}.${fileExt}`;
+      const file = dataURLtoFile(user.picture, fileName);
+
+      const { error: uploadError } = await supabase.storage
+        .from("profile-pictures")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      pictureUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/profile-pictures/${fileName}`;
     }
 
-    setIsSaving(true);
+    // ✅ Prepare data ONLY with DB fields
+    const dbUpdate: any = { profile_picture: pictureUrl };
 
-    try {
-      let pictureUrl = user.picture;
-
-      if (user.picture?.startsWith("data:image/")) {
-        const fileExt = user.picture.substring(
-          user.picture.indexOf("/") + 1,
-          user.picture.indexOf(";")
-        );
-        // Use timestamp for unique filename to avoid cache issues
-        const timestamp = Date.now();
-        const fileName = `${user.email}-profile-${timestamp}.${fileExt}`;
-        const file = dataURLtoFile(user.picture, fileName);
-
-        const { error: uploadError } = await supabase.storage
-          .from("profile-pictures")
-          .upload(fileName, file);
-
-        if (uploadError) throw uploadError;
-
-        pictureUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/profile-pictures/${fileName}`;
-      }
-
-      const { error } = await supabase
-        .from("accounts_employee")
-        .upsert({
-          email_id: user.email,
-          fullname: user.name,
-          phone: user.phone,
-          designation: user.role || "Employee",
-          department: user.department,
-          profile_picture: pictureUrl,
-        });
-
-      if (error) throw error;
-
-      const updatedUser = { ...user, picture: pictureUrl };
-      setUser(updatedUser);
-      localStorage.setItem("userInfo", JSON.stringify(updatedUser));
-
-      window.dispatchEvent(new Event("profile-updated"));
-
-      setIsEditing(false);
-      setSaveMessage({ type: "success", text: "Profile updated successfully!" });
-      setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
-    } catch (error: any) {
-      console.error("Supabase Upsert Error:", error);
-      setSaveMessage({ type: "error", text: "Failed to update profile. Try again." });
-    } finally {
-      setIsSaving(false);
+    if (user.email) {
+      dbUpdate.email_id = user.email; // only if you want to allow updating email
     }
-  };
+    if (user.fullname) {
+      dbUpdate.fullname = user.fullname;
+    }
+    if (user.phone) {
+      dbUpdate.phone = user.phone;
+    }
+    if (user.department) {
+      dbUpdate.department = user.department;
+    }
+
+    // ✅ Update DB only with available fields
+    const { error } = await supabase
+      .from("accounts_manager")
+      .update(dbUpdate)
+      .eq("email_id", user.email);
+
+    if (error) {
+      console.error("Supabase Update Error:", error);
+      throw error;
+    }
+
+    // ✅ Save everything else in localStorage
+    const updatedUser = {
+      ...user,
+      picture: pictureUrl,
+    };
+
+    setUser(updatedUser);
+    localStorage.setItem("userInfo", JSON.stringify(updatedUser));
+
+    window.dispatchEvent(new Event("profile-updated"));
+
+    setIsEditing(false);
+    setSaveMessage({ type: "success", text: "Profile updated successfully!" });
+  } catch (err: any) {
+    console.error("Save Error:", err);
+    setSaveMessage({ type: "error", text: "Failed to update profile. Try again." });
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   const handleCancel = () => {
     const storedUser = localStorage.getItem("userInfo");
@@ -135,7 +144,7 @@ export default function Profile() {
   };
 
   return (
-    <DashboardLayout role="employee">
+    <DashboardLayout role="manager">
       <div className="max-w-4xl mx-auto p-4 sm:p-6 bg-white rounded-xl shadow-md">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">
@@ -159,7 +168,7 @@ export default function Profile() {
           <div className="relative flex-shrink-0">
             <img
               src={user.picture || "/default-profile.png"}
-              alt={user.name || "Profile"}
+              alt={user.fullname || "Profile"}
               className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
             />
             {isEditing && (
@@ -190,8 +199,8 @@ export default function Profile() {
             </label>
             <input
               type="text"
-              value={user.name}
-              onChange={(e) => setUser({ ...user, name: e.target.value })}
+              value={user.fullname}
+              onChange={(e) => setUser({ ...user, fullname: e.target.value })}
               disabled={!isEditing}
               className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
