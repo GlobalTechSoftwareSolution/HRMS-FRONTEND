@@ -5,7 +5,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 type AttendanceRecord = {
   id: string;
   date: string;
-  status: "Present" | "Absent" | "Late" | "Half Day";
+  status: "Present" | "Absent" | "Late" | "Half Day" | string;
   checkIn: string;
   checkOut: string | null;
   hoursWorked: string | null;
@@ -35,6 +35,8 @@ export default function AttendancePortal() {
   const [recognizedEmail, setRecognizedEmail] = useState<string | null>(null);
   const [attendanceCompleted, setAttendanceCompleted] = useState(false);
 
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -55,7 +57,13 @@ export default function AttendancePortal() {
   }, []);
 
   useEffect(() => {
-    const storedEmail = localStorage.getItem("user_email") || localStorage.getItem("loggedInUser");
+    const storedImage = localStorage.getItem("capturedImage");
+    if (storedImage) setCapturedImage(storedImage);
+  }, []);
+
+  useEffect(() => {
+    const storedEmail =
+      localStorage.getItem("user_email") || localStorage.getItem("loggedInUser");
     if (storedEmail) {
       setLoggedInEmail(storedEmail);
       console.log("✅ Logged in as:", storedEmail);
@@ -147,6 +155,8 @@ export default function AttendancePortal() {
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageData = canvas.toDataURL("image/jpg");
+    setCapturedImage(imageData);
+    localStorage.setItem("capturedImage", imageData);
 
     try {
       const res = await fetch("http://127.0.0.1:8000/api/accounts/recognize_face/", {
@@ -205,7 +215,10 @@ export default function AttendancePortal() {
     if (!recognizedEmail || !recognizedName) return;
     if (recognizedEmail !== loggedInEmail) return;
 
-    const nowTime = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const nowTime = new Date().toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     const newRecord: AttendanceRecord = {
       id: Date.now().toString(),
       date: today.toISOString().split("T")[0],
@@ -231,13 +244,20 @@ export default function AttendancePortal() {
     );
     if (!userTodayRecord) return;
 
-    const nowTime = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const nowTime = new Date().toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     const [inHour, inMinute] = userTodayRecord.checkIn.split(":").map(Number);
     const [outHour, outMinute] = nowTime.split(":").map(Number);
     let hoursWorked = outHour - inHour + (outMinute - inMinute) / 60;
     if (hoursWorked < 0) hoursWorked += 24;
 
-    const updated = { ...userTodayRecord, checkOut: nowTime, hoursWorked: hoursWorked.toFixed(1) };
+    const updated = {
+      ...userTodayRecord,
+      checkOut: nowTime,
+      hoursWorked: hoursWorked.toFixed(1),
+    };
     setAttendance((prev) => prev.map((r) => (r.id === userTodayRecord.id ? updated : r)));
     setRecognizedStatus(`Checked Out at ${nowTime}`);
     setAttendanceCompleted(true);
@@ -268,7 +288,11 @@ export default function AttendancePortal() {
 
               {!attendanceCompleted && (
                 <>
-                  <video ref={videoRef} autoPlay className="w-full rounded-lg border border-gray-200" />
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    className="w-full rounded-lg border border-gray-200"
+                  />
                   <canvas ref={canvasRef} className="hidden" />
 
                   {!recognizedName ? (
@@ -282,6 +306,13 @@ export default function AttendancePortal() {
                   ) : (
                     <div className="text-center mt-4">
                       <div className="text-3xl font-bold mb-2">👋 {recognizedName}</div>
+                      {capturedImage && (
+                        <img
+                          src={capturedImage}
+                          alt="Captured"
+                          className="mt-3 w-32 h-32 object-cover rounded-full mx-auto border shadow"
+                        />
+                      )}
                       <div className="text-lg mb-1">{recognizedStatus}</div>
                       <div className="text-gray-500">{currentTime.toLocaleTimeString()}</div>
 
@@ -303,7 +334,9 @@ export default function AttendancePortal() {
                               📤 Check Out
                             </button>
                           )}
-                          {(recognizedStatus === "Checked In" || recognizedStatus?.startsWith("Checked Out") || recognizedStatus === "Attendance completed for today") && (
+                          {(recognizedStatus === "Checked In" ||
+                            recognizedStatus?.startsWith("Checked Out") ||
+                            recognizedStatus === "Attendance completed for today") && (
                             <button
                               onClick={handleScanFace}
                               disabled={scanning}
@@ -351,6 +384,13 @@ export default function AttendancePortal() {
               {attendanceCompleted && (
                 <div className="text-center mt-4">
                   <div className="text-3xl font-bold mb-2">✅ {recognizedName}</div>
+                  {capturedImage && (
+                    <img
+                      src={capturedImage}
+                      alt="Captured"
+                      className="mt-3 w-32 h-32 object-cover rounded-full mx-auto border shadow"
+                    />
+                  )}
                   <div className="text-lg mb-1">{recognizedStatus}</div>
                   <div className="text-gray-500">{currentTime.toLocaleTimeString()}</div>
                   <button
@@ -386,58 +426,102 @@ export default function AttendancePortal() {
           <h2 className="text-xl font-semibold mb-4">Your Attendance Records</h2>
           {loadingFetchedAttendance && <p>Loading attendance records...</p>}
           {fetchError && <p className="text-red-600">Error: {fetchError}</p>}
-          {!loadingFetchedAttendance && !fetchError && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full border border-gray-300 rounded-lg">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="border border-gray-300 px-4 py-2 text-left">Date</th>
-                    <th className="border border-gray-300 px-4 py-2 text-left">Status</th>
-                    <th className="border border-gray-300 px-4 py-2 text-left">Check-In</th>
-                    <th className="border border-gray-300 px-4 py-2 text-left">Check-Out</th>
-                    <th className="border border-gray-300 px-4 py-2 text-left">Hours Worked</th>
-                    <th className="border border-gray-300 px-4 py-2 text-left">Email</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const userAttendance = fetchedAttendance.filter((rec) => rec.email === loggedInEmail);
-                    if (userAttendance.length === 0) {
-                      return (
-                        <tr>
-                          <td colSpan={6} className="text-center py-4">
-                            No attendance records found.
-                          </td>
-                        </tr>
-                      );
-                    }
-                    return userAttendance.map((record, index) => {
-                      let hoursWorked = "-";
-                      let status = record.status || "-";
-                      if (record.checkIn && record.checkOut && record.checkIn !== "-" && record.checkOut !== "-") {
-                        const checkInDate = new Date(`${record.date}T${record.checkIn}`);
-                        const checkOutDate = new Date(`${record.date}T${record.checkOut}`);
-                        hoursWorked = ((checkOutDate.getTime() - checkInDate.getTime()) / 3600000).toFixed(2);
-                        status = "Present";
-                      } else if (record.checkIn && record.checkIn !== "-") {
-                        status = "Working In";
-                      }
-                      return (
-                        <tr key={`${record.email}-${record.date}-${index}`} className="even:bg-gray-50">
-                          <td className="border border-gray-300 px-4 py-2">{record.date}</td>
-                          <td className="border border-gray-300 px-4 py-2">{status}</td>
-                          <td className="border border-gray-300 px-4 py-2">{record.checkIn}</td>
-                          <td className="border border-gray-300 px-4 py-2">{record.checkOut || "-"}</td>
-                          <td className="border border-gray-300 px-4 py-2">{hoursWorked}</td>
-                          <td className="border border-gray-300 px-4 py-2">{record.email}</td>
-                        </tr>
-                      );
-                    });
-                  })()}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {!loadingFetchedAttendance && !fetchError && (() => {
+            const userAttendance = fetchedAttendance.filter(
+              (rec) => rec.email === loggedInEmail
+            );
+            if (userAttendance.length === 0) {
+              return (
+                <div className="flex justify-center">
+                  <div className="border border-gray-300 bg-white rounded-lg shadow p-6 text-center text-gray-500 max-w-md w-full">
+                    No attendance records found.
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="grid grid-cols-1 gap-6">
+                {userAttendance.map((record, index) => {
+                  let hoursWorked = "-";
+                  let status = record.status || "-";
+                  if (
+                    record.checkIn &&
+                    record.checkOut &&
+                    record.checkIn !== "-" &&
+                    record.checkOut !== "-"
+                  ) {
+                    const checkInDate = new Date(`${record.date}T${record.checkIn}`);
+                    const checkOutDate = new Date(`${record.date}T${record.checkOut}`);
+                    hoursWorked = (
+                      (checkOutDate.getTime() - checkInDate.getTime()) /
+                      3600000
+                    ).toFixed(2);
+                    status = "Present";
+                  } else if (record.checkIn && record.checkIn !== "-") {
+                    status = "Working In";
+                  }
+                  return (
+                    <div
+                      key={`${record.email}-${record.date}-${index}`}
+                      className="bg-white rounded-xl shadow-md p-6 border border-gray-200"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-xs text-gray-500 font-semibold mb-1">Date</div>
+                          <div className="text-base font-medium">{record.date}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 font-semibold mb-1">Status</div>
+                          <div
+                            className={
+                              "inline-block px-2 py-1 rounded " +
+                              (status === "Present"
+                                ? "bg-green-100 text-green-700"
+                                : status === "Working In"
+                                ? "bg-yellow-100 text-yellow-700"
+                                : status === "Absent"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-gray-100 text-gray-700")
+                            }
+                          >
+                            {status}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 font-semibold mb-1">Check-In</div>
+                          <div className="text-base">{record.checkIn}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 font-semibold mb-1">Check-Out</div>
+                          <div className="text-base">{record.checkOut || "-"}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 font-semibold mb-1">
+                            Hours Worked
+                          </div>
+                          <div className="text-base">{hoursWorked}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500 font-semibold mb-1">Email</div>
+                          <div className="text-base break-all">{record.email}</div>
+                        </div>
+                        {capturedImage && (
+                          <div className="col-span-1 md:col-span-2 flex flex-col items-center mt-4">
+                            <div className="text-xs text-gray-500 font-semibold mb-1">Face</div>
+                            <img
+                              src={capturedImage}
+                              alt="Captured face"
+                              className="w-24 h-24 object-cover rounded-full border shadow"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </DashboardLayout>

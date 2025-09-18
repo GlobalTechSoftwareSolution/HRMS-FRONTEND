@@ -2,170 +2,399 @@
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { supabase } from "@/app/lib/supabaseClient";
+import { FiUser, FiSend, FiUsers, FiPlus, FiX } from "react-icons/fi";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 type Task = {
-  task_id: number; // comes from DB (auto-generated integer or serial)
+  task_id: string;
+  title: string;
   description: string;
   department: string;
-  priority: string;
-  status: string;
+  priority: "HIGH" | "MEDIUM" | "LOW";
+  status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
   start_date: string;
-  due_date: string | null;
-  completed_date: string | null;
-  email: string;
+  due_date?: string | null;
+  completed_date?: string | null;
+};
+
+type Employee = {
+  email_id: string;
+  fullname: string;
+  department: string;
+  designation: string;
+  profile_picture?: string | null;
 };
 
 export default function ManagerTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
-  const [department, setDepartment] = useState("");
-  const [priority, setPriority] = useState("Medium");
+  const [dueDate, setDueDate] = useState("");
+  const [priority, setPriority] = useState<"HIGH" | "MEDIUM" | "LOW">("MEDIUM");
   const [sending, setSending] = useState(false);
+  const [showEmployeeList, setShowEmployeeList] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [scrollToForm, setScrollToForm] = useState(false);
+  const formRef = React.useRef<HTMLDivElement | null>(null);
 
-  // ✅ Fetch tasks from Supabase
+  // Fetch employees
   useEffect(() => {
-    const fetchTasks = async () => {
-      const { data, error } = await supabase
-        .from("accounts_tasktable")
-        .select("*")
-        .order("start_date", { ascending: false });
+    const fetchEmployees = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("accounts_employee")
+          .select("email_id, fullname, department, designation, profile_picture")
+          .order("fullname", { ascending: true });
 
-      if (error) {
-        console.error("Fetch error:", error);
-      } else {
-        setTasks(data as Task[]);
+        if (error) throw error;
+        setEmployees(data || []);
+      } catch (error: any) {
+        console.error("Error fetching employees:", error.message);
+        toast.error("Failed to load employees");
+      } finally {
+        setLoading(false);
       }
     };
+    fetchEmployees();
+  }, []);
 
+  // Fetch tasks
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("accounts_tasktable")
+          .select("*")
+          .order("start_date", { ascending: false });
+
+        if (error) throw error;
+        setTasks(data || []);
+      } catch (error: any) {
+        console.error("Error fetching tasks:", error.message);
+        toast.error("Failed to load tasks");
+      }
+    };
     fetchTasks();
   }, []);
 
-  // ✅ Send new task (no task_id from frontend)
+  useEffect(() => {
+    if (scrollToForm && formRef.current) {
+      formRef.current.scrollIntoView({ behavior: "smooth" });
+      setScrollToForm(false);
+    }
+  }, [scrollToForm]);
+
   const handleSendTask = async () => {
-    if (!description || !assignedTo || !department) {
-      alert("Please fill all fields");
+    if (!title || !description || !assignedTo || !priority) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+
+    const selectedEmployee = employees.find(emp => emp.email_id === assignedTo);
+    if (!selectedEmployee) {
+      toast.error("Selected employee not found");
       return;
     }
 
     setSending(true);
+    try {
+      const newTask = {
+        email_id: selectedEmployee.email_id,
+        title,
+        description,
+        department: selectedEmployee.department || "General",
+        priority,
+        status: "PENDING",
+        start_date: new Date().toISOString(),
+        due_date: dueDate || null,
+      };
 
-    const newTask = {
-      description,
-      department,
-      priority,
-      status: "Pending",
-      start_date: new Date().toISOString(),
-      due_date: null,
-      completed_date: null,
-      email: assignedTo,
-    };
+      const { data, error } = await supabase
+        .from("accounts_tasktable")
+        .insert([newTask])
+        .select();
 
-    const { data, error } = await supabase
-      .from("accounts_tasktable")
-      .insert([newTask])
-      .select(); // ✅ fetch inserted row with real task_id
+      if (error) throw error;
 
-    setSending(false);
-
-    if (error) {
-      console.error("Insert error:", error);
-      alert("Failed to send task: " + error.message);
-    } else if (data && data.length > 0) {
-      setTasks((prev) => [data[0] as Task, ...prev]); // ✅ use DB-generated task_id
-      setDescription("");
-      setAssignedTo("");
-      setDepartment("");
-      setPriority("Medium");
-      alert("Task sent successfully!");
+      if (data && data.length > 0) {
+        setTasks(prev => [data[0], ...prev]);
+        setTitle("");
+        setDescription("");
+        setAssignedTo("");
+        setDueDate("");
+        setPriority("MEDIUM"); // reset
+        toast.success("Task assigned successfully!");
+      }
+    } catch (err: any) {
+      console.error("Failed to assign task:", err.message);
+      toast.error("Failed to assign task");
+    } finally {
+      setSending(false);
     }
+  };
+
+  const getPriorityClass = (priority: string) => {
+    switch (priority) {
+      case "HIGH":
+        return "bg-red-100 text-red-800";
+      case "MEDIUM":
+        return "bg-yellow-100 text-yellow-800";
+      case "LOW":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case "COMPLETED":
+        return "bg-green-100 text-green-800";
+      case "IN_PROGRESS":
+        return "bg-blue-100 text-blue-800";
+      case "PENDING":
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   return (
     <DashboardLayout role="manager">
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4">
-            Manager Task Portal 📝
-          </h1>
-          <p className="text-gray-500 mb-6">
-            Assign daily tasks to your employees.
-          </p>
+        <ToastContainer position="top-right" autoClose={3000} />
 
-          {/* Task Form */}
-          <div className="bg-white p-4 md:p-6 rounded-xl shadow-md border border-gray-100 mb-6 animate-fade-in">
-            <h2 className="text-lg font-semibold mb-3">Create New Task</h2>
-            <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                placeholder="Assign to (email)"
-                value={assignedTo}
-                onChange={(e) => setAssignedTo(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-              />
-              <input
-                type="text"
-                placeholder="Department"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-              />
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-              >
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-              </select>
-              <textarea
-                placeholder="Task Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-3 focus:outline-none focus:ring-2 focus:ring-blue-400 transition resize-none"
-                rows={3}
-              />
-              <button
-                onClick={handleSendTask}
-                disabled={sending}
-                className={`mt-3 px-4 py-2 rounded-lg text-white font-medium transition-all ${
-                  sending
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700"
-                }`}
-              >
-                {sending ? "Sending..." : "Send Task"}
-              </button>
+        {/* Employees List */}
+        <div className="bg-white p-4 md:p-6 rounded-xl shadow-md border border-gray-100 animate-fade-in mt-8">
+          <h2 className="text-lg font-semibold mb-4">
+            Team Members ({employees.length})
+          </h2>
+
+          {employees.length === 0 ? (
+            <p className="text-gray-500">No employee data available.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {employees.map(emp => (
+                <div
+                  key={emp.email_id}
+                  className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow flex items-center gap-4"
+                >
+                  <img
+                    src={emp.profile_picture || "/default-avatar.png"}
+                    alt={emp.fullname}
+                    className="w-12 h-12 rounded-full object-cover border border-gray-300"
+                  />
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-1">
+                      {emp.fullname}
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-1">{emp.email_id}</p>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-medium">Role:</span> {emp.designation}
+                    </p>
+                    <p className="text-sm text-gray-600 mb-3">
+                      <span className="font-medium">Department:</span> {emp.department}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setAssignedTo(emp.email_id);
+                        setScrollToForm(true);
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition"
+                    >
+                      Assign Task
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
+          )}
+        </div>
+
+        <div className="max-w-4xl mx-auto">
+          {/* Task Form */}
+          <div
+            ref={formRef}
+            className="bg-white p-4 md:p-6 rounded-xl shadow-md border border-gray-100 mb-6 animate-fade-in"
+          >
+            <h2 className="text-lg font-semibold mb-4 flex items-center">
+              <FiPlus className="mr-2" /> Create New Task
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Task Title *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter task title"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                />
+              </div>
+
+              <div className="relative">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Assign to Employee *
+                </label>
+                <div
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 flex items-center justify-between cursor-pointer bg-white"
+                  onClick={() => setShowEmployeeList(!showEmployeeList)}
+                >
+                  {assignedTo ? (
+                    <div className="flex items-center">
+                      <FiUser className="text-gray-500 mr-2" />
+                      <span>
+                        {employees.find(e => e.email_id === assignedTo)?.fullname || assignedTo}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400">Select an employee</span>
+                  )}
+                  {showEmployeeList ? <FiX /> : <FiUser />}
+                </div>
+
+                {showEmployeeList && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {employees.map(employee => (
+                      <div
+                        key={employee.email_id}
+                        className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        onClick={() => {
+                          setAssignedTo(employee.email_id);
+                          setShowEmployeeList(false);
+                        }}
+                      >
+                        <div className="font-medium">{employee.fullname}</div>
+                        <div className="text-sm text-gray-500">{employee.email_id}</div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {employee.designation} • {employee.department}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Due Date
+                </label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={e => setDueDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Priority</label>
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as "HIGH" | "MEDIUM" | "LOW")}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="HIGH">High</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="LOW">Low</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Task Description *
+              </label>
+              <textarea
+                placeholder="Describe the task in detail..."
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none"
+                rows={4}
+              />
+            </div>
+
+            <button
+              onClick={handleSendTask}
+              disabled={sending}
+              className={`flex items-center justify-center px-6 py-3 rounded-lg text-white font-medium transition-all ${
+                sending ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+              }`}
+            >
+              <FiSend className="mr-2" />
+              {sending ? "Assigning Task..." : "Assign Task"}
+            </button>
           </div>
 
           {/* Task List */}
           <div className="bg-white p-4 md:p-6 rounded-xl shadow-md border border-gray-100 animate-fade-in">
-            <h2 className="text-lg font-semibold mb-3">Sent Tasks</h2>
+            <h2 className="text-lg font-semibold mb-4">
+              Assigned Tasks ({tasks.length})
+            </h2>
+
             {tasks.length === 0 ? (
-              <p className="text-gray-500">No tasks sent yet.</p>
+              <div className="text-center py-8 text-gray-500">
+                <FiSend className="text-4xl mx-auto text-gray-300 mb-3" />
+                <p>No tasks assigned yet.</p>
+              </div>
             ) : (
-              <div className="flex flex-col gap-3">
-                {tasks.map((task) => (
+              <div className="space-y-4">
+                {tasks.map(task => (
                   <div
                     key={task.task_id}
-                    className="p-3 md:p-4 border border-gray-200 rounded-lg hover:shadow-lg transition-shadow"
+                    className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
                   >
-                    <div className="flex justify-between items-center mb-1">
-                      <h3 className="font-semibold text-gray-800">
-                        {task.department} — {task.priority}
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-2">
+                      <h3 className="font-semibold text-gray-800 text-lg">
+                        {task.title}
                       </h3>
-                      <span className="text-xs text-gray-500">
-                        {new Date(task.start_date).toLocaleDateString()}
-                      </span>
+                      <div className="flex space-x-2 mt-2 md:mt-0">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityClass(task.priority)}`}
+                        >
+                          {task.priority}
+                        </span>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(task.status)}`}
+                        >
+                          {task.status.replace("_", " ").toUpperCase()}
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-gray-600 mb-2">{task.description}</p>
-                    <div className="text-sm text-gray-700">
-                      Assigned to: {task.email_id}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Status: {task.status}
+
+                    <p className="text-gray-600 mb-3">{task.description}</p>
+
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between text-sm text-gray-500">
+                      <div className="flex items-center">
+                        <FiUser className="mr-1" />
+                        <span className="font-medium">{task.department}</span>
+                      </div>
+
+                      <div className="mt-2 md:mt-0">
+                        {task.due_date && (
+                          <>
+                            <span>Due: {formatDate(task.due_date)}</span>
+                            <span className="mx-2">•</span>
+                          </>
+                        )}
+                        <span>Assigned: {formatDate(task.start_date)}</span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -175,7 +404,6 @@ export default function ManagerTasks() {
         </div>
       </div>
 
-      {/* Animations */}
       <style jsx>{`
         .animate-fade-in {
           animation: fadeIn 0.5s ease forwards;

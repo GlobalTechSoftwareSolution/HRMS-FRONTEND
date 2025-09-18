@@ -197,13 +197,12 @@ const handleSave = async () => {
               <FiUser size={14} />
               Full Name
             </label>
-            <input
-              type="text"
-              value={user.fullname}
-              onChange={(e) => setUser({ ...user, fullname: e.target.value })}
-              disabled={!isEditing}
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-            />
+           <input
+  type="text"
+  value={user.fullname ?? ""}   // ensures it's always a string
+  onChange={(e) => setUser({ ...user, fullname: e.target.value })}
+/>
+
           </div>
 
           <div className="space-y-1">
