@@ -10,36 +10,54 @@ import {
   FiMail,
   FiCamera,
 } from "react-icons/fi";
+import { supabase } from "@/app/lib/supabaseClient";
 
 type UserProfile = {
-  name: string;
+  fullname: string;
   email: string;
   picture?: string;
   role: string;
   phone?: string;
   department?: string;
+  // ✅ Actual DB fields
+  bio?: string;
+  date_of_birth?: string;
+  total_experience?: string;
 };
+
+function dataURLtoFile(dataUrl: string, filename: string): File {
+  const arr = dataUrl.split(",");
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : "";
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+}
 
 export default function Profile() {
   const [user, setUser] = useState<UserProfile>({
-    name: "",
+    fullname: "",
     email: "",
     picture: "",
     role: "",
     phone: "",
     department: "",
+    bio: "",
+    date_of_birth: "",
+    total_experience: "",
   });
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState({ type: "", text: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 🔹 Load user info from localStorage when component mounts
   useEffect(() => {
     const storedUser = localStorage.getItem("userInfo");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    if (storedUser) setUser(JSON.parse(storedUser));
   }, []);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,55 +66,102 @@ export default function Profile() {
 
     const reader = new FileReader();
     reader.onload = () => {
-      setUser({ ...user, picture: reader.result as string });
+      setUser((prev) => ({ ...prev, picture: reader.result as string }));
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
-    if (
-      user.phone &&
-      !/^[\+]?[1-9][\d]{0,15}$/.test(user.phone.replace(/\s/g, ""))
-    ) {
-      setSaveMessage({
-        type: "error",
-        text: "Please enter a valid phone number",
-      });
-      return;
+  const handleSave = async () => {
+  setIsSaving(true);
+
+  try {
+    let pictureUrl = user.picture;
+
+    if (user.picture?.startsWith("data:image/")) {
+      const fileExt = user.picture.substring(
+        user.picture.indexOf("/") + 1,
+        user.picture.indexOf(";")
+      );
+      const fileName = `${user.email}-profile-${Date.now()}.${fileExt}`;
+      const file = dataURLtoFile(user.picture, fileName);
+
+      const { error: uploadError } = await supabase.storage
+        .from("profile-pictures")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      pictureUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/profile-pictures/${fileName}`;
     }
 
-    setIsSaving(true);
+    const dbUpdate: any = {
+      fullname: user.fullname || null,
+      profile_picture: pictureUrl,
+      bio: user.bio || null,
+      date_of_birth: user.date_of_birth || null,
+      total_experience: user.total_experience || null,
+    };
 
-    setTimeout(() => {
-      localStorage.setItem("userInfo", JSON.stringify(user));
-      setIsSaving(false);
-      setIsEditing(false);
-      setSaveMessage({ type: "success", text: "Profile updated successfully!" });
+ const { data, error } = await supabase
+  .from("accounts_ceo")
+  .upsert(
+    {
+      email_id: user.email,
+      fullname: user.fullname || null,
+      profile_picture: pictureUrl,
+      bio: user.bio || null,
+      date_of_birth: user.date_of_birth || null,
+      total_experience: user.total_experience || null,
+    },
+    { onConflict: "email_id" } // ensures update if email already exists
+  )
+  .select();
 
-      setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
-    }, 800);
-  };
+if (error) throw error;
+
+    console.log("Payload sent:", dbUpdate);
+    console.log("Email filter:", user.email);
+    console.log("Supabase update response:", { data, error });
+
+    if (!data || data.length === 0) {
+      throw new Error("No rows updated. Check if email_id matches a record in accounts_ceo.");
+    }
+
+    const updatedUser = { ...user, picture: pictureUrl };
+    setUser(updatedUser);
+    localStorage.setItem("userInfo", JSON.stringify(updatedUser));
+    window.dispatchEvent(new Event("profile-updated"));
+
+    setIsEditing(false);
+    setSaveMessage({ type: "success", text: "Profile updated successfully!" });
+  } catch (err: any) {
+    console.error("Save Error:", err);
+    setSaveMessage({
+      type: "error",
+      text: err.message || "Failed to update profile. Try again.",
+    });
+  } finally {
+    setIsSaving(false);
+  }
+};
+
 
   const handleCancel = () => {
     const storedUser = localStorage.getItem("userInfo");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    if (storedUser) setUser(JSON.parse(storedUser));
     setIsEditing(false);
-    setSaveMessage({ type: "", text: "" }); 
+    setSaveMessage({ type: "", text: "" });
   };
 
   return (
     <DashboardLayout role="ceo">
       <div className="max-w-4xl mx-auto p-4 sm:p-6 bg-white rounded-xl shadow-md">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">
             Profile Information
           </h1>
         </div>
 
-        {/* Save Message */}
         {saveMessage.text && (
           <div
             className={`mb-6 p-3 rounded-md text-sm sm:text-base ${
@@ -109,13 +174,11 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Profile Info */}
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
-          {/* Profile Picture */}
           <div className="relative flex-shrink-0">
             <img
               src={user.picture || "/default-profile.png"}
-              alt={user.name || "Profile"}
+              alt={user.fullname || "Profile"}
               className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
             />
             {isEditing && (
@@ -138,9 +201,8 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Form Fields */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {/* Full Name */}
+          {/* Fullname - Local only */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
               <FiUser size={14} />
@@ -148,14 +210,14 @@ export default function Profile() {
             </label>
             <input
               type="text"
-              value={user.name}
-              onChange={(e) => setUser({ ...user, name: e.target.value })}
+              value={user.fullname ?? ""}
+              onChange={(e) => setUser({ ...user, fullname: e.target.value })}
               disabled={!isEditing}
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full"
             />
           </div>
 
-          {/* Email */}
+          {/* Email - DB key */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
               <FiMail size={14} />
@@ -170,7 +232,7 @@ export default function Profile() {
             <p className="text-xs text-gray-500">Email cannot be changed</p>
           </div>
 
-          {/* Phone */}
+          {/* Phone - Local only */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
               <FiPhone size={14} />
@@ -182,11 +244,11 @@ export default function Profile() {
               onChange={(e) => setUser({ ...user, phone: e.target.value })}
               disabled={!isEditing}
               placeholder="Enter your phone number"
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
           </div>
 
-          {/* Department */}
+          {/* Department - Local only */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
               <FiBriefcase size={14} />
@@ -196,7 +258,7 @@ export default function Profile() {
               value={user.department || ""}
               onChange={(e) => setUser({ ...user, department: e.target.value })}
               disabled={!isEditing}
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">Select Department</option>
               <option value="Engineering">Engineering</option>
@@ -209,7 +271,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {!isEditing ? (
+        {!isEditing && (
           <button
             onClick={() => setIsEditing(true)}
             className="flex items-center mt-5 justify-center gap-2 bg-blue-600 text-white px-4 py-2 text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors"
@@ -217,9 +279,8 @@ export default function Profile() {
             <FiEdit size={16} />
             Edit Profile
           </button>
-        ) : null}
+        )}
 
-        {/* Action Buttons */}
         {isEditing && (
           <div className="mt-8 flex flex-col sm:flex-row justify-end gap-3">
             <button

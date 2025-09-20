@@ -8,107 +8,151 @@ import {
   FiDollarSign,
   FiTrendingUp,
   FiAlertCircle,
-  FiCheckCircle,
-  FiUser,
 } from "react-icons/fi";
-
-type Activity = {
-  id: number;
-  type: string;
-  status: string;
-  date: string;
-  details: string;
-};
+import { supabase } from "@/app/lib/supabaseClient";
 
 export default function DashboardOverview() {
-  const [leaveBalance, setLeaveBalance] = useState<number>(0);
   const [attendanceRate, setAttendanceRate] = useState<number>(0);
   const [pendingRequests, setPendingRequests] = useState<number>(0);
   const [hoursThisWeek, setHoursThisWeek] = useState<number>(0);
-  const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
+  const [dailyHours, setDailyHours] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
+  const [attendanceRecords, setAttendanceRecords] = useState<
+    {
+      email: string;
+      role: string;
+      date: string;
+      checkIn: string | null;
+      checkOut: string | null;
+    }[]
+  >([]);
+  const [leaveData, setLeaveData] = useState<{ email: string; status: string; start_date: string; end_date: string; leave_type: string | null; reason: string }[]>([]);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const res = await fetch("/api/employee/dashboard", {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
-        });
+  const totalPossibleHours = 200; // Total working hours for calculation
 
-        // if (!res.ok) throw new Error("Failed to fetch dashboard data");
+  const fetchDashboardData = async () => {
+    try {
+      const userEmail = localStorage.getItem("user_email");
 
-        const data = await res.json();
+      // Fetch leave data dynamically from API
+      const leaveRes = await fetch("http://127.0.0.1:8000/api/accounts/list_leaves/");
+      if (!leaveRes.ok) throw new Error("Failed to fetch leave data");
 
-        setLeaveBalance(data.leaveBalance);
-        setAttendanceRate(data.attendanceRate);
-        setPendingRequests(data.pendingRequests);
-        setHoursThisWeek(data.hoursThisWeek);
-        setRecentActivities(data.recentActivities);
-      } catch (err) {
-        console.error(err);
-        setLeaveBalance(18);
-        setAttendanceRate(96);
-        setPendingRequests(3);
-        setHoursThisWeek(38);
-        setRecentActivities([
-          {
-            id: 1,
-            type: "leave",
-            status: "approved",
-            date: "2025-09-01",
-            details: "Annual leave approved",
-          },
-          {
-            id: 2,
-            type: "attendance",
-            status: "recorded",
-            date: "2025-09-05",
-            details: "Late arrival (9:20 AM)",
-          },
-          {
-            id: 3,
-            type: "payslip",
-            status: "available",
-            date: "2025-08-31",
-            details: "August payslip available",
-          },
-        ]);
-      } finally {
-        setLoading(false);
+      const leaveJson = await leaveRes.json();
+      console.log("Leave API response:", leaveJson); // Check structure
+
+      // Extract leaves array correctly
+      const leaveData: { email: string; status: string; start_date: string; end_date: string; leave_type: string | null; reason: string }[] = leaveJson.leaves || [];
+      setLeaveData(leaveData);
+
+      // Calculate pendingRequestsCount correctly
+      const userLeaves = leaveData.filter((l) => l.email === userEmail);
+      const pendingRequestsCount = userLeaves.reduce((acc, leave) => {
+        return leave.status?.toLowerCase() === "pending" ? acc + 1 : acc;
+      }, 0);
+      setPendingRequests(pendingRequestsCount);
+
+      // Fetch attendance dynamically from API
+      const attendanceRes = await fetch("http://127.0.0.1:8000/api/accounts/list_attendance/");
+      let allAttendanceRecords: {
+        email: string;
+        role: string;
+        date: string;
+        checkIn: string | null;
+        checkOut: string | null;
+      }[] = [];
+
+      if (attendanceRes.ok) {
+        const attendanceJson = await attendanceRes.json();
+        // Extract attendance array correctly
+        const attendanceData = attendanceJson.attendance || [];
+        allAttendanceRecords = attendanceData.map((rec: any) => ({
+          email: rec.email,
+          role: rec.role,
+          date: rec.date,
+          checkIn: rec.check_in,
+          checkOut: rec.check_out,
+        }));
       }
-    };
 
-    fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 60000);
-    return () => clearInterval(interval);
-  }, []);
+      // Filter attendance for current user
+      const filteredAttendanceRecords = allAttendanceRecords.filter(
+        (record) => record.email === userEmail
+      );
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <FiCheckCircle className="text-green-500" />;
-      case "recorded":
-        return <FiClock className="text-blue-500" />;
-      case "available":
-        return <FiDollarSign className="text-purple-500" />;
-      case "updated":
-        return <FiUser className="text-indigo-500" />;
-      default:
-        return <FiAlertCircle className="text-gray-500" />;
+      // Attendance rate calculation
+      const totalDays = filteredAttendanceRecords.length;
+      const presentDays = filteredAttendanceRecords.filter(
+        (a) => a.checkIn && a.checkOut
+      ).length;
+      const attendanceRate = totalDays ? Math.round((presentDays / totalDays) * 100) : 0;
+
+      // Hours worked this week + daily breakdown
+      const startOfWeek = new Date();
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
+
+      let hoursThisWeekCalc = 0;
+      const dailyHoursCalc: Record<string, number> = {};
+
+      filteredAttendanceRecords.forEach((record) => {
+        if (record.checkIn && record.checkOut) {
+          const checkIn = new Date(`${record.date}T${record.checkIn}`);
+          const checkOut = new Date(`${record.date}T${record.checkOut}`);
+          if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
+            const hours = (checkOut.getTime() - checkIn.getTime()) / 1000 / 3600;
+            dailyHoursCalc[record.date] = (dailyHoursCalc[record.date] || 0) + hours;
+            if (checkIn >= startOfWeek) {
+              hoursThisWeekCalc += hours;
+            }
+          }
+        }
+      });
+
+      // Set state after calculations
+      setAttendanceRate(attendanceRate);
+      setHoursThisWeek(hoursThisWeekCalc);
+      setDailyHours(dailyHoursCalc);
+      setAttendanceRecords(filteredAttendanceRecords);
+    } catch (err) {
+      console.error("Dashboard fetch error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-  };
+  useEffect(() => {
+    fetchDashboardData();
+
+    // Poll every 60 seconds
+    const interval = setInterval(fetchDashboardData, 60000);
+
+    // Supabase realtime subscription
+    const channel = supabase
+      .channel("dashboard-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "attendance" },
+        () => fetchDashboardData()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "leaves" },
+        () => fetchDashboardData()
+      )
+      .subscribe();
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   if (loading) {
     return (
       <DashboardLayout role="employee">
-        <div className="p-6 text-center text-gray-500">Loading dashboard...</div>
+        <div className="p-6 text-center text-gray-500">
+          Loading dashboard...
+        </div>
       </DashboardLayout>
     );
   }
@@ -138,11 +182,11 @@ export default function DashboardOverview() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {/* Card */}
+          {/* Leave Balance */}
           <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-green-500">
             <div className="flex items-center justify-between">
               <span className="text-green-600 text-xl sm:text-2xl font-bold">
-                {leaveBalance}
+                {leaveData.filter((l) => l.email === localStorage.getItem("user_email")).length}
               </span>
               <div className="p-2 bg-green-100 rounded-lg">
                 <FiCalendar className="text-green-600 text-lg sm:text-xl" />
@@ -152,7 +196,23 @@ export default function DashboardOverview() {
             <p className="text-xs text-gray-400 mt-1">Days remaining</p>
           </div>
 
-          {/* Repeat similar responsive tweaks for other cards */}
+          {/* Hours Worked */}
+          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-purple-500">
+            <div className="flex items-center justify-between">
+              <span className="text-purple-600 text-xl sm:text-2xl font-bold">
+                {hoursThisWeek.toFixed(2)} hrs
+              </span>
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <FiClock className="text-purple-600 text-lg sm:text-xl" />
+              </div>
+            </div>
+            <p className="text-gray-500 mt-2 text-sm">Hours Worked</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {((hoursThisWeek / totalPossibleHours) * 100).toFixed(2)}% of {totalPossibleHours} hrs
+            </p>
+          </div>
+
+          {/* Attendance Rate */}
           <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <span className="text-blue-600 text-xl sm:text-2xl font-bold">
@@ -163,9 +223,10 @@ export default function DashboardOverview() {
               </div>
             </div>
             <p className="text-gray-500 mt-2 text-sm">Attendance Rate</p>
-            <p className="text-xs text-gray-400 mt-1">This month</p>
+            <p className="text-xs text-gray-400 mt-1">Based on days attended</p>
           </div>
 
+          {/* Pending Requests */}
           <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-yellow-500">
             <div className="flex items-center justify-between">
               <span className="text-yellow-600 text-xl sm:text-2xl font-bold">
@@ -178,22 +239,81 @@ export default function DashboardOverview() {
             <p className="text-gray-500 mt-2 text-sm">Pending Requests</p>
             <p className="text-xs text-gray-400 mt-1">Awaiting approval</p>
           </div>
+        </div>
 
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-purple-500">
-            <div className="flex items-center justify-between">
-              <span className="text-purple-600 text-xl sm:text-2xl font-bold">
-                {hoursThisWeek}
-              </span>
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <FiClock className="text-purple-600 text-lg sm:text-xl" />
-              </div>
-            </div>
-            <p className="text-gray-500 mt-2 text-sm">Hours Worked</p>
-            <p className="text-xs text-gray-400 mt-1">Out of 40 hours this week</p>
+        {/* Daily Hours Table */}
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm mt-6">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">
+            Daily Hours Worked
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm text-gray-600">
+              <thead>
+                <tr className="text-left border-b">
+                  <th className="py-2 px-4">Date</th>
+                  <th className="py-2 px-4">Check-In</th>
+                  <th className="py-2 px-4">Check-Out</th>
+                  <th className="py-2 px-4">Hours Worked</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attendanceRecords.map((record) => {
+                  const hours =
+                    record.checkIn && record.checkOut
+                      ? ((new Date(`${record.date}T${record.checkOut}`).getTime() -
+                          new Date(`${record.date}T${record.checkIn}`).getTime()) /
+                          1000 /
+                          3600
+                        ).toFixed(2)
+                      : "0.00";
+                  return (
+                    <tr key={record.date} className="border-b">
+                      <td className="py-2 px-4">{record.date}</td>
+                      <td className="py-2 px-4">{record.checkIn ?? "-"}</td>
+                      <td className="py-2 px-4">{record.checkOut ?? "-"}</td>
+                      <td className="py-2 px-4">{hours} hrs</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/* Quick Actions + Recent Activities */}
+        {/* User Leaves Table */}
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm mt-6">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">
+            Your Leaves
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm text-gray-600">
+              <thead>
+                <tr className="text-left border-b">
+                  <th className="py-2 px-4">Start Date</th>
+                  <th className="py-2 px-4">End Date</th>
+                  <th className="py-2 px-4">Type</th>
+                  <th className="py-2 px-4">Reason</th>
+                  <th className="py-2 px-4">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {leaveData
+                  .filter((l) => l.email === localStorage.getItem("user_email"))
+                  .map((leave, idx) => (
+                    <tr key={idx} className="border-b">
+                      <td className="py-2 px-4">{leave.start_date}</td>
+                      <td className="py-2 px-4">{leave.end_date}</td>
+                      <td className="py-2 px-4">{leave.leave_type ?? "-"}</td>
+                      <td className="py-2 px-4">{leave.reason}</td>
+                      <td className="py-2 px-4">{leave.status}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-xl shadow-sm">
             <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">
@@ -232,72 +352,6 @@ export default function DashboardOverview() {
                   </span>
                 </button>
               </Link>
-            </div>
-          </div>
-
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">
-              Recent Activities
-            </h2>
-            <div className="space-y-3 sm:space-y-4">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-2 sm:gap-3">
-                  <div className="mt-1">{getStatusIcon(activity.status)}</div>
-                  <div className="flex-1">
-                    <p className="text-xs sm:text-sm font-medium text-gray-700">
-                      {activity.details}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {formatDate(activity.date)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Weekly Progress */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">
-            Weekly Progress
-          </h2>
-          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-            <div className="relative w-20 h-20 sm:w-24 sm:h-24">
-              <svg className="w-full h-full" viewBox="0 0 36 36">
-                <path
-                  d="M18 2.0845
-                    a 15.9155 15.9155 0 0 1 0 31.831
-                    a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="#eee"
-                  strokeWidth="3"
-                />
-                <path
-                  d="M18 2.0845
-                    a 15.9155 15.9155 0 0 1 0 31.831
-                    a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="#4f46e5"
-                  strokeWidth="3"
-                  strokeDasharray={`${(hoursThisWeek / 40) * 100}, 100`}
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm sm:text-lg font-bold text-gray-800">
-                  {hoursThisWeek}/40
-                </span>
-              </div>
-            </div>
-            <div className="text-center sm:text-left">
-              <p className="text-gray-700 font-medium text-sm sm:text-base">
-                Weekly Hours Target
-              </p>
-              <p className="text-gray-500 text-xs sm:text-sm mt-1">
-                {hoursThisWeek >= 40
-                  ? "You've reached your weekly target! 🎉"
-                  : `${40 - hoursThisWeek} hours remaining to reach your target`}
-              </p>
             </div>
           </div>
         </div>

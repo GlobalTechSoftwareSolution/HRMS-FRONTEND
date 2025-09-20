@@ -34,18 +34,6 @@ export default function LeaveSection() {
     }
   }, []);
 
-  // Calculate business days
-  const calculateBusinessDays = (start: string, end: string) => {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    let count = 0;
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      const day = d.getDay();
-      if (day !== 0 && day !== 6) count++;
-    }
-    return count;
-  };
-
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
@@ -85,7 +73,7 @@ export default function LeaveSection() {
           startDate: leave.start_date,
           endDate: leave.end_date,
           status: leave.status,
-          daysRequested: calculateBusinessDays(leave.start_date, leave.end_date),
+          daysRequested: 3,
           submittedDate: leave.applied_on,
           department: leave.department || "",
         }));
@@ -111,7 +99,7 @@ export default function LeaveSection() {
       alert("End date cannot be before start date");
       return;
     }
-    if (!email || !department) {
+    if (!email) {
       alert("User info not found. Please login again.");
       return;
     }
@@ -156,7 +144,7 @@ export default function LeaveSection() {
           startDate: leave.start_date,
           endDate: leave.end_date,
           status: leave.status,
-          daysRequested: calculateBusinessDays(leave.start_date, leave.end_date),
+          daysRequested: 3,
           submittedDate: leave.applied_on,
           department: leave.department || "",
         }));
@@ -234,7 +222,7 @@ export default function LeaveSection() {
           <div className="flex justify-between items-center">
             <div className="text-sm text-gray-500">
               {startDate && endDate && (
-                <span>{calculateBusinessDays(startDate, endDate)} business day(s)</span>
+                <span>3 business day(s)</span>
               )}
             </div>
 

@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { FiSearch, FiChevronDown, FiChevronUp, FiEye, FiEdit, FiUserCheck } from "react-icons/fi";
+import { FiSearch, FiChevronDown, FiChevronUp, FiEye, FiEdit, FiUserCheck, FiX, FiCheck } from "react-icons/fi";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-type Employee = {
+type Employee = {   
   id: number;
   email: string;
   fullname: string;
@@ -37,7 +37,7 @@ type SortConfig = {
 
 type TabType = 'all' | 'pending';
 
-export default function HREmployeePage() {
+export default function onboarding() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [error, setError] = useState<string>("");
@@ -50,6 +50,19 @@ export default function HREmployeePage() {
   const [editFormData, setEditFormData] = useState<Partial<Employee>>({});
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check screen size on mount and resize
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,12 +70,14 @@ export default function HREmployeePage() {
         setIsLoading(true);
         
         // Fetch active employees
-        const empRes = await fetch("http://127.0.0.1:8000/api/accounts/employees/");
+        const empRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`);
         if (!empRes.ok) throw new Error(`Employee fetch error! status: ${empRes.status}`);
         const empData = await empRes.json();
         
         // Fetch users for pending employees
-        const userRes = await fetch("http://127.0.0.1:8000/api/accounts/users/");
+        const userRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/users/`);
         if (!userRes.ok) throw new Error(`User fetch error! status: ${userRes.status}`);
         const userData = await userRes.json();
         
@@ -126,7 +141,9 @@ export default function HREmployeePage() {
         password: onboardFormData.password,
         role: onboardFormData.role,
       };
-      const res = await fetch("http://127.0.0.1:8000/api/accounts/signup/", {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/signup/`,
+         {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -145,11 +162,15 @@ export default function HREmployeePage() {
       // (copy fetch logic here)
       try {
         // Fetch active employees
-        const empRes = await fetch("http://127.0.0.1:8000/api/accounts/employees/");
+        const empRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`);
+
         if (!empRes.ok) throw new Error( `Employee fetch error! status: ${empRes.status}`);
         const empData = await empRes.json();
         // Fetch users for pending employees
-        const userRes = await fetch("http://127.0.0.1:8000/api/accounts/users/");
+        const userRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/users/`);
+
         if (!userRes.ok) throw new Error(`User fetch error! status: ${userRes.status}`);
         const userData = await userRes.json();
         // Filter pending users (employees with is_staff=false)
@@ -178,7 +199,7 @@ export default function HREmployeePage() {
     try {
       // Update user to is_staff=true
       const res = await fetch(
-        `http://127.0.0.1:8000/api/accounts/users/${user.id}/`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/users/${user.id}/`,
         {
           method: "PATCH",
           headers: {
@@ -197,7 +218,9 @@ export default function HREmployeePage() {
       toast.success( `${user.fullname} has been approved as an employee`);
       
       // Refresh employee list
-      const empRes = await fetch("http://127.0.0.1:8000/api/accounts/employees/");
+      const empRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`);
+
       if (empRes.ok) {
         const empData = await empRes.json();
         setEmployees(empData);
@@ -264,7 +287,7 @@ export default function HREmployeePage() {
       };
 
       const res = await fetch(
-        `http://127.0.0.1:8000/api/accounts/employees/${selectedEmployee.email}/`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/${selectedEmployee.email}/`,
         {
           method: "PUT",
           headers: {
@@ -362,15 +385,118 @@ export default function HREmployeePage() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Mobile Card View for Employees
+  const EmployeeCard = ({ employee }: { employee: Employee }) => (
+    <div className="bg-white p-4 rounded-lg shadow-sm border mb-4">
+      <div className="flex items-center mb-3">
+        <div className="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold overflow-hidden mr-3">
+          {employee.profile_picture ? (
+            <img className="h-12 w-12 object-cover rounded-full" src={employee.profile_picture} alt={employee.fullname || employee.email} />
+          ) : (
+            (employee.fullname && employee.fullname.charAt(0)) ||
+            (employee.email && employee.email.charAt(0))
+          )}
+        </div>
+        <div>
+          <h3 className="text-sm font-medium text-gray-900">{employee.fullname}</h3>
+          <p className="text-xs text-gray-500">{employee.email}</p>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+        <div>
+          <p className="text-xs text-gray-500">Designation</p>
+          <p className="text-gray-900">{employee.designation || "N/A"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">Department</p>
+          <p className="text-gray-900">{employee.department || "N/A"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">Join Date</p>
+          <p className="text-gray-900">{formatDate(employee.date_joined)}</p>
+        </div>
+      </div>
+      
+      <div className="flex justify-between pt-2 border-t border-gray-100">
+        <button
+          onClick={() => handleViewDetails(employee)}
+          className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
+        >
+          <FiEye className="mr-1" /> View
+        </button>
+        <button
+          onClick={() => handleEditEmployee(employee)}
+          className="text-green-600 hover:text-green-800 text-sm flex items-center"
+        >
+          <FiEdit className="mr-1" /> Edit
+        </button>
+      </div>
+    </div>
+  );
+
+  // Mobile Card View for Pending Users
+  const PendingUserCard = ({ user }: { user: User }) => (
+    <div className="bg-white p-4 rounded-lg shadow-sm border mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-12 w-12 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 font-bold overflow-hidden mr-3">
+            {(user.fullname && user.fullname.charAt(0)) ||
+             (user.email && user.email.charAt(0))}
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-900">{user.fullname}</h3>
+            <p className="text-xs text-gray-500">{user.email}</p>
+          </div>
+        </div>
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          Pending
+        </span>
+      </div>
+      
+      <div className="flex justify-between pt-2 border-t border-gray-100">
+        <button
+          onClick={() => {
+            const employeeData = employees.find(emp => emp.email === user.email) || {
+              id: user.id,
+              email: user.email,
+              fullname: user.fullname,
+              age: null,
+              phone: null,
+              department: null,
+              designation: null,
+              date_of_birth: null,
+              date_joined: null,
+              skills: null,
+              profile_picture: null,
+              reports_to: null,
+              status: 'pending'
+            };
+            handleViewDetails(employeeData);
+          }}
+          className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
+        >
+          <FiEye className="mr-1" /> View
+        </button>
+        <button
+          onClick={() => handleApproveEmployee(user)}
+          className="text-green-600 hover:text-green-800 text-sm flex items-center"
+        >
+          <FiCheck className="mr-1" /> Approve
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <DashboardLayout role="hr">
       <ToastContainer position="top-right" autoClose={3000} />
-      <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Employee Management</h2>
+      <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Employee Management</h2>
           <button
             onClick={handleOnboardEmployee}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition w-full sm:w-auto"
           >
             Onboard New Employee
           </button>
@@ -379,8 +505,13 @@ export default function HREmployeePage() {
         {/* Onboard New Employee Modal */}
         {isOnboarding && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
-              <h3 className="text-xl font-semibold mb-4">Onboard New Employee</h3>
+            <div className="bg-white p-4 sm:p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg sm:text-xl font-semibold">Onboard New Employee</h3>
+                <button onClick={() => setIsOnboarding(false)} className="text-gray-500 hover:text-gray-700">
+                  <FiX size={20} />
+                </button>
+              </div>
               <form onSubmit={handleOnboardSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -494,10 +625,19 @@ export default function HREmployeePage() {
         {/* Employee Details/Edit Modal */}
         {selectedEmployee && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-6 rounded-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-              <h3 className="text-xl font-semibold mb-4">
-                {isEditing ? "Edit Employee" : "Employee Details"}
-              </h3>
+            <div className="bg-white p-4 sm:p-6 rounded-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg sm:text-xl font-semibold">
+                  {isEditing ? "Edit Employee" : "Employee Details"}
+                </h3>
+                <button onClick={() => {
+                  setSelectedEmployee(null);
+                  setEditFormData({});
+                  setIsEditing(false);
+                }} className="text-gray-500 hover:text-gray-700">
+                  <FiX size={20} />
+                </button>
+              </div>
               <div className="flex items-center mb-6">
                 <div className="flex-shrink-0 h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl overflow-hidden">
                   {profilePictureFile ? (
@@ -754,8 +894,39 @@ export default function HREmployeePage() {
           </div>
         )}
 
-        {/* Data List */}
-        {!isLoading && !error && (
+        {/* Data List - Mobile Card View */}
+        {!isLoading && !error && isMobile && (
+          <>
+            <div className="mb-4">
+              {filteredAndSortedData.map((item: any) => (
+                activeTab === 'all' ? (
+                  <EmployeeCard key={item.email} employee={item} />
+                ) : (
+                  <PendingUserCard key={item.id} user={item} />
+                )
+              ))}
+            </div>
+            
+            {filteredAndSortedData.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                {activeTab === 'pending' 
+                  ? "No pending users found matching your criteria"
+                  : "No employees found matching your criteria"
+                }
+              </div>
+            )}
+            
+            <div className="mt-4 text-sm text-gray-500">
+              {activeTab === 'pending' 
+                ? `Showing ${filteredAndSortedData.length} of ${pendingUsers.length} pending users`
+                : `Showing ${filteredAndSortedData.length} of ${employees.length} employees`
+              }
+            </div>
+          </>
+        )}
+
+        {/* Data List - Desktop Table View */}
+        {!isLoading && !error && !isMobile && (
           <>
             <div className="overflow-x-auto rounded-lg border border-gray-200">
               <table className="w-full">
@@ -897,7 +1068,23 @@ export default function HREmployeePage() {
           </>
         )}
       </div>
-    </DashboardLayout>
 
+      <style jsx>{`
+        @media (max-width: 640px) {
+          .max-w-7xl {
+            padding: 0.5rem;
+          }
+          .p-6 {
+            padding: 1rem;
+          }
+          .text-2xl {
+            font-size: 1.5rem;
+          }
+          .grid-cols-2 {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+    </DashboardLayout>
   );
 }

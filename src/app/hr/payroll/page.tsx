@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { PDFDocument, rgb } from "pdf-lib";
+ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+ import fontkit from "@pdf-lib/fontkit";
 
 type PayrollRecord = {
   email: string;
@@ -67,64 +68,81 @@ export default function HRPayrollDashboard() {
     fetchPayrolls();
   }, []);
 
-  // Download PDF function
-  const downloadPDF = async (record: PayrollRecord) => {
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([600, 750]);
-    const { height } = page.getSize();
+  // ✅ Download Payroll PDF
+const downloadPDF = async (record: PayrollRecord) => {
+  const pdfDoc = await PDFDocument.create();
 
-    // Load Noto Sans font (supports ₹)
-    const fontBytes = await fetch("/fonts/NotoSans-Regular.ttf").then(res =>
-      res.arrayBuffer()
-    );
-    const customFont = await pdfDoc.embedFont(fontBytes);
+  // Register fontkit before embedding custom fonts
+  pdfDoc.registerFontkit(fontkit);
 
-    const fontSize = 14;
-    let y = height - 50;
+  // Load custom font (supports ₹)
+  const fontBytes = await fetch("/fonts/NotoSans-Regular.ttf").then(res =>
+    res.arrayBuffer()
+  );
+  const customFont = await pdfDoc.embedFont(fontBytes);
 
-    page.drawText("Payroll Report", {
-      x: 200,
+  // Add page
+  const page = pdfDoc.addPage([595.28, 842]); // A4
+  const { width, height } = page.getSize();
+
+  let y = height - 60;
+
+  // Title
+  const title = "PAYROLL REPORT";
+  page.drawText(title, {
+    x: width / 2 - customFont.widthOfTextAtSize(title, 18) / 2,
+    y,
+    size: 18,
+    font: customFont,
+    color: rgb(0, 0.53, 0.71),
+  });
+
+  y -= 50;
+
+  // Payroll details
+  const lines = [
+    `Employee Email: ${record.email}`,
+    `Month: ${record.month} ${record.year}`,
+    `Status: ${record.status}`,
+    `Pay Date: ${record.pay_date}`,
+    ``,
+    `Basic Salary: ₹${record.basic_salary}`,
+    `Allowances: ₹${record.allowances}`,
+    `Bonus: ₹${record.bonus}`,
+    `Total Earnings: ₹${record.basic_salary + record.allowances + record.bonus}`,
+    ``,
+    `Tax: ₹${record.tax}`,
+    `Other Deductions: ₹${record.deductions}`,
+    `Total Deductions: ₹${record.tax + record.deductions}`,
+    ``,
+    `Net Salary: ₹${record.net_salary}`,
+  ];
+
+  const fontSize = 12;
+  lines.forEach(line => {
+    page.drawText(line, {
+      x: 60,
       y,
-      size: 20,
-      font: customFont,
-      color: rgb(0, 0.53, 0.71),
+      size: fontSize,
+      font: customFont, // Use customFont here
+      color: rgb(0, 0, 0),
     });
+    y -= 25;
+  });
 
-    y -= 40;
-    const lines = [
-      `Employee: ${record.email}`,
-      `Month: ${record.month} ${record.year}`,
-      `Status: ${record.status}`,
-      `Pay Date: ${record.pay_date}`,
-      ``,
-      `Basic Salary: ₹${record.basic_salary}`,
-      `Allowances: ₹${record.allowances}`,
-      `Bonus: ₹${record.bonus}`,
-      `Total Earnings: ₹${record.basic_salary + record.allowances + record.bonus}`,
-      ``,
-      `Tax: ₹${record.tax}`,
-      `Other Deductions: ₹${record.deductions}`,
-      `Total Deductions: ₹${record.tax + record.deductions}`,
-      ``,
-      `Net Salary: ₹${record.net_salary}`,
-    ];
+  // Save and download
+  const pdfBytes = await pdfDoc.save();
+  const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `payroll_${record.email}_${record.month}_${record.year}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
 
-    lines.forEach(line => {
-      page.drawText(line, { x: 50, y, size: fontSize, font: customFont, color: rgb(0, 0, 0) });
-      y -= 25;
-    });
-
-    const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `payroll_${record.email}_${record.month}_${record.year}.pdf`;
-    document.body.appendChild(link);
-    setTimeout(() => link.click(), 100);
-    link.remove();
-    URL.revokeObjectURL(url);
-  };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {

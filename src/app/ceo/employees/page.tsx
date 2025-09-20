@@ -13,6 +13,7 @@ type Employee = {
   joinDate: string;
   phone: string;
   salary: number;
+  picture?: string;
 };
 
 type SortConfig = {
@@ -29,18 +30,6 @@ export default function EmployeesPage() {
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "", direction: "ascending" });
-  const [isAddEmployeeModalOpen, setIsAddEmployeeModalOpen] = useState(false);
-  const [editEmployeeId, setEditEmployeeId] = useState<number | null>(null);
-  const [newEmployee, setNewEmployee] = useState<Omit<Employee, "id">>({
-    name: "",
-    role: "",
-    department: "Engineering",
-    email: "",
-    status: "active",
-    joinDate: new Date().toISOString().split("T")[0],
-    phone: "",
-    salary: 0,
-  });
 
   // --------------------- FETCH EMPLOYEES ---------------------
   useEffect(() => {
@@ -48,20 +37,20 @@ export default function EmployeesPage() {
       try {
         setLoading(true);
         const { data, error } = await supabase.from("accounts_employee").select("*");
-
         if (error) throw error;
         if (!Array.isArray(data)) throw new Error("Unexpected data format");
 
         const mappedEmployees: Employee[] = data.map((emp: any, index) => ({
           id: emp.id ?? index + 1,
-          name: emp.fullname,
+          name: emp.fullname ?? "",
           role: emp.designation ?? "Employee",
           department: emp.department ?? "General",
-          email: emp.email_id,
-          status: "active", // default, table has no status
+          email: emp.email_id ?? "",
+          status: "active",
           joinDate: emp.date_of_birth ?? new Date().toISOString(),
           phone: emp.phone ?? "",
-          salary: 0, // default, table has no salary
+          salary: 0,
+          picture: emp.profile_picture || undefined,
         }));
 
         setEmployees(mappedEmployees);
@@ -73,7 +62,6 @@ export default function EmployeesPage() {
         setLoading(false);
       }
     };
-
     fetchEmployees();
   }, []);
 
@@ -116,51 +104,11 @@ export default function EmployeesPage() {
     setSortConfig({ key, direction });
   };
 
-  // --------------------- ADD / EDIT / DELETE ---------------------
-  const handleAddEmployee = () => {
-    if (!newEmployee.name || !newEmployee.email) return alert("Name and Email are required!");
-    if (editEmployeeId) {
-      setEmployees(
-        employees.map((emp) => (emp.id === editEmployeeId ? { id: editEmployeeId, ...newEmployee } : emp))
-      );
-      setEditEmployeeId(null);
-    } else {
-      const newId = employees.length ? Math.max(...employees.map((e) => e.id)) + 1 : 1;
-      setEmployees([...employees, { id: newId, ...newEmployee }]);
-    }
-    setIsAddEmployeeModalOpen(false);
-    setNewEmployee({
-      name: "",
-      role: "",
-      department: "Engineering",
-      email: "",
-      status: "active",
-      joinDate: new Date().toISOString().split("T")[0],
-      phone: "",
-      salary: 0,
-    });
-  };
-
-  const handleEditEmployee = (id: number) => {
-    const emp = employees.find((e) => e.id === id);
-    if (emp) {
-      setNewEmployee({ ...emp });
-      setEditEmployeeId(id);
-      setIsAddEmployeeModalOpen(true);
-    }
-  };
-
-  const handleDeleteEmployee = (id: number) => {
-    if (confirm("Are you sure you want to delete this employee?")) {
-      setEmployees(employees.filter((emp) => emp.id !== id));
-    }
-  };
-
   // --------------------- RENDER ---------------------
   return (
     <DashboardLayout role="ceo">
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-        {loading && <p className="text-gray-500">Loading employees...</p>}
+        {loading && <p className="text-gray-500 animate-pulse">Loading employees...</p>}
         {error && <p className="text-red-500">{error}</p>}
 
         {!loading && !error && (
@@ -173,19 +121,19 @@ export default function EmployeesPage() {
             </div>
 
             {/* Filters */}
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200">
+            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 transition-all duration-300">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 <input
                   type="text"
                   placeholder="Search employees..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 />
                 <select
                   value={departmentFilter}
                   onChange={(e) => setDepartmentFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 >
                   {departments.map((d) => (
                     <option key={d} value={d}>
@@ -196,7 +144,7 @@ export default function EmployeesPage() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                 >
                   <option value="all">All Statuses</option>
                   <option value="active">Active</option>
@@ -206,70 +154,58 @@ export default function EmployeesPage() {
               </div>
             </div>
 
-            {/* Employee Table */}
-            <div className="overflow-x-auto bg-white shadow-lg rounded-xl border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {["name", "role", "department", "status", "email", "joinDate", "salary"].map((key) => (
-                      <th
-                        key={key}
-                        className="px-4 py-3 text-left text-xs sm:text-sm font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                        onClick={() => handleSort(key as keyof Employee)}
-                      >
-                        <div className="flex items-center gap-1">
-                          {key.charAt(0).toUpperCase() + key.slice(1)}
-                          {sortConfig.key === key && <span>{sortConfig.direction === "ascending" ? "↑" : "↓"}</span>}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredAndSortedEmployees.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="h-8 w-8 flex-shrink-0 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-800 text-sm font-bold">
-                            {emp.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="font-medium text-gray-900 text-sm sm:text-base">{emp.name}</span>
-                            <span className="text-gray-500 text-xs sm:text-sm">{emp.phone}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 text-gray-900 text-sm sm:text-base">{emp.role}</td>
-                      <td className="px-4 py-2 text-sm">
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs sm:text-sm">
-                          {emp.department}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs sm:text-sm ${
-                            emp.status === "active"
-                              ? "bg-green-100 text-green-800"
-                              : emp.status === "on-leave"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {emp.status.charAt(0).toUpperCase() + emp.status.slice(1)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-gray-500 text-sm">{emp.email}</td>
-                      <td className="px-4 py-2 text-gray-500 text-sm">
-                        {new Date(emp.joinDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-2 text-gray-900 text-sm">${emp.salary.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* Employee Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {filteredAndSortedEmployees.map((emp) => (
+                <div
+                  key={emp.id}
+                  className="bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105 hover:shadow-2xl duration-300"
+                >
+                  {/* Profile Image */}
+                  {emp.picture ? (
+                    <img
+                      src={emp.picture}
+                      alt={emp.name}
+                      className="w-24 h-24 rounded-full border-4 border-indigo-500 shadow-md mb-4 object-cover"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-800 font-bold text-xl mb-4 shadow-md">
+                      {emp.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </div>
+                  )}
+
+                  {/* Name and Role */}
+                  <h2 className="font-semibold text-lg sm:text-xl text-gray-900">{emp.name}</h2>
+                  <p className="text-gray-500 text-sm sm:text-base capitalize">{emp.role}</p>
+                  <p className="text-gray-500 text-sm">{emp.department}</p>
+
+                  {/* Email & Phone */}
+                  <p className="text-gray-400 text-xs mt-1">{emp.email}</p>
+                  <p className="text-gray-400 text-xs">{emp.phone}</p>
+
+                  {/* Status */}
+                  <span
+                    className={`mt-3 px-4 py-1 rounded-full text-xs font-semibold transition-colors duration-300 ${
+                      emp.status === "active"
+                        ? "bg-green-100 text-green-800"
+                        : emp.status === "on-leave"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {emp.status.charAt(0).toUpperCase() + emp.status.slice(1)}
+                  </span>
+
+                  {/* Joined Date */}
+                  <p className="mt-2 text-gray-400 text-xs">Joined: {new Date(emp.joinDate).toLocaleDateString()}</p>
+
+                  {/* Salary */}
+                  <p className="mt-2 font-semibold text-gray-900 text-sm">${emp.salary.toLocaleString()}</p>
+                </div>
+              ))}
             </div>
           </>
         )}

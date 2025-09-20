@@ -152,6 +152,7 @@ export default function DashboardLayout({ children, role }: Props) {
     userInfo?.profile_profile_picture ||
     userInfo?.picture ||
     "/default-profile.png";
+    
 
   return (
     <div className="flex min-h-screen bg-gray-100 font-sans text-gray-800">

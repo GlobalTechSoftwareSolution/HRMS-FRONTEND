@@ -209,7 +209,7 @@ export default function ManagerDashboard() {
                   const key = `${lr.email_id}-${lr.applied_on}`;
                   return (
                     <motion.div
-                      key={key}
+                      key={lr.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -50 }}

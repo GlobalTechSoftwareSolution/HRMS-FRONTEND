@@ -27,7 +27,7 @@ export default function HRAttendancePage() {
     const fetchAttendance = async () => {
       try {
         const { data, error } = await supabase
-          .from<Attendance>("accounts_attendance")
+          .from("accounts_attendance")
           .select("*");
         if (error) {
           setError(error.message);
@@ -51,6 +51,12 @@ export default function HRAttendancePage() {
     if (record.check_in && record.check_out) return "Present";
     if (record.check_in && !record.check_out) return "Active";
     return "Absent";
+  };
+
+  const statusColors: Record<string, string> = {
+    Present: "bg-green-100 text-green-800",
+    Active: "bg-yellow-100 text-yellow-800",
+    Absent: "bg-red-100 text-red-800",
   };
 
   if (loading)
@@ -109,8 +115,8 @@ export default function HRAttendancePage() {
               })}
             </div>
 
-            {/* Table */}
-            <div className="overflow-hidden bg-white shadow-lg rounded-xl animate-fadeIn mt-6">
+            {/* Table for larger screens */}
+            <div className="hidden sm:block overflow-hidden bg-white shadow-lg rounded-xl animate-fadeIn mt-6">
               <table className="w-full table-auto border-collapse">
                 <thead className="bg-gray-100">
                   <tr className="text-gray-700 uppercase text-sm tracking-wide">
@@ -125,11 +131,6 @@ export default function HRAttendancePage() {
                 <tbody>
                   {attendance.map((record) => {
                     const status = getStatus(record);
-                    const statusColors: Record<string, string> = {
-                      Present: "bg-green-100 text-green-800",
-                      Active: "bg-yellow-100 text-yellow-800",
-                      Absent: "bg-red-100 text-red-800",
-                    };
                     return (
                       <tr
                         key={record.id}
@@ -153,11 +154,50 @@ export default function HRAttendancePage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Cards for small screens */}
+            <div className="sm:hidden space-y-4 mt-6">
+              {attendance.map((record) => {
+                const status = getStatus(record);
+                return (
+                  <div
+                    key={record.id}
+                    className="bg-white shadow-lg rounded-xl p-4 animate-fadeIn"
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-lg font-semibold text-gray-800">
+                        {record.email_id}
+                      </h3>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColors[status]}`}
+                      >
+                        {status}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-gray-600 text-sm">
+                      <div>
+                        <span className="font-medium">Role:</span> {record.role}
+                      </div>
+                      <div>
+                        <span className="font-medium">Date:</span> {record.date}
+                      </div>
+                      <div>
+                        <span className="font-medium">Check-In:</span>{" "}
+                        {record.check_in || "-"}
+                      </div>
+                      <div>
+                        <span className="font-medium">Check-Out:</span>{" "}
+                        {record.check_out || "-"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </>
         )}
       </div>
 
-      {/* Animations & Responsive Styles */}
       <style jsx>{`
         .animate-fadeIn {
           animation: fadeIn 0.8s ease-in-out;
@@ -181,54 +221,6 @@ export default function HRAttendancePage() {
           }
           to {
             transform: translateY(-5px);
-          }
-        }
-
-        /* Media Queries for Responsive Design */
-        @media (max-width: 1024px) {
-          table th, table td {
-            padding: 10px;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .grid {
-            grid-template-columns: 1fr 1fr !important;
-          }
-          table thead {
-            display: none;
-          }
-          table, table tbody, table tr, table td {
-            display: block;
-            width: 100%;
-          }
-          table tr {
-            margin-bottom: 15px;
-            border-bottom: 2px solid #f0f0f0;
-          }
-          table td {
-            padding: 8px 10px;
-            text-align: right;
-            position: relative;
-          }
-          table td::before {
-            content: attr(data-label);
-            position: absolute;
-            left: 10px;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 12px;
-            color: #555;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .grid {
-            grid-template-columns: 1fr !important;
-          }
-          table td {
-            font-size: 13px;
-            padding: 6px 8px;
           }
         }
       `}</style>

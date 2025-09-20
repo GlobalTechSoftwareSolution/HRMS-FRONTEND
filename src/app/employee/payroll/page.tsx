@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   FiDownload,
@@ -16,15 +16,43 @@ type PayrollRecord = {
   basicSalary: number;
   status: "paid" | "pending" | "processing";
   paymentDate: string;
+  email: string;
 };
 
 export default function PayrollDashboard() {
-  const [payrollData] = useState<PayrollRecord[]>([
-    { id: 1, month: "January 2025", basicSalary: 50000, status: "paid", paymentDate: "Jan 31, 2025" },
-    { id: 2, month: "February 2025", basicSalary: 50000,  status: "paid", paymentDate: "Feb 28, 2025" },
-    { id: 3, month: "March 2025", basicSalary: 50000, status: "processing", paymentDate: "Mar 31, 2025" },
-    { id: 4, month: "April 2025", basicSalary: 52000,  status: "pending", paymentDate: "Apr 30, 2025" },
-  ]);
+  const [payrollData, setPayrollData] = useState<PayrollRecord[]>([]);
+
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/api/accounts/list_payrolls/")
+      .then((response) => response.json())
+      .then((data) => {
+        const normalizeStatus = (status: string) => {
+          switch (status.toLowerCase()) {
+            case "done": return "paid";
+            case "pending": return "pending";
+            case "processing": return "processing";
+            default: return "pending";
+          }
+        };
+
+        const mappedData: PayrollRecord[] = (data.payrolls || []).map((item: any, index: number) => ({
+          id: index + 1,
+          month: `${item.month} ${item.year}`,
+          basicSalary: parseFloat(item.basic_salary) || 0,
+          status: normalizeStatus(item.status),
+          paymentDate: item.pay_date,
+          email: item.email,
+        }));
+        // Retrieve user email from localStorage
+        const userEmail = localStorage.getItem("user_email");
+        // Filter payroll records by logged-in user's email
+        const userData = mappedData.filter((item: any) => item.email === userEmail);
+        setPayrollData(userData);
+      })
+      .catch((error) => {
+        console.error("Error fetching payroll data:", error);
+      });
+  }, []);
 
   const [filterYear, setFilterYear] = useState<string>("2025");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -42,7 +70,7 @@ export default function PayrollDashboard() {
       <span
         className={`px-2 py-1 rounded-full text-xs font-medium ${statusClasses[status as keyof typeof statusClasses]}`}
       >
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+         `{status.charAt(0).toUpperCase() + status.slice(1)} `
       </span>
     );
   };

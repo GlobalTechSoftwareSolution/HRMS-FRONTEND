@@ -40,30 +40,26 @@ export default function Profile() {
   const [saveMessage, setSaveMessage] = useState({ type: "", text: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch user data from backend using email from localStorage
+  // ✅ Fetch user data from backend
   useEffect(() => {
     const fetchUserData = async (email: string) => {
       try {
-        console.log(`Fetching user data for email: ${email}`);
-        const response = await fetch(`http://127.0.0.1:8000/api/accounts/hrs/${encodeURIComponent(email)}/`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-        if (!response.ok) {
-          console.error("Failed to fetch user data", response.status);
-          throw new Error("Failed to fetch user data");
-        }
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/hrs/${encodeURIComponent(
+            email
+          )}/`,
+          { method: "GET", headers: { "Content-Type": "application/json" } }
+        );
+
+        if (!response.ok) throw new Error("Failed to fetch user data");
+
         const currentUser = await response.json();
-        if (!currentUser) {
-          console.error("User not found in response data");
-          throw new Error("User not found");
-        }
+        if (!currentUser) throw new Error("User not found");
+
         setUser({
           name: currentUser.fullname || "",
           email: currentUser.email || email,
-          picture: currentUser.profile_picture || "",
+          picture: currentUser.profile_picture || "/default-profile.png",
           role: currentUser.role || "",
           phone: currentUser.phone || "",
           department: currentUser.department || "",
@@ -77,16 +73,11 @@ export default function Profile() {
     const storedUser = localStorage.getItem("userInfo");
     if (storedUser) {
       const parsed = JSON.parse(storedUser);
-      if (parsed.email) {
-        fetchUserData(parsed.email);
-      } else {
-        console.warn("No email found in stored userInfo");
-      }
-    } else {
-      console.warn("No userInfo found in localStorage");
+      if (parsed.email) fetchUserData(parsed.email);
     }
   }, []);
 
+  // ✅ Handle image preview
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -98,12 +89,13 @@ export default function Profile() {
     reader.readAsDataURL(file);
   };
 
+  // ✅ Save Profile
   const handleSave = async () => {
-    if (user.phone && !/^[\+]?[1-9][\d]{0,15}$/.test(user.phone.replace(/\s/g, ""))) {
-      setSaveMessage({
-        type: "error",
-        text: "Please enter a valid phone number",
-      });
+    if (
+      user.phone &&
+      !/^[\+]?[1-9][\d]{0,15}$/.test(user.phone.replace(/\s/g, ""))
+    ) {
+      setSaveMessage({ type: "error", text: "Please enter a valid phone number" });
       return;
     }
 
@@ -112,28 +104,28 @@ export default function Profile() {
     try {
       let profilePictureUrl = user.picture || "";
 
-      // If user uploaded a new picture and it's a File, upload it to Supabase Storage
+      // Upload new picture to Supabase if selected
       const fileInput = fileInputRef.current?.files?.[0];
       if (fileInput && user.email) {
-        const fileExt = fileInput.name.split('.').pop();
+        const fileExt = fileInput.name.split(".").pop();
         const fileName = `${user.email.replace(/[@.]/g, "_")}.${fileExt}`;
         const filePath = `${fileName}`;
 
-        const { data, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from("profile-pictures")
           .upload(filePath, fileInput, { upsert: true });
 
-        if (uploadError) {
-          throw uploadError;
-        }
+        if (uploadError) throw uploadError;
 
         const { data: publicUrlData } = supabase.storage
           .from("profile-pictures")
           .getPublicUrl(filePath);
 
-        profilePictureUrl = publicUrlData.publicUrl;
+        // ✅ Cache-busting
+        profilePictureUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
       }
 
+      // Send update request
       const formData = new FormData();
       formData.append("email", user.email);
       formData.append("fullname", user.name);
@@ -142,24 +134,19 @@ export default function Profile() {
       formData.append("profile_picture", profilePictureUrl);
 
       const response = await fetch(
-        `http://127.0.0.1:8000/api/accounts/hrs/${encodeURIComponent(user.email)}/`,
-        {
-          method: "PUT",
-          body: formData,
-        }
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/hrs/${encodeURIComponent(
+          user.email
+        )}/`,
+        { method: "PUT", body: formData }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("PUT request failed:", errorData);
-        throw new Error("Failed to update profile");
-      }
+      if (!response.ok) throw new Error("Failed to update profile");
 
       const updatedUser = await response.json();
       setUser({
         name: updatedUser.fullname || user.name,
         email: updatedUser.email || user.email,
-        picture: updatedUser.profile_picture || profilePictureUrl || user.picture,
+        picture: updatedUser.profile_picture || profilePictureUrl,
         role: updatedUser.role || user.role,
         phone: updatedUser.phone || user.phone,
         department: updatedUser.department || user.department,
@@ -177,34 +164,8 @@ export default function Profile() {
     }
   };
 
+  // ✅ Cancel Editing
   const handleCancel = () => {
-    // Reload user data from backend to discard changes
-    if (user.email) {
-      fetch(`http://127.0.0.1:8000/api/accounts/hrs/${encodeURIComponent(user.email)}/`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error("Failed to fetch user data");
-          return res.json();
-        })
-        .then((currentUser) => {
-          if (!currentUser) throw new Error("User not found");
-          setUser({
-            name: currentUser.fullname || "",
-            email: currentUser.email || user.email,
-            picture: currentUser.profile_picture || "",
-            role: currentUser.role || "",
-            phone: currentUser.phone || "",
-            department: currentUser.department || "",
-          });
-        })
-        .catch(() => {
-          setSaveMessage({ type: "error", text: "Failed to reload profile data." });
-        });
-    }
     setIsEditing(false);
     setSaveMessage({ type: "", text: "" });
   };
@@ -234,10 +195,9 @@ export default function Profile() {
 
         {/* Profile Info */}
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
-          {/* Profile Picture */}
           <div className="relative flex-shrink-0">
             <img
-              src={user.picture ? user.picture : "/default-profile.png"}
+              src={user.picture || "/default-profile.png"}
               alt={user.name || "Profile"}
               className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
             />
@@ -267,29 +227,27 @@ export default function Profile() {
           {/* Full Name */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
-              <FiUser size={14} />
-              Full Name
+              <FiUser size={14} /> Full Name
             </label>
             <input
               type="text"
               value={user.name}
               onChange={(e) => setUser({ ...user, name: e.target.value })}
               disabled={!isEditing}
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             />
           </div>
 
           {/* Email */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
-              <FiMail size={14} />
-              Email Address
+              <FiMail size={14} /> Email Address
             </label>
             <input
               type="email"
               value={user.email}
               disabled
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full bg-gray-100 cursor-not-allowed"
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full bg-gray-100"
             />
             <p className="text-xs text-gray-500">Email cannot be changed</p>
           </div>
@@ -297,8 +255,7 @@ export default function Profile() {
           {/* Phone */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
-              <FiPhone size={14} />
-              Phone Number
+              <FiPhone size={14} /> Phone Number
             </label>
             <input
               type="tel"
@@ -306,21 +263,20 @@ export default function Profile() {
               onChange={(e) => setUser({ ...user, phone: e.target.value })}
               disabled={!isEditing}
               placeholder="Enter your phone number"
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             />
           </div>
 
           {/* Department */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
-              <FiBriefcase size={14} />
-              Department
+              <FiBriefcase size={14} /> Department
             </label>
             <select
               value={user.department || ""}
               onChange={(e) => setUser({ ...user, department: e.target.value })}
               disabled={!isEditing}
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             >
               <option value="">Select Department</option>
               <option value="Engineering">Engineering</option>
@@ -333,42 +289,28 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* Buttons */}
         {!isEditing ? (
           <button
             onClick={() => setIsEditing(true)}
             className="flex items-center mt-5 justify-center gap-2 bg-blue-600 text-white px-4 py-2 text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors"
-            type="button"
           >
-            <FiEdit size={16} />
-            Edit Profile
+            <FiEdit size={16} /> Edit Profile
           </button>
-        ) : null}
-
-        {/* Action Buttons */}
-        {isEditing && (
+        ) : (
           <div className="mt-8 flex flex-col sm:flex-row justify-end gap-3">
             <button
               onClick={handleCancel}
-              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-              type="button"
+              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
             >
               Cancel
             </button>
-
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-              type="button"
+              className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-70"
             >
-              {isSaving ? (
-                "Saving..."
-              ) : (
-                <>
-                  <FiSave size={16} />
-                  Save Changes
-                </>
-              )}
+              {isSaving ? "Saving..." : <><FiSave size={16} /> Save Changes</>}
             </button>
           </div>
         )}
