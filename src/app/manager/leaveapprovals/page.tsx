@@ -39,20 +39,24 @@ type LeaveRequest = {
 };
 
 // Status badge component
-const StatusBadge = ({ status }: { status: string }) => {
-  const statusConfig = {
+// Status badge component
+const StatusBadge = ({ status }: { status?: string }) => {
+  const statusConfig: Record<string, { color: string; icon: JSX.Element }> = {
     Pending: { color: "bg-yellow-100 text-yellow-800", icon: <FiClock className="mr-1" /> },
     Approved: { color: "bg-green-100 text-green-800", icon: <FiCheckCircle className="mr-1" /> },
     Rejected: { color: "bg-red-100 text-red-800", icon: <FiXCircle className="mr-1" /> },
   };
 
+  const config = status && statusConfig[status] ? statusConfig[status] : { color: "bg-gray-100 text-gray-800", icon: <FiClock className="mr-1" /> };
+
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${statusConfig[status].color}`}>
-      {statusConfig[status].icon}
-      {status}
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${config.color}`}>
+      {config.icon}
+      {status || "Unknown"}
     </span>
   );
 };
+
 
 export default function ManagerDashboard() {
   const [employees, setEmployees] = useState<Employee[]>([]);

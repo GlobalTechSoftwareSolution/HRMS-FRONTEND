@@ -2,8 +2,14 @@
 import React, { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/DashboardLayout'
 
-const Approvalpage = () => {
-  const [users, setUsers] = useState<any[]>([])
+interface User {
+  email: string
+  role?: string
+  is_staff: boolean
+}
+
+const Approvalpage: React.FC = () => {
+  const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -18,12 +24,16 @@ const Approvalpage = () => {
         throw new Error(`Server error: ${response.status} ${response.statusText}`)
       }
 
-      const data = await response.json()
+      const data: User[] = await response.json()
       console.log('Received data:', data)
       setUsers(data)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Fetch error:', err)
-      setError('Failed to load users: ' + err.message)
+      if (err instanceof Error) {
+        setError('Failed to load users: ' + err.message)
+      } else {
+        setError('Failed to load users: Unknown error')
+      }
       setUsers([])
     } finally {
       setLoading(false)
@@ -42,9 +52,13 @@ const Approvalpage = () => {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       console.log('Approved:', email)
       fetchUsers()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Approve error:', err)
-      alert('Failed to approve user: ' + err.message)
+      if (err instanceof Error) {
+        alert('Failed to approve user: ' + err.message)
+      } else {
+        alert('Failed to approve user: Unknown error')
+      }
     }
   }
 
@@ -58,9 +72,13 @@ const Approvalpage = () => {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       console.log('Rejected:', email)
       fetchUsers()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Reject error:', err)
-      alert('Failed to reject user: ' + err.message)
+      if (err instanceof Error) {
+        alert('Failed to reject user: ' + err.message)
+      } else {
+        alert('Failed to reject user: Unknown error')
+      }
     }
   }
 
@@ -90,15 +108,14 @@ const Approvalpage = () => {
 
         {!loading && users.length === 0 && !error && <p className="text-gray-600 text-center">No users found.</p>}
 
-
         {/* Pending Approval Section */}
         <section>
           <h2 className="text-2xl md:text-3xl font-semibold mb-4 text-yellow-700">Pending Approval</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {users.filter((user: any) => !user.is_staff).length === 0 && (
+            {users.filter((user) => !user.is_staff).length === 0 && (
               <p className="text-gray-500 col-span-full text-center">No users pending approval.</p>
             )}
-            {users.filter((user: any) => !user.is_staff).map((user: any, index) => (
+            {users.filter((user) => !user.is_staff).map((user, index) => (
               <div
                 key={`pending-${index}`}
                 className="bg-white border border-gray-200 rounded-lg shadow-md p-4 md:p-6 flex flex-col justify-between hover:shadow-xl transition-shadow duration-300"
@@ -129,10 +146,10 @@ const Approvalpage = () => {
         <section className="mb-10 mt-10">
           <h2 className="text-2xl md:text-3xl font-semibold mb-5 text-green-700">Approved Users</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {users.filter((user: any) => user.is_staff).length === 0 && (
+            {users.filter((user) => user.is_staff).length === 0 && (
               <p className="text-gray-500 col-span-full text-center">No approved users.</p>
             )}
-            {users.filter((user: any) => user.is_staff).map((user: any, index) => (
+            {users.filter((user) => user.is_staff).map((user, index) => (
               <div
                 key={`approved-${index}`}
                 className="bg-white border border-gray-200 rounded-lg shadow-md p-4 md:p-6 flex flex-col justify-between"

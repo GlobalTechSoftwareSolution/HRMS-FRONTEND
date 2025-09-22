@@ -21,7 +21,7 @@ type UserInfo = {
 
 const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
   ceo: [
-    { name: "Overview", path: "/ceo/overview" },
+    // { name: "Overview", path: "/ceo/overview" },
     { name: "Reports", path: "/ceo/reports" },
     { name: "Employees", path: "/ceo/employees" },
     { name: "Finance", path: "/ceo/finance" },
@@ -107,23 +107,26 @@ export default function DashboardLayout({ children, role }: Props) {
 
       const fetchUser = async () => {
         try {
-          // Ensure URL ends with slash
-          const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
-          const url = `${baseUrl.endsWith("/") ? baseUrl : baseUrl + "/"}api/accounts/${role}s/${encodeURIComponent(email)}/`;
+          const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/${role}s/${encodeURIComponent(email)}/`;
+          console.log("Fetching user data from:", url);
 
           const res = await fetch(url, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
           });
 
-          if (!res.ok) throw new Error("Failed to fetch user data");
+          if (!res.ok) {
+            console.warn("Failed to fetch user data. Status:", res.status);
+            setUserInfo(parsedUser); // fallback to localStorage
+            return;
+          }
 
           const data = await res.json();
           setUserInfo({
             name: data.fullname || parsedUser.name,
             email: data.email,
-            picture: parsedUser.picture, // Google profile pic fallback
-            profile_profile_picture: data.profile_picture, // Supabase/backend pic
+            picture: parsedUser.picture,
+            profile_profile_picture: data.profile_picture,
             role: parsedUser.role,
           });
         } catch (error) {

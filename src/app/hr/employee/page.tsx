@@ -43,7 +43,7 @@ export default function HREmployeePage() {
       try {
         setIsLoading(true);
         const res = await fetch(
-          "http://127.0.0.1:8000/api/accounts/employees/"
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`
         );
 
         if (!res.ok) {
@@ -89,7 +89,7 @@ export default function HREmployeePage() {
 
   // Handle onboard new employee (redirect to signup)
   const handleOnboardEmployee = () => {
-    window.location.href = "http://127.0.0.1:8000/api/accounts/signup";
+    window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/signup`;
   };
 
   // Handle edit employee
@@ -110,39 +110,45 @@ export default function HREmployeePage() {
 
   // Save edited employee data
   const handleSaveEdit = async () => {
-    if (!selectedEmployee) return;
+  if (!selectedEmployee) return;
 
-    try {
-      const res = await fetch(
-        `http://127.0.0.1:8000/api/accounts/employees/${selectedEmployee.id}/`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(editFormData),
-        }
-      );
-
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+  try {
+    const res = await fetch(
+      `http://127.0.0.1:8000/api/accounts/employees/${encodeURIComponent(
+        selectedEmployee.email
+      )}/`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(editFormData),
       }
+    );
 
-      const updatedEmployee = await res.json();
-      
-      // Update the employees list
-      setEmployees(prev => prev.map(emp => 
-        emp.id === selectedEmployee.id ? updatedEmployee : emp
-      ));
-      
-      toast.success("Employee updated successfully");
-      setIsEditing(false);
-      setSelectedEmployee(null);
-    } catch (err: any) {
-      console.error("Failed to update employee:", err);
-      toast.error("Failed to update employee");
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error("Validation errors:", errorData);
+      throw new Error(`HTTP error! status: ${res.status}`);
     }
-  };
+
+    const updatedEmployee = await res.json();
+
+    // Update your local state so the UI reflects the changes
+    setEmployees((prev) =>
+      prev.map((emp) =>
+        emp.email === updatedEmployee.email ? updatedEmployee : emp
+      )
+    );
+
+    // Close the modal or form
+    setSelectedEmployee(null);
+  } catch (err: any) {
+    console.error("Failed to update employee:", err.message || err);
+    alert("Failed to update employee. Check console for details.");
+  }
+};
+
 
   // Get unique departments for filter
   const departments = Array.from(new Set(employees.map(emp => emp.department).filter(Boolean))) as string[];
@@ -459,13 +465,13 @@ export default function HREmployeePage() {
                   </>
                 ) : (
                   <>
-                    <button
+                    {/* <button
                       onClick={() => setIsEditing(true)}
                       className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition flex items-center"
                     >
                       <FiEdit className="mr-1" />
                       Edit Info
-                    </button>
+                    </button> */}
                     <button
                       onClick={() => setSelectedEmployee(null)}
                       className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition"
@@ -593,13 +599,13 @@ export default function HREmployeePage() {
                               <FiEye className="mr-1" />
                               View
                             </button>
-                            <button
+                            {/* <button
                               onClick={() => handleEditEmployee(emp)}
                               className="text-green-600 hover:text-green-900 flex items-center"
                             >
                               <FiEdit className="mr-1" />
                               Edit
-                            </button>
+                            </button> */}
                           </div>
                         </td>
                       </tr>

@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    domains: ["ejanftgxxtlbadbqzdib.supabase.co"], // Add your Supabase storage host here
+  },
 };
 
 export default nextConfig;

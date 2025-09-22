@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import Image from "next/image"; // Import Next.js Image
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/footer";
 
@@ -36,7 +36,7 @@ export default function AboutPage() {
             <div className={`bg-white rounded-xl shadow-lg p-10 transform transition-all duration-700 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
               <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Our Mission</h2>
               <p className="text-gray-600 text-lg leading-relaxed mb-6">
-                At HR Global Tech Software Solutions, we're dedicated to revolutionizing human resources management for businesses of all sizes. Our mission is to provide intuitive, powerful software solutions that transform how companies manage their most valuable asset: their people.
+                At HR Global Tech Software Solutions, we&apos;re dedicated to revolutionizing human resources management for businesses of all sizes. Our mission is to provide intuitive, powerful software solutions that transform how companies manage their most valuable asset: their people.
               </p>
               <p className="text-gray-600 text-lg leading-relaxed">
                 By combining cutting-edge technology with deep HR expertise, we help organizations streamline processes, enhance employee engagement, and drive business growth through effective human capital management.
@@ -53,12 +53,12 @@ export default function AboutPage() {
               <div className="bg-gray-50 p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
                 <div className="text-blue-600 text-4xl mb-4">✓</div>
                 <h3 className="text-xl font-semibold mb-3 text-black">Innovation</h3>
-                <p className="text-gray-600">We constantly push boundaries to develop forward-thinking solutions that address tomorrow's HR challenges today.</p>
+                <p className="text-gray-600">We constantly push boundaries to develop forward-thinking solutions that address tomorrow&apos;s HR challenges today.</p>
               </div>
               <div className="bg-gray-50 p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
                 <div className="text-blue-600 text-4xl mb-4">❤️</div>
                 <h3 className="text-xl font-semibold mb-3 text-black">Integrity</h3>
-                <p className="text-gray-600">We build trust through transparency, ethical practices, and unwavering commitment to our clients' success.</p>
+                <p className="text-gray-600">We build trust through transparency, ethical practices, and unwavering commitment to our clients&apos; success.</p>
               </div>
               <div className="bg-gray-50 p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
                 <div className="text-blue-600 text-4xl mb-4">⚡</div>
@@ -69,52 +69,55 @@ export default function AboutPage() {
           </div>
         </section>
 
-       {/* Team Section */}
-<section className="py-16 px-6 bg-white">
-  <div className="container mx-auto max-w-6xl">
-    <h2 className="text-3xl font-bold text-gray-800 mb-12 text-center">
-      Leadership Team
-    </h2>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-      
-      {/* CEO */}
-      <div className="flex flex-col md:flex-row items-center md:items-start">
-        <img
-          src="/team/sharansir..jpg"
-          alt="Sharan Patil"
-          className="w-32 h-32 rounded-full object-cover mb-4 md:mb-0 md:mr-6"
-        />
-        <div className="text-center md:text-left">
-          <h3 className="text-xl font-semibold text-black">Sharan Patil</h3>
-          <p className="text-blue-600 mb-3">CEO & Founder</p>
-          <p className="text-gray-600">
-            With over 8 years in HR technology, HR Global Tech bridges the gap 
-            between HR needs and technological solutions.
-          </p>
-        </div>
-      </div>
+        {/* Team Section */}
+        <section className="py-16 px-6 bg-white">
+          <div className="container mx-auto max-w-6xl">
+            <h2 className="text-3xl font-bold text-gray-800 mb-12 text-center">
+              Leadership Team
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
 
-      {/* Tech Lead */}
-      <div className="flex flex-col md:flex-row items-center md:items-start">
-        <img
-          src="/team/manii.jpg"
-          alt="Mani Bharadwaj"
-          className="w-32 h-32 rounded-full object-cover mb-4 md:mb-0 md:mr-6"
-        />
-        <div className="text-center md:text-left">
-          <h3 className="text-xl font-semibold text-black">Mani Bharadwaj</h3>
-          <p className="text-blue-600 mb-3">Tech Lead</p>
-          <p className="text-gray-600">
-            Mani Bharadwaj leads our technical vision, ensuring our platforms 
-            remain at the forefront of innovation, security, and scalability.
-          </p>
-        </div>
-      </div>
+              {/* CEO */}
+              <div className="flex flex-col md:flex-row items-center md:items-start">
+                <Image
+                  src="/team/sharansir..jpg"
+                  alt="Sharan Patil"
+                  width={128}
+                  height={128}
+                  className="rounded-full object-cover mb-4 md:mb-0 md:mr-6"
+                />
+                <div className="text-center md:text-left">
+                  <h3 className="text-xl font-semibold text-black">Sharan Patil</h3>
+                  <p className="text-blue-600 mb-3">CEO & Founder</p>
+                  <p className="text-gray-600">
+                    With over 8 years in HR technology, HR Global Tech bridges the gap 
+                    between HR needs and technological solutions.
+                  </p>
+                </div>
+              </div>
 
-    </div>
-  </div>
-</section>
+              {/* Tech Lead */}
+              <div className="flex flex-col md:flex-row items-center md:items-start">
+                <Image
+                  src="/team/manii.jpg"
+                  alt="Mani Bharadwaj"
+                  width={128}
+                  height={128}
+                  className="rounded-full object-cover mb-4 md:mb-0 md:mr-6"
+                />
+                <div className="text-center md:text-left">
+                  <h3 className="text-xl font-semibold text-black">Mani Bharadwaj</h3>
+                  <p className="text-blue-600 mb-3">Tech Lead</p>
+                  <p className="text-gray-600">
+                    Mani Bharadwaj leads our technical vision, ensuring our platforms 
+                    remain at the forefront of innovation, security, and scalability.
+                  </p>
+                </div>
+              </div>
 
+            </div>
+          </div>
+        </section>
 
         {/* CTA Section */}
         <section className="py-16 px-6 bg-gray-100">

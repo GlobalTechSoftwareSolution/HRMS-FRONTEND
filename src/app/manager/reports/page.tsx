@@ -1,15 +1,15 @@
 "use client";
+
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { supabase } from "@/app/lib/supabaseClient";
 
 type Report = {
-  id: string;
+  id: number;
   title: string;
   description: string;
-  created_by: string;
-  date: string;
   content: string;
+  date: string;
+  email: string;
   created_at: string;
 };
 
@@ -19,24 +19,27 @@ export default function Reports() {
 
   useEffect(() => {
     const fetchReports = async () => {
-      const { data, error } = await supabase
-        .from("accounts_report")
-        .select("*")
-        .order("created_at", { ascending: false });
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_reports/`);
+        if (!res.ok) throw new Error("Failed to fetch reports");
+        const data = await res.json();
 
-      if (error) {
-        console.error("Error fetching reports:", error.message);
-      } else {
-        setReports(data || []);
+        // The API wraps reports in a `reports` array
+        setReports(Array.isArray(data.reports) ? data.reports : []);
+      } catch (err) {
+        console.error("Error fetching reports:", err);
+        setReports([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchReports();
   }, []);
 
   const todayDate = new Date().toISOString().split("T")[0];
-  const todayReports = reports.filter(r => r.date?.startsWith(todayDate));
+  const todayReports = reports.filter(r => r.date.startsWith(todayDate));
 
   return (
     <DashboardLayout role="manager">
@@ -62,7 +65,7 @@ export default function Reports() {
                 </div>
               </div>
 
-              {/* Today’s Reports */}
+              {/* Today's Reports */}
               <div className="bg-white p-4 md:p-6 rounded-xl shadow border border-gray-100 mb-6">
                 <h2 className="text-lg font-semibold mb-3">Today's Reports ({todayReports.length})</h2>
                 {todayReports.length === 0 ? (
@@ -73,7 +76,7 @@ export default function Reports() {
                       <div key={report.id} className="p-3 rounded-lg border border-gray-200 bg-white hover:shadow-lg">
                         <div className="flex justify-between items-center mb-1">
                           <h3 className="font-semibold text-gray-800">{report.title}</h3>
-                          <span className="text-xs text-gray-500">{report.created_by}</span>
+                          <span className="text-xs text-gray-500">{report.email}</span>
                         </div>
                         <p className="text-gray-600">{report.description}</p>
                         <div className="mt-1 text-sm text-gray-500">
@@ -93,7 +96,7 @@ export default function Reports() {
                     <div key={report.id} className="p-3 rounded-lg border border-gray-200 bg-gray-50">
                       <h3 className="font-semibold text-gray-800">{report.title}</h3>
                       <p className="text-gray-600">{report.description}</p>
-                      <p className="text-xs text-gray-500 mt-1">By {report.created_by}</p>
+                      <p className="text-xs text-gray-500 mt-1">By {report.email}</p>
                     </div>
                   ))}
                 </div>

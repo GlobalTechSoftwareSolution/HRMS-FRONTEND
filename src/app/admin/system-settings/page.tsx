@@ -1,4 +1,3 @@
-// app/admin/system-settings/page.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -17,7 +16,6 @@ export default function SystemSettingsPage() {
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [editMode, setEditMode] = useState<boolean>(false);
 
-  // Editable settings state
   const [settings, setSettings] = useState({
     appName: "HRMS Admin Panel",
     timeZone: "(UTC-08:00) Pacific Time",
@@ -32,7 +30,7 @@ export default function SystemSettingsPage() {
 
   // Fetch system info (simulated)
   useEffect(() => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setSystemInfo({
         appName: settings.appName,
         version: "1.0.2",
@@ -40,7 +38,9 @@ export default function SystemSettingsPage() {
         lastUpdated: new Date().toLocaleString(),
       });
     }, 1000);
-  }, []);
+
+    return () => clearTimeout(timer);
+  }, [settings.appName]); // ✅ added dependency
 
   // Notification handler
   const showNotification = (message: string, type: "success" | "error") => {
@@ -49,7 +49,6 @@ export default function SystemSettingsPage() {
   };
 
   const handleSave = () => {
-    // For frontend-only, we just simulate save
     setSystemInfo((prev) => ({
       ...prev!,
       appName: settings.appName,
@@ -83,8 +82,7 @@ export default function SystemSettingsPage() {
             <button
               onClick={() => setEditMode(!editMode)}
               className={`px-5 py-2 font-semibold rounded-lg transition-transform transform hover:scale-105 shadow-md 
-                ${editMode ? 'bg-gray-400 text-white hover:bg-gray-500' : 'bg-indigo-600 text-white hover:bg-indigo-700'}
-              `}
+                ${editMode ? 'bg-gray-400 text-white hover:bg-gray-500' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
             >
               {editMode ? "Cancel" : "Edit"}
             </button>

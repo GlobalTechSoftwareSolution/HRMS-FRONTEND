@@ -2,21 +2,15 @@
 
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { createClient } from "@supabase/supabase-js";
 
 type Attendance = {
   id: number;
-  email_id: string;
-  role: string; // employee role
+  email: string;
+  role: string;
   date: string;
   check_in?: string;
   check_out?: string;
 };
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function HRAttendancePage() {
   const [attendance, setAttendance] = useState<Attendance[]>([]);
@@ -26,18 +20,18 @@ export default function HRAttendancePage() {
   useEffect(() => {
     const fetchAttendance = async () => {
       try {
-        const { data, error } = await supabase
-          .from("accounts_attendance")
-          .select("*");
-        if (error) {
-          setError(error.message);
-          setAttendance([]);
-        } else if (data) {
-          setAttendance(data);
-          setError(null);
-        }
-      } catch (err) {
-        setError("Unexpected error fetching attendance.");
+        setLoading(true);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_attendance/`
+        );
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        // Assuming your API returns { attendance: [...] } or list directly
+        setAttendance(data.attendance || data);
+        setError(null);
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message || "Failed to fetch attendance");
         setAttendance([]);
       } finally {
         setLoading(false);
@@ -88,27 +82,26 @@ export default function HRAttendancePage() {
           <>
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-              {[
-                { label: "Present", color: "green", icon: "✔️" },
-                { label: "Active", color: "yellow", icon: "⏳" },
-                { label: "Absent", color: "red", icon: "❌" },
-              ].map((item) => {
+              {["Present", "Active", "Absent"].map((label) => {
                 const count = attendance.filter(
-                  (rec) => getStatus(rec) === item.label
+                  (rec) => getStatus(rec) === label
                 ).length;
+                const color = label === "Present" ? "green" : label === "Active" ? "yellow" : "red";
+                const icon = label === "Present" ? "✔️" : label === "Active" ? "⏳" : "❌";
+
                 return (
                   <div
-                    key={item.label}
+                    key={label}
                     className={`bg-white rounded-xl shadow-lg p-5 flex items-center space-x-4 transform transition-transform hover:scale-105 duration-300`}
                   >
                     <div
-                      className={`text-${item.color}-500 text-3xl bg-${item.color}-100 p-3 rounded-full animate-bounce`}
+                      className={`text-${color}-500 text-3xl bg-${color}-100 p-3 rounded-full animate-bounce`}
                     >
-                      {item.icon}
+                      {icon}
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-gray-700">{count}</h3>
-                      <p className="text-gray-500">{item.label}</p>
+                      <p className="text-gray-500">{label}</p>
                     </div>
                   </div>
                 );
@@ -129,14 +122,14 @@ export default function HRAttendancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {attendance.map((record) => {
+                  {attendance.map((record, idx) => {
                     const status = getStatus(record);
                     return (
                       <tr
-                        key={record.id}
+                        key={record.id || idx}
                         className="hover:bg-gray-50 transition-colors duration-300 border-b"
                       >
-                        <td className="p-3 break-words">{record.email_id}</td>
+                        <td className="p-3 break-words">{record.email}</td>
                         <td className="p-3 font-medium">{record.role}</td>
                         <td className="p-3">{record.date}</td>
                         <td className="p-3">{record.check_in || "-"}</td>
@@ -157,16 +150,16 @@ export default function HRAttendancePage() {
 
             {/* Cards for small screens */}
             <div className="sm:hidden space-y-4 mt-6">
-              {attendance.map((record) => {
+              {attendance.map((record, idx) => {
                 const status = getStatus(record);
                 return (
                   <div
-                    key={record.id}
+                    key={record.id || idx}
                     className="bg-white shadow-lg rounded-xl p-4 animate-fadeIn"
                   >
                     <div className="flex justify-between items-center mb-2">
                       <h3 className="text-lg font-semibold text-gray-800">
-                        {record.email_id}
+                        {record.email}
                       </h3>
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColors[status]}`}
@@ -182,12 +175,10 @@ export default function HRAttendancePage() {
                         <span className="font-medium">Date:</span> {record.date}
                       </div>
                       <div>
-                        <span className="font-medium">Check-In:</span>{" "}
-                        {record.check_in || "-"}
+                        <span className="font-medium">Check-In:</span> {record.check_in || "-"}
                       </div>
                       <div>
-                        <span className="font-medium">Check-Out:</span>{" "}
-                        {record.check_out || "-"}
+                        <span className="font-medium">Check-Out:</span> {record.check_out || "-"}
                       </div>
                     </div>
                   </div>

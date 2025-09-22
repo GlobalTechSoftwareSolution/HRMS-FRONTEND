@@ -1,14 +1,15 @@
 "use client";
+
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { supabase } from "@/app/lib/supabaseClient";
 
 type Leave = {
   id: number;
   reason: string;
+  leaveType: string;
   startDate: string;
   endDate: string;
-  status: "Pending" | "Approved" | "Rejected";
+  status: string;
   daysRequested: number;
   submittedDate: string;
   department: string;
@@ -41,52 +42,58 @@ export default function LeaveSection() {
       day: "numeric",
     });
 
-  const getStatusIcon = (status: Leave["status"]) => {
-    switch (status) {
-      case "Approved":
+  const getStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "approved":
         return "✓";
-      case "Rejected":
+      case "rejected":
         return "✗";
       default:
         return "⏳";
     }
   };
 
-  // Fetch leaves after email is available
-  useEffect(() => {
+  // Fetch leaves for the logged-in employee
+  const fetchLeaves = async () => {
     if (!email) return;
+    setLoading(true);
 
-    const fetchLeaves = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from("accounts_leave")
-          .select("*")
-          .eq("email_id", email)
-          .order("applied_on", { ascending: false });
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/accounts/list_leaves/?email=${email}`
+      );
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
 
-        if (error) throw error;
+      const leavesArray = Array.isArray(data.leaves) ? data.leaves : [];
 
-        const mappedLeaves: Leave[] = (data || []).map((leave: any) => ({
-          id: leave.id,
-          reason: leave.reason,
-          startDate: leave.start_date,
-          endDate: leave.end_date,
-          status: leave.status,
-          daysRequested: 3,
-          submittedDate: leave.applied_on,
-          department: leave.department || "",
-        }));
+      const mappedLeaves: Leave[] = leavesArray.map((leave: any) => ({
+        id: Math.random(), // temporary id if backend doesn't provide one
+        reason: leave.reason,
+        leaveType: leave.leave_type,
+        startDate: leave.start_date,
+        endDate: leave.end_date,
+        status: leave.status,
+        daysRequested:
+          Math.ceil(
+            (new Date(leave.end_date).getTime() -
+              new Date(leave.start_date).getTime()) /
+              (1000 * 60 * 60 * 24)
+          ) + 1,
+        submittedDate: leave.applied_on,
+        department: leave.department || "",
+      }));
 
-        setLeaves(mappedLeaves);
-      } catch (err) {
-        console.error("Failed to fetch leaves:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setLeaves(mappedLeaves);
+    } catch (err) {
+      console.error("Failed to fetch leaves:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchLeaves();
+  useEffect(() => {
+    if (email) fetchLeaves();
   }, [email]);
 
   // Submit new leave
@@ -107,22 +114,32 @@ export default function LeaveSection() {
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase.from("accounts_leave").insert([
+      const res = await fetch(
+        "http://127.0.0.1:8000/api/accounts/apply_leave/",
         {
-          email_id: email,
-          department: department,
-          reason,
-          start_date: startDate,
-          end_date: endDate,
-          status: "Pending",
-          applied_on: new Date().toISOString().split("T")[0],
-        },
-      ]);
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email,
+            department: department,
+            reason,
+            start_date: startDate,
+            end_date: endDate,
+            leave_type: reason.toLowerCase().replace(" ", "_"),
+            status: "Pending",
+          }),
+        }
+      );
 
-      if (error) {
-        console.error("Supabase insert error:", error);
-        alert("Failed to submit leave request: " + error.message);
-        return;
+      if (!res.ok) {
+        let errMsg = `Failed to submit leave request (status: ${res.status})`;
+        try {
+          const errData = await res.json();
+          errMsg = errData.message || errMsg;
+        } catch {
+          // ignore JSON parse errors
+        }
+        throw new Error(errMsg);
       }
 
       // Reset form
@@ -131,27 +148,9 @@ export default function LeaveSection() {
       setEndDate("");
 
       // Refresh leaves
-      const { data } = await supabase
-        .from("accounts_leave")
-        .select("*")
-        .eq("email_id", email)
-        .order("applied_on", { ascending: false });
-
-      if (data) {
-        const mappedLeaves: Leave[] = data.map((leave: any) => ({
-          id: leave.id,
-          reason: leave.reason,
-          startDate: leave.start_date,
-          endDate: leave.end_date,
-          status: leave.status,
-          daysRequested: 3,
-          submittedDate: leave.applied_on,
-          department: leave.department || "",
-        }));
-        setLeaves(mappedLeaves);
-      }
+      fetchLeaves();
     } catch (err) {
-      console.error("Unexpected error:", err);
+      console.error("Leave submission error:", err);
       alert("Failed to submit leave request: " + (err as Error).message);
     } finally {
       setIsSubmitting(false);
@@ -222,7 +221,14 @@ export default function LeaveSection() {
           <div className="flex justify-between items-center">
             <div className="text-sm text-gray-500">
               {startDate && endDate && (
-                <span>3 business day(s)</span>
+                <span>
+                  {Math.ceil(
+                    (new Date(endDate).getTime() -
+                      new Date(startDate).getTime()) /
+                      (1000 * 60 * 60 * 24)
+                  ) + 1}{" "}
+                  day(s)
+                </span>
               )}
             </div>
 
@@ -289,9 +295,9 @@ export default function LeaveSection() {
                         <td className="py-4">
                           <div
                             className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              leave.status === "Pending"
+                              leave.status.toLowerCase() === "pending"
                                 ? "bg-yellow-100 text-yellow-800"
-                                : leave.status === "Approved"
+                                : leave.status.toLowerCase() === "approved"
                                 ? "bg-green-100 text-green-800"
                                 : "bg-red-100 text-red-800"
                             }`}

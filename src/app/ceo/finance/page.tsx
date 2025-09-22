@@ -4,14 +4,11 @@ import React, { useEffect, useState } from "react";
 import { 
   FiArrowUp, 
   FiArrowDown, 
-  FiTrendingUp, 
-  FiDownload,
+  FiTrendingUp,
   FiSearch,
   FiUsers
 } from "react-icons/fi";
 import DashboardLayout from "@/components/DashboardLayout";
-import { supabase } from "@/app/lib/supabaseClient";
-import { Bar, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -43,6 +40,18 @@ interface Employee {
   name: string;
 }
 
+interface PayrollItem {
+  id?: number;
+  email?: string;
+  name?: string;
+  net_salary?: number;
+  salary?: number;
+  status?: "Credited" | "Pending";
+  pay_date?: string;
+  date?: string;
+  department?: string;
+}
+
 const FinanceDashboard: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
@@ -58,24 +67,26 @@ const FinanceDashboard: React.FC = () => {
     departmentDistribution: {} as Record<string, number>
   });
 
-  // --------------------- FETCH PAYROLL FROM SUPABASE ---------------------
+  // --------------------- FETCH PAYROLL ---------------------
   useEffect(() => {
     const fetchPayroll = async () => {
       try {
-        const { data, error } = await supabase
-          .from("accounts_payroll")
-          .select("*");
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_payrolls/`);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
-        if (error) throw error;
-        if (!data) return;
+        const data: PayrollItem[] | { results?: PayrollItem[]; payrolls?: PayrollItem[] } = await res.json();
 
-        const mapped: Employee[] = data.map((item: any, idx: number) => ({
+        const payrolls: PayrollItem[] = Array.isArray(data)
+          ? data
+          : data.results || data.payrolls || [];
+
+        const mapped: Employee[] = payrolls.map((item, idx) => ({
           id: item.id ?? idx + 1,
-          email: item.email,
-          name: item.email.split("@")[0], // placeholder if name not in table
-          salary: item.net_salary ?? 0,
-          status: item.net_salary > 0 ? "Credited" : "Pending",
-          date: item.pay_date ?? new Date().toISOString(),
+          email: item.email ?? `employee${idx + 1}@company.com`,
+          name: item.name ?? (item.email ? item.email.split("@")[0] : `Employee ${idx + 1}`),
+          salary: item.net_salary ?? item.salary ?? 0,
+          status: item.status ?? ((item.net_salary ?? item.salary ?? 0) > 0 ? "Credited" : "Pending"),
+          date: item.pay_date ?? item.date ?? new Date().toISOString(),
           department: item.department ?? "General"
         }));
 
@@ -84,14 +95,12 @@ const FinanceDashboard: React.FC = () => {
 
         // Finance calculations
         const totalPayroll = mapped.reduce((acc, emp) => acc + emp.salary, 0);
-        const salaryCredited = mapped
-          .filter(emp => emp.status === "Credited")
-          .reduce((acc, emp) => acc + emp.salary, 0);
+        const salaryCredited = mapped.filter(emp => emp.status === "Credited").reduce((acc, emp) => acc + emp.salary, 0);
         const salaryPending = totalPayroll - salaryCredited;
 
-        const monthlyTrend: number[] = [0,0,0,0,0,0]; // dummy for 6 months
+        const monthlyTrend: number[] = [0, 0, 0, 0, 0, 0];
         mapped.forEach(emp => {
-          const month = new Date(emp.date).getMonth(); // 0-11
+          const month = new Date(emp.date).getMonth();
           if (month < 6) monthlyTrend[month] += emp.salary;
         });
 
@@ -110,7 +119,7 @@ const FinanceDashboard: React.FC = () => {
         });
 
       } catch (err) {
-        console.error("Failed to fetch payroll:", err);
+        console.error("❌ Failed to fetch payroll:", err);
       }
     };
 
@@ -122,7 +131,7 @@ const FinanceDashboard: React.FC = () => {
     let result = employees;
 
     if (searchTerm) {
-      result = result.filter(emp => 
+      result = result.filter(emp =>
         emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.department.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -142,95 +151,41 @@ const FinanceDashboard: React.FC = () => {
   const departments = ["All", ...Array.from(new Set(employees.map(emp => emp.department)))];
   const statuses = ["All", "Credited", "Pending"];
 
-  const barChartData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Monthly Payroll (₹)',
-        data: financeData.monthlyTrend,
-        backgroundColor: 'rgba(54, 162, 235, 0.5)',
-        borderColor: 'rgba(54, 162, 235, 1)',
-        borderWidth: 1
-      }
-    ]
-  };
-
-  const pieChartData = {
-    labels: Object.keys(financeData.departmentDistribution),
-    datasets: [
-      {
-        data: Object.values(financeData.departmentDistribution),
-        backgroundColor: [
-          'rgba(255, 99, 132, 0.5)',
-          'rgba(54, 162, 235, 0.5)',
-          'rgba(255, 206, 86, 0.5)',
-          'rgba(75, 192, 192, 0.5)',
-        ],
-        borderColor: [
-          'rgba(255, 99, 132, 1)',
-          'rgba(54, 162, 235, 1)',
-          'rgba(255, 206, 86, 1)',
-          'rgba(75, 192, 192, 1)',
-        ],
-        borderWidth: 1
-      }
-    ]
-  };
-
-  const chartOptions = {
-    responsive: true,
-    plugins: { legend: { position: 'top' as const } }
-  };
-
   return (
     <DashboardLayout role='ceo'>
       <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Finance Dashboard</h1>
 
-        {/* Stats */}
+        {/* Header */}
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Finance Dashboard</h1>
+
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
           {[
-            { label: "Total Payroll", value: `₹${financeData.totalPayroll.toLocaleString()}`, icon: <FiTrendingUp className="text-green-500 text-xl"/>, bg: "bg-green-50" },
-            { label: "Salary Credited", value: `₹${financeData.salaryCredited.toLocaleString()}`, icon: <FiArrowUp className="text-blue-500 text-xl"/>, bg: "bg-blue-50" },
-            { label: "Salary Pending", value: `₹${financeData.salaryPending.toLocaleString()}`, icon: <FiArrowDown className="text-red-500 text-xl"/>, bg: "bg-red-50" },
-            { label: "Employees", value: employees.length.toString(), icon: <FiUsers className="text-purple-500 text-xl"/>, bg: "bg-purple-50" }
+            { label: "Total Payroll", value: `₹${financeData.totalPayroll.toLocaleString()}`, icon: <FiTrendingUp className="text-green-500 text-2xl"/>, bg: "bg-green-50" },
+            { label: "Salary Credited", value: `₹${financeData.salaryCredited.toLocaleString()}`, icon: <FiArrowUp className="text-blue-500 text-2xl"/>, bg: "bg-blue-50" },
+            { label: "Salary Pending", value: `₹${financeData.salaryPending.toLocaleString()}`, icon: <FiArrowDown className="text-red-500 text-2xl"/>, bg: "bg-red-50" },
+            { label: "Employees", value: employees.length.toString(), icon: <FiUsers className="text-purple-500 text-2xl"/>, bg: "bg-purple-50" }
           ].map((item, idx) => (
-            <div key={idx} className={`p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 ${item.bg}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">{item.label}</p>
-                  <p className="text-xl font-bold text-gray-800">{item.value}</p>
-                </div>
-                <div className="p-3 bg-white rounded-full shadow">{item.icon}</div>
+            <div key={idx} className={`p-4 sm:p-6 rounded-xl shadow-md border ${item.bg} flex justify-between items-center`}>
+              <div>
+                <p className="text-sm sm:text-base text-gray-600">{item.label}</p>
+                <p className="text-lg sm:text-xl font-bold text-gray-800">{item.value}</p>
               </div>
+              <div className="p-3 bg-white rounded-full shadow">{item.icon}</div>
             </div>
           ))}
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Payroll Trend (Last 6 Months)</h2>
-            <Bar data={barChartData} options={chartOptions}/>
-          </div>
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Department Distribution</h2>
-            <div className="h-64 flex items-center justify-center">
-              <Pie data={pieChartData} options={chartOptions}/>
-            </div>
-          </div>
-        </div>
-
-        {/* Salary Table */}
-        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
+        {/* Salary Table / Cards for Small Devices */}
+        <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md border border-gray-100">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-4">
-            <h2 className="text-lg font-semibold text-gray-800">Salary Status</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800">Salary Status</h2>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <div className="relative">
+              <div className="relative flex-1">
                 <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"/>
-                <input type="text" placeholder="Search employees..." className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)}/>
+                <input type="text" placeholder="Search employees..." className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)}/>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <select className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value={departmentFilter} onChange={(e)=>setDepartmentFilter(e.target.value)}>
                   {departments.map(d=> <option key={d} value={d}>{d}</option>)}
                 </select>
@@ -241,7 +196,8 @@ const FinanceDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Responsive Table */}
+          <div className="overflow-x-auto hidden sm:block">
             <table className="w-full text-sm text-left text-gray-600">
               <thead className="bg-gray-100 text-gray-700 text-xs uppercase">
                 <tr>
@@ -263,11 +219,28 @@ const FinanceDashboard: React.FC = () => {
                         {emp.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{emp.date}</td>
+                    <td className="px-4 py-3">{new Date(emp.date).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Cards for small devices */}
+          <div className="sm:hidden flex flex-col gap-4">
+            {filteredEmployees.map(emp=>(
+              <div key={emp.id} className="p-4 rounded-xl shadow-md border border-gray-200 bg-white">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-semibold text-gray-800">{emp.name}</h3>
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${emp.status==="Credited"?"bg-green-100 text-green-600":"bg-red-100 text-red-600"}`}>
+                    {emp.status}
+                  </span>
+                </div>
+                <p className="text-gray-500 text-sm">Department: {emp.department}</p>
+                <p className="text-gray-500 text-sm">Salary: ₹{emp.salary.toLocaleString()}</p>
+                <p className="text-gray-500 text-sm">Date: {new Date(emp.date).toLocaleDateString()}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>

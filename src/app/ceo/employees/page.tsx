@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
+import Image from "next/image"; // optimized image
 import DashboardLayout from "@/components/DashboardLayout";
-import { supabase } from "@/app/lib/supabaseClient";
 
 type Employee = {
   id: number;
@@ -29,39 +29,52 @@ export default function EmployeesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "", direction: "ascending" });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: "",
+    direction: "ascending",
+  });
 
   // --------------------- FETCH EMPLOYEES ---------------------
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         setLoading(true);
-        const { data, error } = await supabase.from("accounts_employee").select("*");
-        if (error) throw error;
-        if (!Array.isArray(data)) throw new Error("Unexpected data format");
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`
+        );
+        if (!res.ok) throw new Error("Failed to fetch employees");
 
-        const mappedEmployees: Employee[] = data.map((emp: any, index) => ({
-          id: emp.id ?? index + 1,
-          name: emp.fullname ?? "",
-          role: emp.designation ?? "Employee",
-          department: emp.department ?? "General",
-          email: emp.email_id ?? "",
-          status: "active",
-          joinDate: emp.date_of_birth ?? new Date().toISOString(),
-          phone: emp.phone ?? "",
-          salary: 0,
-          picture: emp.profile_picture || undefined,
-        }));
+        const data: Record<string, any>[] = await res.json();
+
+        const mappedEmployees: Employee[] = (data || []).map(
+          (emp, index) => ({
+            id: emp.id ?? index + 1,
+            name: emp.fullname ?? "",
+            role: emp.designation ?? "Employee",
+            department: emp.department ?? "General",
+            email: emp.email_id ?? "",
+            status: emp.status ?? "active",
+            joinDate: emp.join_date ?? new Date().toISOString(),
+            phone: emp.phone ?? "",
+            salary: emp.salary ?? 0,
+            picture: emp.profile_picture || undefined,
+          })
+        );
 
         setEmployees(mappedEmployees);
         setError("");
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Failed to fetch employees:", err);
-        setError("Failed to fetch employees. Check console for details.");
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to fetch employees. Check console for details."
+        );
       } finally {
         setLoading(false);
       }
     };
+
     fetchEmployees();
   }, []);
 
@@ -79,28 +92,40 @@ export default function EmployeesPage() {
         employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         employee.role.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesDepartment = departmentFilter === "all" || employee.department === departmentFilter;
-      const matchesStatus = statusFilter === "all" || employee.status === statusFilter;
+      const matchesDepartment =
+        departmentFilter === "all" || employee.department === departmentFilter;
+      const matchesStatus =
+        statusFilter === "all" || employee.status === statusFilter;
 
       return matchesSearch && matchesDepartment && matchesStatus;
     });
 
     if (sortConfig.key) {
-      filtered.sort((a, b) => {
-        const aValue = a[sortConfig.key as keyof Employee];
-        const bValue = b[sortConfig.key as keyof Employee];
-        if (aValue < bValue) return sortConfig.direction === "ascending" ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === "ascending" ? 1 : -1;
-        return 0;
-      });
+  const key = sortConfig.key as keyof Employee; // type assertion
+  filtered.sort((a, b) => {
+    const aValue = a[key];
+    const bValue = b[key];
+
+    if (typeof aValue === "string" && typeof bValue === "string") {
+      return sortConfig.direction === "ascending"
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
+    } else if (typeof aValue === "number" && typeof bValue === "number") {
+      return sortConfig.direction === "ascending"
+        ? aValue - bValue
+        : bValue - aValue;
     }
+    return 0;
+  });
+}
 
     return filtered;
   }, [employees, searchTerm, departmentFilter, statusFilter, sortConfig]);
 
   const handleSort = (key: keyof Employee) => {
     let direction: "ascending" | "descending" = "ascending";
-    if (sortConfig.key === key && sortConfig.direction === "ascending") direction = "descending";
+    if (sortConfig.key === key && sortConfig.direction === "ascending")
+      direction = "descending";
     setSortConfig({ key, direction });
   };
 
@@ -108,15 +133,21 @@ export default function EmployeesPage() {
   return (
     <DashboardLayout role="ceo">
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-        {loading && <p className="text-gray-500 animate-pulse">Loading employees...</p>}
+        {loading && (
+          <p className="text-gray-500 animate-pulse">Loading employees...</p>
+        )}
         {error && <p className="text-red-500">{error}</p>}
 
         {!loading && !error && (
           <>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Employee Management</h1>
-                <p className="text-gray-600 mt-1">Manage your organization's employees</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  Employee Management
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  Manage your organization&apos;s employees
+                </p>
               </div>
             </div>
 
@@ -163,11 +194,14 @@ export default function EmployeesPage() {
                 >
                   {/* Profile Image */}
                   {emp.picture ? (
-                    <img
-                      src={emp.picture}
-                      alt={emp.name}
-                      className="w-24 h-24 rounded-full border-4 border-indigo-500 shadow-md mb-4 object-cover"
-                    />
+                    <div className="relative w-24 h-24 mb-4">
+                      <Image
+                        src={emp.picture}
+                        alt={emp.name}
+                        className="rounded-full object-cover"
+                        fill
+                      />
+                    </div>
                   ) : (
                     <div className="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-800 font-bold text-xl mb-4 shadow-md">
                       {emp.name
@@ -178,8 +212,12 @@ export default function EmployeesPage() {
                   )}
 
                   {/* Name and Role */}
-                  <h2 className="font-semibold text-lg sm:text-xl text-gray-900">{emp.name}</h2>
-                  <p className="text-gray-500 text-sm sm:text-base capitalize">{emp.role}</p>
+                  <h2 className="font-semibold text-lg sm:text-xl text-gray-900">
+                    {emp.name}
+                  </h2>
+                  <p className="text-gray-500 text-sm sm:text-base capitalize">
+                    {emp.role}
+                  </p>
                   <p className="text-gray-500 text-sm">{emp.department}</p>
 
                   {/* Email & Phone */}
@@ -200,10 +238,14 @@ export default function EmployeesPage() {
                   </span>
 
                   {/* Joined Date */}
-                  <p className="mt-2 text-gray-400 text-xs">Joined: {new Date(emp.joinDate).toLocaleDateString()}</p>
+                  <p className="mt-2 text-gray-400 text-xs">
+                    Joined: {new Date(emp.joinDate).toLocaleDateString()}
+                  </p>
 
                   {/* Salary */}
-                  <p className="mt-2 font-semibold text-gray-900 text-sm">${emp.salary.toLocaleString()}</p>
+                  <p className="mt-2 font-semibold text-gray-900 text-sm">
+                    ${emp.salary.toLocaleString()}
+                  </p>
                 </div>
               ))}
             </div>
