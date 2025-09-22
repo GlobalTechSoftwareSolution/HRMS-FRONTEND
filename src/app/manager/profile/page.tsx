@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   FiSave,
@@ -10,9 +11,9 @@ import {
   FiMail,
   FiCamera,
 } from "react-icons/fi";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
+const supabase: SupabaseClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 );
@@ -21,6 +22,15 @@ type UserProfile = {
   name: string;
   email: string;
   picture?: string;
+  role: string;
+  phone?: string;
+  department?: string;
+};
+
+type FetchUserResponse = {
+  fullname?: string;
+  email: string;
+  profile_picture?: string;
   role: string;
   phone?: string;
   department?: string;
@@ -51,7 +61,7 @@ export default function Profile() {
           { headers: { "Content-Type": "application/json" } }
         );
         if (!response.ok) throw new Error("Failed to fetch user data");
-        const currentUser = await response.json();
+        const currentUser: FetchUserResponse = await response.json();
         setUser({
           name: currentUser.fullname || "",
           email: currentUser.email || email,
@@ -60,7 +70,7 @@ export default function Profile() {
           phone: currentUser.phone || "",
           department: currentUser.department || "",
         });
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Error fetching user data:", error);
         setSaveMessage({ type: "error", text: "Failed to load profile data." });
       }
@@ -68,7 +78,7 @@ export default function Profile() {
 
     const storedUser = localStorage.getItem("userInfo");
     if (storedUser) {
-      const parsed = JSON.parse(storedUser);
+      const parsed = JSON.parse(storedUser) as { email?: string };
       if (parsed.email) fetchUserData(parsed.email);
     }
   }, []);
@@ -78,14 +88,21 @@ export default function Profile() {
     const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => setUser((prev) => ({ ...prev, picture: reader.result as string }));
+    reader.onload = () =>
+      setUser((prev) => ({ ...prev, picture: reader.result as string }));
     reader.readAsDataURL(file);
   };
 
   // Save profile
   const handleSave = async () => {
-    if (user.phone && !/^[\+]?[0-9]{6,15}$/.test(user.phone.replace(/\s/g, ""))) {
-      setSaveMessage({ type: "error", text: "Please enter a valid phone number" });
+    if (
+      user.phone &&
+      !/^[\+]?[0-9]{6,15}$/.test(user.phone.replace(/\s/g, ""))
+    ) {
+      setSaveMessage({
+        type: "error",
+        text: "Please enter a valid phone number",
+      });
       return;
     }
 
@@ -107,12 +124,16 @@ export default function Profile() {
           .from("profile-pictures")
           .getPublicUrl(fileName);
 
-        profilePictureUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+        if (publicUrlData.publicUrl) {
+          profilePictureUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+        }
       }
 
       // PUT request
       const response = await fetch(
-       `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/managers/${encodeURIComponent(user.email)}/`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/managers/${encodeURIComponent(
+          user.email
+        )}/`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -127,7 +148,7 @@ export default function Profile() {
       );
 
       if (!response.ok) throw new Error("Failed to update profile");
-      const updatedUser = await response.json();
+      const updatedUser: FetchUserResponse = await response.json();
 
       setUser({
         name: updatedUser.fullname || user.name,
@@ -139,11 +160,18 @@ export default function Profile() {
       });
 
       localStorage.setItem("userInfo", JSON.stringify(updatedUser));
-      setSaveMessage({ type: "success", text: "Profile updated successfully!" });
+      setSaveMessage({
+        type: "success",
+        text: "Profile updated successfully!",
+      });
       setIsEditing(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      setSaveMessage({ type: "error", text: error.message || "Failed to save profile changes." });
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to save profile changes.";
+      setSaveMessage({ type: "error", text: message });
     } finally {
       setIsSaving(false);
       setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
@@ -178,9 +206,11 @@ export default function Profile() {
 
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
           <div className="relative flex-shrink-0">
-            <img
+            <Image
               src={user.picture || "/default-profile.png"}
               alt={user.name || "Profile"}
+              width={96}
+              height={96}
               className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
             />
             {isEditing && (
@@ -286,7 +316,11 @@ export default function Profile() {
               disabled={isSaving}
               className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-70"
             >
-              {isSaving ? "Saving..." : <><FiSave size={16} /> Save Changes</>}
+              {isSaving ? "Saving..." : (
+                <>
+                  <FiSave size={16} /> Save Changes
+                </>
+              )}
             </button>
           </div>
         )}

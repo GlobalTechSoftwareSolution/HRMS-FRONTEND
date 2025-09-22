@@ -3,198 +3,186 @@ import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 
 type Task = {
- task_id: number; // backend-provided unique identifier
- title: string;
- description: string;
- dueDate: string;
- priority: "High" | "Medium" | "Low";
- status: "Pending" | "In Progress" | "Completed";
- completed: boolean;
- createdAt: string;
+  task_id: number; // backend-provided unique identifier
+  title: string;
+  description: string;
+  dueDate: string;
+  priority: "High" | "Medium" | "Low";
+  status: "Pending" | "In Progress" | "Completed";
+  completed: boolean;
+  createdAt: string;
+  email?: string; // backend may provide this, used for filtering by user
 };
 
 type TaskFilter = "all" | "pending" | "completed" | "high-priority";
 
 export default function TasksDashboard() {
- const [tasks, setTasks] = useState<Task[]>([]);
- const [currentDate, setCurrentDate] = useState<string>("");
- const [statusToUpdate, setStatusToUpdate] = useState<Task["status"]>("Pending");
- const [filter, setFilter] = useState<TaskFilter>("all");
- const [searchQuery, setSearchQuery] = useState<string>("");
- const [selectedTask, setSelectedTask] = useState<Task | null>(null);
- const [showTaskModal, setShowTaskModal] = useState<boolean>(false);
- // Report modal states
- const [showReportModal, setShowReportModal] = useState<boolean>(false);
- const [reportContent, setReportContent] = useState<string>("");
- const [reportStatus, setReportStatus] = useState<Task["status"]>("Pending");
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [currentDate, setCurrentDate] = useState<string>("");
+  const [statusToUpdate, setStatusToUpdate] = useState<Task["status"]>("Pending");
+  const [filter, setFilter] = useState<TaskFilter>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showTaskModal, setShowTaskModal] = useState<boolean>(false);
 
- useEffect(() => {
- // Fetch tasks from backend API on mount
- fetch('http://127.0.0.1:8000/api/accounts/list_tasks/')
- .then((response) => {
- if (!response.ok) {
- throw new Error(`HTTP error! status: ${response.status}`);
- }
- return response.json();
- })
- .then((data) => {
- // Handle both { tasks: [...] } and plain array responses
- let tasksArr: any[] = [];
- if (Array.isArray(data)) {
- tasksArr = data;
- } else if (data && Array.isArray(data.tasks)) {
- tasksArr = data.tasks;
- } else {
- setTasks([]);
- console.error("Unexpected tasks API response:", data);
- return;
- }
- // Map backend task_id to each object
- tasksArr = tasksArr.map((task: any) => ({
- ...task,
- task_id: task.task_id, // ensure task_id is present
- }));
- // Filter by user_email from localStorage
- const userEmail = typeof window !== "undefined" ? localStorage.getItem("user_email") : null;
- if (userEmail) {
- setTasks(tasksArr.filter((task: any) => task.email === userEmail));
- } else {
- setTasks([]);
- }
- })
- .catch((error) => {
- console.error('Failed to fetch tasks:', error);
- });
- }, []);
+  // Report modal states
+  const [reportContent, setReportContent] = useState<string>("");
+  const [reportStatus, setReportStatus] = useState<Task["status"]>("Pending");
 
- useEffect(() => {
- const now = new Date();
- const options: Intl.DateTimeFormatOptions = {
- weekday: "long",
- year: "numeric",
- month: "long",
- day: "numeric",
- };
- setCurrentDate(now.toLocaleDateString("en-US", options));
- }, []);
+  useEffect(() => {
+    // Fetch tasks from backend API on mount
+    fetch("http://127.0.0.1:8000/api/accounts/list_tasks/")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        // Handle both { tasks: [...] } and plain array responses
+        let tasksArr: unknown = [];
+        if (Array.isArray(data)) {
+          tasksArr = data;
+        } else if (data && Array.isArray((data as { tasks?: Task[] }).tasks)) {
+          tasksArr = (data as { tasks: Task[] }).tasks;
+        } else {
+          setTasks([]);
+          console.error("Unexpected tasks API response:", data);
+          return;
+        }
 
- const toggleTask = (task_id: number) => {
- setTasks((prev) =>
- prev.map((task) =>
- task.task_id === task_id
- ? {
- ...task,
- completed: !task.completed,
- status: task.completed ? "Pending" : "Completed"
- }
- : task
- )
- );
- };
+        // Map backend task_id to each object
+        const mappedTasks: Task[] = (tasksArr as Task[]).map((task) => ({
+          ...task,
+          task_id: task.task_id,
+        }));
 
+        // Filter by user_email from localStorage
+        const userEmail =
+          typeof window !== "undefined" ? localStorage.getItem("user_email") : null;
+        if (userEmail) {
+          setTasks(mappedTasks.filter((task) => task.email === userEmail));
+        } else {
+          setTasks([]);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch tasks:", error);
+      });
+  }, []);
 
- // Update only the status of a task, sending a PUT request to the backend
- const handleUpdateStatus = async (taskId: number, newStatusValue: Task["status"]) => {
- try {
- const response = await fetch(`http://127.0.0.1:8000/api/accounts/update_task/${taskId}/`, {
- method: "PUT",
- headers: {
- "Content-Type": "application/json",
- },
- body: JSON.stringify({ status: newStatusValue }),
- });
- if (!response.ok) {
- throw new Error(`HTTP error! status: ${response.status}`);
- }
- // Only update local state if request is successful
- setTasks((prev) =>
- prev.map((task) =>
- task.task_id === taskId
- ? { ...task, status: newStatusValue, completed: newStatusValue === "Completed" }
- : task
- )
- );
- setShowTaskModal(false);
- setSelectedTask(null);
- } catch (error) {
- console.error("Failed to update task status:", error);
- alert("Failed to update task status. Please try again.");
- }
- };
+  useEffect(() => {
+    const now = new Date();
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    };
+    setCurrentDate(now.toLocaleDateString("en-US", options));
+  }, []);
 
- const handleDeleteTask = (task_id: number) => {
- if (confirm("Are you sure you want to delete this task?")) {
- setTasks((prev) => prev.filter((task) => task.task_id !== task_id));
- }
- };
+  // Update only the status of a task, sending a PUT request to the backend
+  const handleUpdateStatus = async (taskId: number, newStatusValue: Task["status"]) => {
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/accounts/update_task/${taskId}/`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: newStatusValue }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      // Only update local state if request is successful
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.task_id === taskId
+            ? { ...task, status: newStatusValue, completed: newStatusValue === "Completed" }
+            : task
+        )
+      );
+      setShowTaskModal(false);
+      setSelectedTask(null);
+    } catch (error) {
+      console.error("Failed to update task status:", error);
+      alert("Failed to update task status. Please try again.");
+    }
+  };
 
- const formatDate = (dateString: string) => {
- const date = new Date(dateString);
- const now = new Date();
- const tomorrow = new Date(now);
- tomorrow.setDate(tomorrow.getDate() + 1);
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
- if (date.toDateString() === now.toDateString()) {
- return "Today";
- } else if (date.toDateString() === tomorrow.toDateString()) {
- return "Tomorrow";
- } else {
- return date.toLocaleDateString("en-US", {
- month: "short",
- day: "numeric",
- });
- }
- };
+    if (date.toDateString() === now.toDateString()) {
+      return "Today";
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return "Tomorrow";
+    } else {
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+    }
+  };
 
- const getPriorityIcon = (priority: Task["priority"]) => {
- switch (priority) {
- case "High":
- return "🔴";
- case "Medium":
- return "🟡";
- case "Low":
- return "🟢";
- default:
- return "⚪";
- }
- };
+  const getPriorityIcon = (priority: Task["priority"]) => {
+    switch (priority) {
+      case "High":
+        return "🔴";
+      case "Medium":
+        return "🟡";
+      case "Low":
+        return "🟢";
+      default:
+        return "⚪";
+    }
+  };
 
- const getStatusIcon = (status: Task["status"]) => {
- switch (status) {
- case "Completed":
- return "✅";
- case "In Progress":
- return "🔄";
- case "Pending":
- return "⏳";
- default:
- return "⚪";
- }
- };
+  const getStatusIcon = (status: Task["status"]) => {
+    switch (status) {
+      case "Completed":
+        return "✅";
+      case "In Progress":
+        return "🔄";
+      case "Pending":
+        return "⏳";
+      default:
+        return "⚪";
+    }
+  };
 
- const filteredTasks = tasks.filter((task) => {
- // Filter by status
- if (filter === "pending" && task.completed) return false;
- if (filter === "completed" && !task.completed) return false;
- if (filter === "high-priority" && task.priority !== "High") return false;
- 
- // Filter by search query
- if (searchQuery) {
- const query = searchQuery.toLowerCase();
- return (
- task.title.toLowerCase().includes(query) ||
- task.description.toLowerCase().includes(query)
- );
- }
- 
- return true;
- });
+  const filteredTasks = tasks.filter((task) => {
+    // Filter by status
+    if (filter === "pending" && task.completed) return false;
+    if (filter === "completed" && !task.completed) return false;
+    if (filter === "high-priority" && task.priority !== "High") return false;
 
- const pendingTasks = tasks.filter((task) => !task.completed).length;
- const highPriorityTasks = tasks.filter((task) => task.priority === "High" && !task.completed).length;
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      return (
+        task.title.toLowerCase().includes(query) ||
+        task.description.toLowerCase().includes(query)
+      );
+    }
 
- return (
- <DashboardLayout role="employee">
+    return true;
+  });
+
+  const pendingTasks = tasks.filter((task) => !task.completed).length;
+  const highPriorityTasks = tasks.filter(
+    (task) => task.priority === "High" && !task.completed
+  ).length;
+
+  return (
+     <DashboardLayout role="employee">
  <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
  <div className="max-w-6xl mx-auto">
  {/* Header */}
@@ -540,5 +528,5 @@ export default function TasksDashboard() {
  }
  `}</style>
  </DashboardLayout>
- );
+  );
 }

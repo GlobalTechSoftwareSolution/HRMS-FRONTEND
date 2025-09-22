@@ -12,14 +12,14 @@ export default function HRPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
       >
-        <motion.h1
-          className="text-2xl font-bold mb-4"
-          initial={{ scale: 0.9 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 0.5, yoyo: Infinity }}
-        >
-          Welcome HR 🧑‍💻
-        </motion.h1>
+       <motion.h1
+  initial={{ scale: 0.9 }}
+  animate={{ scale: 1 }}
+  transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
+>
+  Welcome HR 🧑‍💻
+</motion.h1>
+
         <motion.p
           className="text-gray-600"
           initial={{ opacity: 0 }}

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 
 interface Task {
-  id: number;           // make sure to match your API
+  id: number;           // Use id instead of task_id
   title: string;
   description: string;
   department: string;
@@ -34,40 +34,37 @@ export default function ReportsAndTasksPage() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"tasks" | "reports">("tasks");
 
-useEffect(() => {
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      // Fetch tasks
-      const tasksRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_tasks/`);
-      if (!tasksRes.ok) throw new Error("Failed to fetch tasks");
-      const tasksJson = await tasksRes.json();
-      console.log("Tasks JSON:", tasksJson);
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch tasks
+        const tasksRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_tasks/`
+        );
+        if (!tasksRes.ok) throw new Error("Failed to fetch tasks");
+        const tasksJson = await tasksRes.json();
 
-      // Fetch reports
-      const reportsRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_reports/`);
-      if (!reportsRes.ok) throw new Error("Failed to fetch reports");
-      const reportsJson = await reportsRes.json();
-      console.log("Reports JSON:", reportsJson);
+        // Fetch reports
+        const reportsRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_reports/`
+        );
+        if (!reportsRes.ok) throw new Error("Failed to fetch reports");
+        const reportsJson = await reportsRes.json();
 
-      // Set state using the arrays inside the returned objects
-      setTasks(Array.isArray(tasksJson.tasks) ? tasksJson.tasks : []);
-      setReports(Array.isArray(reportsJson.reports) ? reportsJson.reports : []);
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      setTasks([]);
-      setReports([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        setTasks(Array.isArray(tasksJson.tasks) ? tasksJson.tasks : []);
+        setReports(Array.isArray(reportsJson.reports) ? reportsJson.reports : []);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setTasks([]);
+        setReports([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  fetchData();
-}, []);
-
-
+    fetchData();
+  }, []);
 
   const openTaskModal = (task: Task) => {
     setSelectedTask(task);
@@ -158,18 +155,24 @@ useEffect(() => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {tasks.map(task => (
-                      <tr key={task.task_id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 font-mono text-sm">{task.task_id}</td>
+                      <tr key={task.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 font-mono text-sm">{task.id}</td>
                         <td className="px-6 py-4">{task.title}</td>
                         <td className="px-6 py-4">{task.department}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>{task.priority}</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
+                            {task.priority}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>{task.status}</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
+                            {task.status}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
-                          <button onClick={() => openTaskModal(task)} className="text-blue-600 hover:text-blue-800 font-medium text-sm">View</button>
+                          <button onClick={() => openTaskModal(task)} className="text-blue-600 hover:text-blue-800 font-medium text-sm">
+                            View
+                          </button>
                         </td>
                       </tr>
                     ))}

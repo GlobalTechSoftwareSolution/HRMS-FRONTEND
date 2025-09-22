@@ -60,14 +60,14 @@ export default function Reports() {
                   <p className="text-xl font-bold text-gray-800">{reports.length}</p>
                 </div>
                 <div className="bg-white p-4 rounded-xl shadow border border-gray-100">
-                  <h2 className="text-sm font-semibold text-gray-500 mb-2">Today's Reports</h2>
+                  <h2 className="text-sm font-semibold text-gray-500 mb-2">Today&apos;s Reports</h2>
                   <p className="text-xl font-bold text-blue-700">{todayReports.length}</p>
                 </div>
               </div>
 
               {/* Today's Reports */}
               <div className="bg-white p-4 md:p-6 rounded-xl shadow border border-gray-100 mb-6">
-                <h2 className="text-lg font-semibold mb-3">Today's Reports ({todayReports.length})</h2>
+                <h2 className="text-lg font-semibold mb-3">Today&apos;s Reports ({todayReports.length})</h2>
                 {todayReports.length === 0 ? (
                   <p className="text-gray-500">No reports created today.</p>
                 ) : (

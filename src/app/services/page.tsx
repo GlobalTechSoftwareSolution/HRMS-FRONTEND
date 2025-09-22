@@ -2,6 +2,7 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 const services = [
   {
@@ -71,10 +72,12 @@ export default function ServicesHRMS() {
     <section className="relative min-h-screen flex flex-col justify-center items-center text-center px-8 py-20 overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0">
-        <img
+        <Image
           src="https://images.unsplash.com/photo-1521791136064-7986c2920216?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
           alt="HR Services Background"
-          className="w-full h-full object-cover"
+          fill
+          priority
+          className="object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/70 to-black/80"></div>
       </div>

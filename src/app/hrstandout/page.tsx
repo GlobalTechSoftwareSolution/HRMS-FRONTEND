@@ -1,6 +1,8 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
+
 
 export default function HRStandOut() {
   const features = [
@@ -75,13 +77,13 @@ export default function HRStandOut() {
                 whileHover={{ rotate: [0, -5, 5, 0] }}
                 transition={{ duration: 0.6 }}
               >
-                <img
-                  src={f.img}
-                  alt={f.title}
-                  width={f.w}
-                  height={f.h}
-                  className="mx-auto"
-                />
+               <Image
+  src={f.img}
+  alt={f.title}
+  width={f.w}
+  height={f.h}
+  className="mx-auto object-contain"
+/>
               </motion.div>
               <h4 className="text-xl font-semibold text-gray-900 mb-3">
                 {f.title}

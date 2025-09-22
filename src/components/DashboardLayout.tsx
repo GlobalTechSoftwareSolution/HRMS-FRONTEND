@@ -1,6 +1,7 @@
 "use client";
 import { ReactNode, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FiLogOut, FiMenu, FiX } from "react-icons/fi";
 
@@ -21,7 +22,6 @@ type UserInfo = {
 
 const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
   ceo: [
-    // { name: "Overview", path: "/ceo/overview" },
     { name: "Reports", path: "/ceo/reports" },
     { name: "Employees", path: "/ceo/employees" },
     { name: "Finance", path: "/ceo/finance" },
@@ -66,7 +66,7 @@ export default function DashboardLayout({ children, role }: Props) {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // ✅ Load user info from localStorage and listen for updates
+  // Load user info from localStorage & listen for updates
   useEffect(() => {
     const loadUserInfo = () => {
       const storedUser = localStorage.getItem("userInfo");
@@ -87,16 +87,11 @@ export default function DashboardLayout({ children, role }: Props) {
     };
 
     loadUserInfo();
-
-    // Listen for profile updates from Profile page
     window.addEventListener("profile-updated", loadUserInfo);
-
-    return () => {
-      window.removeEventListener("profile-updated", loadUserInfo);
-    };
+    return () => window.removeEventListener("profile-updated", loadUserInfo);
   }, [role]);
 
-  // ✅ Fetch user data from backend (if email exists)
+  // Fetch updated user data from backend
   useEffect(() => {
     const storedUser = localStorage.getItem("userInfo");
     if (!storedUser) return;
@@ -108,19 +103,12 @@ export default function DashboardLayout({ children, role }: Props) {
       const fetchUser = async () => {
         try {
           const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/${role}s/${encodeURIComponent(email)}/`;
-          console.log("Fetching user data from:", url);
-
-          const res = await fetch(url, {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-          });
-
+          const res = await fetch(url);
           if (!res.ok) {
             console.warn("Failed to fetch user data. Status:", res.status);
-            setUserInfo(parsedUser); // fallback to localStorage
+            setUserInfo(parsedUser);
             return;
           }
-
           const data = await res.json();
           setUserInfo({
             name: data.fullname || parsedUser.name,
@@ -131,7 +119,7 @@ export default function DashboardLayout({ children, role }: Props) {
           });
         } catch (error) {
           console.error("Error fetching user:", error);
-          setUserInfo(parsedUser); // fallback to localStorage
+          setUserInfo(parsedUser);
         }
       };
 
@@ -150,22 +138,20 @@ export default function DashboardLayout({ children, role }: Props) {
   }, [router]);
 
   const roleLinks = roleLinksMap[role];
-
   const profilePic =
-    userInfo?.profile_profile_picture ||
-    userInfo?.picture ||
-    "/default-profile.png";
-    
+    userInfo?.profile_profile_picture || userInfo?.picture || "/default-profile.png";
 
   return (
     <div className="flex min-h-screen bg-gray-100 font-sans text-gray-800">
       {/* Sidebar (desktop) */}
       <aside className="hidden md:flex w-72 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex-col">
         <div className="p-6 flex items-center gap-4 border-b border-blue-700">
-          <img
+          <Image
             src={profilePic}
             alt={userInfo?.name || "Profile"}
-            className="w-16 h-16 rounded-full border-2 border-white shadow-md object-cover"
+            width={64}
+            height={64}
+            className="rounded-full border-2 border-white shadow-md object-cover"
           />
           <div className="flex flex-col">
             <p className="text-lg font-semibold text-white">
@@ -213,10 +199,12 @@ export default function DashboardLayout({ children, role }: Props) {
             </button>
 
             <div className="p-6 flex items-center gap-4 border-b border-blue-700">
-              <img
+              <Image
                 src={profilePic}
                 alt={userInfo?.name || "Profile"}
-                className="w-16 h-16 rounded-full border-2 border-white shadow-md object-cover"
+                width={64}
+                height={64}
+                className="rounded-full border-2 border-white shadow-md object-cover"
               />
               <div className="flex flex-col">
                 <p className="text-lg font-semibold text-white">
@@ -274,10 +262,12 @@ export default function DashboardLayout({ children, role }: Props) {
               onClick={() => router.push(`/${role}/profile`)}
               className="focus:outline-none"
             >
-              <img
+              <Image
                 src={profilePic}
                 alt={userInfo?.name || "Profile"}
-                className="w-10 h-10 rounded-full border border-gray-300 shadow-sm object-cover cursor-pointer"
+                width={40}
+                height={40}
+                className="rounded-full border border-gray-300 shadow-sm object-cover cursor-pointer"
               />
             </button>
           </div>

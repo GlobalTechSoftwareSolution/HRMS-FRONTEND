@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import Image from "next/image";
 import {
   FiSave,
   FiEdit,
@@ -196,11 +197,13 @@ export default function Profile() {
         {/* Profile Info */}
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
           <div className="relative flex-shrink-0">
-            <img
-              src={user.picture || "/default-profile.png"}
-              alt={user.name || "Profile"}
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
-            />
+            <Image
+  src={user.picture || "/default-profile.png"}
+  alt={user.name || "Profile"}
+  width={96} // equals Tailwind w-24
+  height={96} // equals Tailwind h-24
+  className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
+/>
             {isEditing && (
               <>
                 <button

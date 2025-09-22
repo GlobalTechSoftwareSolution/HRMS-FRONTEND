@@ -4,6 +4,8 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, Briefcase, Eye, X } from "lucide-react";
+import Image from "next/image";
+
 
 // ✅ Supabase client
 const supabase = createClient(
@@ -136,11 +138,13 @@ export default function TeamReport() {
                     className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-300"
                   >
                     <div className="flex items-center gap-4 mb-3">
-                      <img
-                        src={getAvatar(emp)}
-                        alt="profile"
-                        className="w-12 h-12 rounded-full object-cover border"
-                      />
+                     <Image
+  src={getAvatar(emp)}
+  alt={emp.fullname || "Profile"}
+  width={48}        // Tailwind w-12 = 48px
+  height={48}       // Tailwind h-12 = 48px
+  className="rounded-full object-cover border"
+/>
                       <h2 className="text-xl font-semibold text-gray-800">
                         {emp.fullname || "Unknown"}
                       </h2>
@@ -193,11 +197,13 @@ export default function TeamReport() {
               </button>
 
               <div className="flex items-center gap-4 mb-4">
-                <img
-                  src={getAvatar(selectedEmp)}
-                  alt="profile"
-                  className="w-16 h-16 rounded-full object-cover border"
-                />
+                <Image
+  src={getAvatar(selectedEmp)}
+  alt={selectedEmp?.fullname || "Profile"}
+  width={64}        // Tailwind w-16 = 64px
+  height={64}       // Tailwind h-16 = 64px
+  className="rounded-full object-cover border"
+/>
                 <h2 className="text-2xl font-bold text-gray-800">
                   {selectedEmp.fullname}
                 </h2>

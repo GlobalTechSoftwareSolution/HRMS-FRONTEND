@@ -49,8 +49,8 @@ interface DashboardData {
   completedReports: number;
   employeeGrowth: number;
   reportCompletionRate: number;
-  totalHR: number;        // 👈 added
-  totalManagers: number;  // 👈 added
+  totalHR: number;
+  totalManagers: number;
 }
 
 export default function OverviewPage() {
@@ -75,7 +75,6 @@ export default function OverviewPage() {
   // Simulate dynamic updates
   useEffect(() => {
     const fetchData = () => {
-      // Simulate fetching data from API
       const updatedData = {
         totalEmployees: dashboardData.totalEmployees + Math.floor(Math.random() * 3),
         totalReports: dashboardData.totalReports + Math.floor(Math.random() * 5),
@@ -98,7 +97,7 @@ export default function OverviewPage() {
         ]
       });
 
-      // Department Pie Chart (now includes HR & Managers)
+      // Department Pie Chart
       setDepartmentDistribution({
         labels:['Engineering','Marketing','Sales','Operations','HR','Managers'],
         datasets:[{
@@ -132,15 +131,11 @@ export default function OverviewPage() {
       setUnreadNotifications(prev => prev + 1);
     };
 
-    // Fetch initially
     fetchData();
-
-    // Auto-refresh every 10 seconds to simulate live updates
     const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, []); // eslint-disable-line
 
-  // Chart Options
   const barOptions: ChartOptions<'bar'> = { responsive:true, plugins:{ legend:{position:'top'} }, scales:{ y:{ beginAtZero:true, max:100, ticks:{ callback:(v)=>`${v}%` } } } };
   const lineOptions: ChartOptions<'line'> = { responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true}} };
 
@@ -156,7 +151,9 @@ export default function OverviewPage() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">CEO Dashboard</h1>
-            <p className="text-gray-600 text-sm sm:text-base">Welcome back! Here's what's happening today.</p>
+            <p className="text-gray-600 text-sm sm:text-base">
+              Welcome back! Here&apos;s what&apos;s happening today.
+            </p>
           </div>
           <div className="flex flex-row items-center space-x-4 w-full md:w-auto">
             <div className="relative flex-1 md:flex-none">
@@ -171,30 +168,31 @@ export default function OverviewPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 sm:gap-6 mb-6">
-          {[
-            { label:'Total Employees', value:dashboardData.totalEmployees, icon:<FiUsers className="text-blue-500 text-xl"/>, growth:dashboardData.employeeGrowth, bg:'bg-blue-50', arrow:dashboardData.employeeGrowth>0 ? <FiArrowUp className="text-green-500 mr-1"/> : <FiArrowDown className="text-red-500 mr-1"/> },
-            { label:'Total Reports', value:dashboardData.totalReports, icon:<FiFileText className="text-green-500 text-xl"/>, growth:15, bg:'bg-green-50', arrow:<FiArrowUp className="text-green-500 mr-1"/> },
-            { label:'Pending Reports', value:dashboardData.pendingReports, icon:<FiPieChart className="text-yellow-500 text-xl"/>, growth:8, bg:'bg-yellow-50', arrow:<FiArrowDown className="text-red-500 mr-1"/> },
-            { label:'Completion Rate', value:dashboardData.reportCompletionRate, icon:<FiTrendingUp className="text-purple-500 text-xl"/>, growth:5.2, bg:'bg-purple-50', arrow:<FiArrowUp className="text-green-500 mr-1"/> },
-            { label:'HR Staff', value:dashboardData.totalHR, icon:<FiUsers className="text-pink-500 text-xl"/>, growth:2, bg:'bg-pink-50', arrow:<FiArrowUp className="text-green-500 mr-1"/> },
-            { label:'Managers', value:dashboardData.totalManagers, icon:<FiUsers className="text-indigo-500 text-xl"/>, growth:3, bg:'bg-indigo-50', arrow:<FiArrowUp className="text-green-500 mr-1"/> },
-          ].map((stat,i)=>(
-            <div key={i} className={`bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100`}>
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-gray-500 text-sm font-medium">{stat.label}</p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">{stat.value}{stat.label==='Completion Rate' ? '%' : ''}</p>
-                  <div className="flex items-center mt-1 text-sm">{stat.arrow}<span className={stat.growth>0 ? 'text-green-500' : 'text-red-500'}>{stat.growth}% from last period</span></div>
-                </div>
-                <div className={`p-3 rounded-lg ${stat.bg}`}>{stat.icon}</div>
-              </div>
-            </div>
-          ))}
-        </div>
+       {[
+  { label:'Total Employees', value:dashboardData.totalEmployees, icon:<FiUsers className="text-blue-500 text-xl"/>, growth:dashboardData.employeeGrowth, bg:'bg-blue-50', arrow:dashboardData.employeeGrowth>0 ? <FiArrowUp className="text-green-500 mr-1"/> : <FiArrowDown className="text-red-500 mr-1"/> },
+  { label:'Total Reports', value:dashboardData.totalReports, icon:<FiFileText className="text-green-500 text-xl"/>, growth:15, bg:'bg-green-50', arrow:<FiArrowUp className="text-green-500 mr-1"/> },
+  { label:'Pending Reports', value:dashboardData.pendingReports, icon:<FiPieChart className="text-yellow-500 text-xl"/>, growth:8, bg:'bg-yellow-50', arrow:<FiArrowDown className="text-red-500 mr-1"/> },
+  { label:'Completion Rate', value:dashboardData.reportCompletionRate, icon:<FiTrendingUp className="text-purple-500 text-xl"/>, growth:5.2, bg:'bg-purple-50', arrow:<FiArrowUp className="text-green-500 mr-1"/> },
+  { label:'HR Staff', value:dashboardData.totalHR, icon:<FiUsers className="text-pink-500 text-xl"/>, growth:2, bg:'bg-pink-50', arrow:<FiArrowUp className="text-green-500 mr-1"/> },
+  { label:'Managers', value:dashboardData.totalManagers, icon:<FiUsers className="text-indigo-500 text-xl"/>, growth:3, bg:'bg-indigo-50', arrow:<FiArrowUp className="text-green-500 mr-1"/> },
+].map((stat,i)=>(
+  <div key={i} className={`bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100`}>
+    <div className="flex justify-between items-start">
+      <div>
+        <p className="text-gray-500 text-sm font-medium">{stat.label}</p>
+        <p className="text-2xl font-bold text-gray-800 mt-1">{stat.value}{stat.label==='Completion Rate' ? '%' : ''}</p>
+        <div className="flex items-center mt-1 text-sm">{stat.arrow}<span className={stat.growth>0 ? 'text-green-500' : 'text-red-500'}>{stat.growth}% from last period</span></div>
+      </div>
+      <div className={`p-3 rounded-lg ${stat.bg}`}>{stat.icon}</div>
+    </div>
+  </div>
+))}
+
+
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
+          {/* Performance Chart */}
           <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-4 sm:mb-6">
               <h2 className="text-lg font-semibold text-gray-800">Performance Metrics</h2>
@@ -203,6 +201,7 @@ export default function OverviewPage() {
             <div className="h-64 sm:h-80"><Bar data={performanceData} options={barOptions}/></div>
           </div>
 
+          {/* Department Distribution */}
           <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-4 sm:mb-6">
               <h2 className="text-lg font-semibold text-gray-800">Department Distribution</h2>
@@ -212,6 +211,7 @@ export default function OverviewPage() {
           </div>
         </div>
 
+        {/* Report Trends */}
         <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6">
           <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-4 sm:mb-6">

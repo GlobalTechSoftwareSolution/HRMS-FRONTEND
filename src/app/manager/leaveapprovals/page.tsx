@@ -3,9 +3,7 @@ import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  FiFilter, 
-  FiSearch, 
+import {  
   FiCalendar, 
   FiUser, 
   FiMail, 
@@ -41,11 +39,12 @@ type LeaveRequest = {
 // Status badge component
 // Status badge component
 const StatusBadge = ({ status }: { status?: string }) => {
-  const statusConfig: Record<string, { color: string; icon: JSX.Element }> = {
-    Pending: { color: "bg-yellow-100 text-yellow-800", icon: <FiClock className="mr-1" /> },
-    Approved: { color: "bg-green-100 text-green-800", icon: <FiCheckCircle className="mr-1" /> },
-    Rejected: { color: "bg-red-100 text-red-800", icon: <FiXCircle className="mr-1" /> },
-  };
+  const statusConfig: Record<string, { color: string; icon: React.ReactNode }> = {
+  Pending: { color: "bg-yellow-100 text-yellow-800", icon: <FiClock className="mr-1" /> },
+  Approved: { color: "bg-green-100 text-green-800", icon: <FiCheckCircle className="mr-1" /> },
+  Rejected: { color: "bg-red-100 text-red-800", icon: <FiXCircle className="mr-1" /> },
+};
+
 
   const config = status && statusConfig[status] ? statusConfig[status] : { color: "bg-gray-100 text-gray-800", icon: <FiClock className="mr-1" /> };
 
@@ -209,11 +208,11 @@ export default function ManagerDashboard() {
             <div className="flex flex-col gap-4 mb-6">
               <AnimatePresence>
                 {filteredLeaves.map((lr) => {
-                  const emp = getEmployee(lr.email_id);
-                  const key = `${lr.email_id}-${lr.applied_on}`;
+  const emp = getEmployee(lr.email_id);
+  const key = `${lr.email_id}-${lr.applied_on}`; // unique string key
                   return (
                     <motion.div
-                      key={lr.id}
+      key={key} // use the unique string key
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -50 }}

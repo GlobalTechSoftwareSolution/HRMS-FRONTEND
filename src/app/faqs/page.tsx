@@ -82,8 +82,9 @@ const FAQSection: React.FC = () => {
   };
 
   const filteredFaqs = faqs.filter(faq => {
-    const matchesSearch = faq.question.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          faq.answer.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      faq.answer.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "All" || faq.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -97,10 +98,14 @@ const FAQSection: React.FC = () => {
       <h2 className="text-3xl md:text-4xl font-bold text-center mb-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-transparent bg-clip-text">
         Frequently Asked Questions
       </h2>
-      
+
       <p className="text-center text-gray-600 mb-10 max-w-2xl mx-auto">
-        Find answers to common questions about our HR Management System. 
-        Can't find what you're looking for? <a href="#" className="text-blue-600 hover:underline">Contact our support team</a>.
+        Find answers to common questions about our HR Management System.{" "}
+        Can&apos;t find what you&apos;re looking for?{" "}
+        <a href="#" className="text-blue-600 hover:underline">
+          Contact our support team
+        </a>
+        .
       </p>
 
       {/* Search and Filter */}
@@ -124,7 +129,7 @@ const FAQSection: React.FC = () => {
             </button>
           )}
         </div>
-        
+
         <div className="relative w-full md:w-48">
           <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <select
@@ -133,7 +138,9 @@ const FAQSection: React.FC = () => {
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
             {categories.map(category => (
-              <option key={category} value={category}>{category}</option>
+              <option key={category} value={category}>
+                {category}
+              </option>
             ))}
           </select>
         </div>
@@ -141,9 +148,9 @@ const FAQSection: React.FC = () => {
 
       {/* Results count */}
       <div className="mb-6 text-sm text-gray-600">
-        {filteredFaqs.length} {filteredFaqs.length === 1 ? 'result' : 'results'} found
+        {filteredFaqs.length} {filteredFaqs.length === 1 ? "result" : "results"} found
         {(searchQuery || selectedCategory !== "All") && (
-          <button 
+          <button
             onClick={() => {
               setSearchQuery("");
               setSelectedCategory("All");
@@ -220,9 +227,11 @@ const FAQSection: React.FC = () => {
       {/* Contact CTA */}
       <div className="mt-12 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl text-center">
         <h3 className="text-xl font-semibold text-gray-800 mb-3">Still have questions?</h3>
-        <p className="text-gray-600 mb-4">Our support team is here to help you get the answers you need.</p>
+        <p className="text-gray-600 mb-4">
+          Our support team is here to help you get the answers you need.
+        </p>
         <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
-          <Link href='/contact'>Contact Support</Link>
+          <Link href="/contact">Contact Support</Link>
         </button>
       </div>
     </section>

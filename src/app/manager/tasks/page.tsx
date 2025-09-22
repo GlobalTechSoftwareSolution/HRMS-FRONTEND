@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { supabase } from "@/app/lib/supabaseClient";
-import { FiUser, FiSend, FiUsers, FiPlus, FiX } from "react-icons/fi";
+import { FiUser, FiSend, FiPlus, FiX } from "react-icons/fi";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Image from "next/image";
 
 type Task = {
   task_id: string;
@@ -36,9 +37,9 @@ export default function ManagerTasks() {
   const [priority, setPriority] = useState<"HIGH" | "MEDIUM" | "LOW">("MEDIUM");
   const [sending, setSending] = useState(false);
   const [showEmployeeList, setShowEmployeeList] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [scrollToForm, setScrollToForm] = useState(false);
   const formRef = React.useRef<HTMLDivElement | null>(null);
+  const [loadingEmployees, setLoadingEmployees] = useState(true);
 
   // Fetch employees
   useEffect(() => {
@@ -50,12 +51,16 @@ export default function ManagerTasks() {
           .order("fullname", { ascending: true });
 
         if (error) throw error;
-        setEmployees(data || []);
-      } catch (error: any) {
-        console.error("Error fetching employees:", error.message);
+        setEmployees(data as Employee[] ?? []);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          console.error("Error fetching employees:", err.message);
+        } else {
+          console.error("Unknown error fetching employees:", err);
+        }
         toast.error("Failed to load employees");
       } finally {
-        setLoading(false);
+        setLoadingEmployees(false);
       }
     };
     fetchEmployees();
@@ -71,9 +76,13 @@ export default function ManagerTasks() {
           .order("start_date", { ascending: false });
 
         if (error) throw error;
-        setTasks(data || []);
-      } catch (error: any) {
-        console.error("Error fetching tasks:", error.message);
+        setTasks(data as Task[] ?? []);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          console.error("Error fetching tasks:", err.message);
+        } else {
+          console.error("Unknown error fetching tasks:", err);
+        }
         toast.error("Failed to load tasks");
       }
     };
@@ -102,7 +111,6 @@ export default function ManagerTasks() {
     setSending(true);
     try {
       const newTask = {
-        email_id: selectedEmployee.email_id,
         title,
         description,
         department: selectedEmployee.department || "General",
@@ -120,55 +128,50 @@ export default function ManagerTasks() {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        setTasks(prev => [data[0], ...prev]);
+        setTasks(prev => [data[0] as Task, ...prev]);
         setTitle("");
         setDescription("");
         setAssignedTo("");
         setDueDate("");
-        setPriority("MEDIUM"); // reset
+        setPriority("MEDIUM");
         toast.success("Task assigned successfully!");
       }
-    } catch (err: any) {
-      console.error("Failed to assign task:", err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Failed to assign task:", err.message);
+      } else {
+        console.error("Unknown error assigning task:", err);
+      }
       toast.error("Failed to assign task");
     } finally {
       setSending(false);
     }
   };
 
-  const getPriorityClass = (priority: string) => {
+  const getPriorityClass = (priority: Task["priority"]) => {
     switch (priority) {
-      case "HIGH":
-        return "bg-red-100 text-red-800";
-      case "MEDIUM":
-        return "bg-yellow-100 text-yellow-800";
-      case "LOW":
-        return "bg-green-100 text-green-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+      case "HIGH": return "bg-red-100 text-red-800";
+      case "MEDIUM": return "bg-yellow-100 text-yellow-800";
+      case "LOW": return "bg-green-100 text-green-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
 
-  const getStatusClass = (status: string) => {
+  const getStatusClass = (status: Task["status"]) => {
     switch (status) {
-      case "COMPLETED":
-        return "bg-green-100 text-green-800";
-      case "IN_PROGRESS":
-        return "bg-blue-100 text-blue-800";
-      case "PENDING":
-        return "bg-orange-100 text-orange-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+      case "COMPLETED": return "bg-green-100 text-green-800";
+      case "IN_PROGRESS": return "bg-blue-100 text-blue-800";
+      case "PENDING": return "bg-orange-100 text-orange-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
     });
-  };
 
   return (
     <DashboardLayout role="manager">
@@ -181,7 +184,9 @@ export default function ManagerTasks() {
             Team Members ({employees.length})
           </h2>
 
-          {employees.length === 0 ? (
+          {loadingEmployees ? (
+            <p className="text-gray-500">Loading employees...</p>
+          ) : employees.length === 0 ? (
             <p className="text-gray-500">No employee data available.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -190,11 +195,17 @@ export default function ManagerTasks() {
                   key={emp.email_id}
                   className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow flex items-center gap-4"
                 >
-                  <img
-                    src={emp.profile_picture || "/default-avatar.png"}
-                    alt={emp.fullname}
-                    className="w-12 h-12 rounded-full object-cover border border-gray-300"
-                  />
+                  <div className="relative w-12 h-12 flex-shrink-0">
+                    <Image
+                      src={emp.profile_picture || "/default-avatar.png"}
+                      alt={emp.fullname}
+                      fill
+                      className="rounded-full object-cover border border-gray-300"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/default-avatar.png";
+                      }}
+                    />
+                  </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-800 mb-1">
                       {emp.fullname}
@@ -222,8 +233,9 @@ export default function ManagerTasks() {
           )}
         </div>
 
-        <div className="max-w-4xl mx-auto">
-          {/* Task Form */}
+        {/* Task Form & List */}
+        <div className="max-w-4xl mx-auto mt-6">
+          {/* Form */}
           <div
             ref={formRef}
             className="bg-white p-4 md:p-6 rounded-xl shadow-md border border-gray-100 mb-6 animate-fade-in"
@@ -231,7 +243,6 @@ export default function ManagerTasks() {
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <FiPlus className="mr-2" /> Create New Task
             </h2>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -241,11 +252,10 @@ export default function ManagerTasks() {
                   type="text"
                   placeholder="Enter task title"
                   value={title}
-                  onChange={e => setTitle(e.target.value)}
+                  onChange={(e) => setTitle(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 />
               </div>
-
               <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Assign to Employee *
@@ -258,7 +268,8 @@ export default function ManagerTasks() {
                     <div className="flex items-center">
                       <FiUser className="text-gray-500 mr-2" />
                       <span>
-                        {employees.find(e => e.email_id === assignedTo)?.fullname || assignedTo}
+                        {employees.find((e) => e.email_id === assignedTo)?.fullname ||
+                          assignedTo}
                       </span>
                     </div>
                   ) : (
@@ -266,10 +277,9 @@ export default function ManagerTasks() {
                   )}
                   {showEmployeeList ? <FiX /> : <FiUser />}
                 </div>
-
                 {showEmployeeList && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    {employees.map(employee => (
+                    {employees.map((employee) => (
                       <div
                         key={employee.email_id}
                         className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
@@ -298,16 +308,17 @@ export default function ManagerTasks() {
                 <input
                   type="date"
                   value={dueDate}
-                  onChange={e => setDueDate(e.target.value)}
+                  onChange={(e) => setDueDate(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium mb-1">Priority</label>
                 <select
                   value={priority}
-                  onChange={(e) => setPriority(e.target.value as "HIGH" | "MEDIUM" | "LOW")}
+                  onChange={(e) =>
+                    setPriority(e.target.value as "HIGH" | "MEDIUM" | "LOW")
+                  }
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                 >
                   <option value="HIGH">High</option>
@@ -324,7 +335,7 @@ export default function ManagerTasks() {
               <textarea
                 placeholder="Describe the task in detail..."
                 value={description}
-                onChange={e => setDescription(e.target.value)}
+                onChange={(e) => setDescription(e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none"
                 rows={4}
               />
@@ -355,7 +366,7 @@ export default function ManagerTasks() {
               </div>
             ) : (
               <div className="space-y-4">
-                {tasks.map(task => (
+                {tasks.map((task) => (
                   <div
                     key={task.task_id}
                     className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
@@ -366,12 +377,16 @@ export default function ManagerTasks() {
                       </h3>
                       <div className="flex space-x-2 mt-2 md:mt-0">
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityClass(task.priority)}`}
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityClass(
+                            task.priority
+                          )}`}
                         >
                           {task.priority}
                         </span>
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(task.status)}`}
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusClass(
+                            task.status
+                          )}`}
                         >
                           {task.status.replace("_", " ").toUpperCase()}
                         </span>

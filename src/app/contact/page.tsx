@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, ChangeEvent, FormEvent } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/footer";
 import emailjs from "@emailjs/browser";
@@ -12,9 +12,9 @@ export default function ContactPage() {
     message: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [popupMessage, setPopupMessage] = useState(null);
+  const [popupMessage, setPopupMessage] = useState<string | null>(null);
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -22,7 +22,7 @@ export default function ContactPage() {
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
@@ -33,17 +33,21 @@ export default function ContactPage() {
         message: formData.message,
       };
       await emailjs.send(
-        process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID,
-        process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID,
+        process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
+        process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
         templateParams,
-        process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY
+        process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
       );
 
-      setPopupMessage("Thank you for your message! We'll get back to you soon.");
+      setPopupMessage(
+        "Thank you for your message! We&apos;ll get back to you soon."
+      );
       setFormData({ name: "", email: "", phone: "", message: "" });
     } catch (error) {
       console.error(error);
-      setPopupMessage("There was an error sending your message. Please try again.");
+      setPopupMessage(
+        "There was an error sending your message. Please try again."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -61,7 +65,7 @@ export default function ContactPage() {
             Get in <span className="text-blue-600">Touch</span>
           </h1>
           <p className="text-gray-600 text-lg">
-            Have questions or want to discuss a project? We're here to help and answer any questions you might have.
+            Have questions or want to discuss a project? We&apos;re here to help and answer any questions you might have.
           </p>
         </section>
 

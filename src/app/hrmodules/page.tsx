@@ -1,9 +1,9 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 
 const HRModulesCarousel: React.FC = () => {
-  const carouselRef = useRef<HTMLDivElement>(null);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
 
   const modules = [
@@ -24,8 +24,7 @@ const HRModulesCarousel: React.FC = () => {
           desc: "Accurately calculates overtime hours for proper compensation.",
         },
       ],
-      image:
-        "/images/photo1.avif",
+      image: "/images/photo1.avif",
     },
     {
       label: "Recruitment",
@@ -37,15 +36,14 @@ const HRModulesCarousel: React.FC = () => {
         },
         {
           title: "Identify Potential Candidates",
-          desc: "Smart insights to evaluate candidates' strengths and weaknesses.",
+          desc: "Smart insights to evaluate candidates&apos; strengths and weaknesses.",
         },
         {
           title: "Manage Recruitment Flow",
           desc: "Control your recruitment stages with prioritization.",
         },
       ],
-      image:
-        "/images/photo2.avif",
+      image: "/images/photo2.avif",
     },
     {
       label: "Employee",
@@ -64,8 +62,7 @@ const HRModulesCarousel: React.FC = () => {
           desc: "Track employee roles, departments, and statuses efficiently.",
         },
       ],
-      image:
-        "/images/photo3.avif",
+      image: "/images/photo3.avif",
     },
     {
       label: "Payroll",
@@ -84,8 +81,7 @@ const HRModulesCarousel: React.FC = () => {
           desc: "Instant payslip generation and employee self-service access.",
         },
       ],
-      image:
-        "/images/photo6.avif",
+      image: "/images/photo6.avif",
     },
     {
       label: "Performance",
@@ -104,8 +100,7 @@ const HRModulesCarousel: React.FC = () => {
           desc: "Structured review system for continuous growth.",
         },
       ],
-      image:
-        "/images/photo5.avif",
+      image: "/images/photo5.avif",
     },
     {
       label: "Training",
@@ -124,8 +119,7 @@ const HRModulesCarousel: React.FC = () => {
           desc: "Design role-specific training for better outcomes.",
         },
       ],
-      image:
-        "/images/photo4.avif",
+      image: "/images/photo4.avif",
     },
   ];
 
@@ -150,7 +144,7 @@ const HRModulesCarousel: React.FC = () => {
   return (
     <section className="max-w-6xl mx-auto py-16 px-4 relative bg-[#f9fafb]">
       <h4 className="text-3xl font-bold text-center mb-12 text-gray-900">
-        All the modules you'll ever need in{" "}
+        All the modules you&apos;ll ever need in{" "}
         <span className="text-blue-600">one software</span>.
       </h4>
 
@@ -213,9 +207,11 @@ const HRModulesCarousel: React.FC = () => {
               className="flex-1 flex items-center justify-center"
             >
               <div className="rounded-xl overflow-hidden shadow-lg border border-gray-200 hover:scale-[1.02] transition-transform duration-500">
-                <img
+                <Image
                   src={modules[currentIndex].image}
                   alt={`${modules[currentIndex].label} module`}
+                  width={800}
+                  height={450}
                   className="w-full h-auto object-cover"
                 />
               </div>

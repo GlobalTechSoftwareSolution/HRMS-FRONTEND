@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { FiSearch, FiChevronDown, FiChevronUp, FiEye, FiEdit, FiUserCheck, FiX, FiCheck } from "react-icons/fi";
+import { FiSearch, FiChevronDown, FiChevronUp, FiEye, FiEdit, FiX, FiCheck } from "react-icons/fi";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import Image from 'next/image';
 
 type Employee = {   
   id: number;
@@ -28,6 +29,7 @@ type User = {
   fullname: string;
   is_staff: boolean;
   user_type: string;
+  role?: string; // Add optional role field for compatibility
 };
 
 type SortConfig = {
@@ -37,7 +39,16 @@ type SortConfig = {
 
 type TabType = 'all' | 'pending';
 
-export default function onboarding() {
+type ApiUser = {
+  id: number;
+  email: string;
+  fullname: string;
+  is_staff: boolean;
+  user_type?: string;
+  role?: string;
+};
+
+export default function Onboarding() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [error, setError] = useState<string>("");
@@ -64,41 +75,49 @@ export default function onboarding() {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Fetch active employees
-        const empRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`);
-        if (!empRes.ok) throw new Error(`Employee fetch error! status: ${empRes.status}`);
-        const empData = await empRes.json();
-        
-        // Fetch users for pending employees
-        const userRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/users/`);
-        if (!userRes.ok) throw new Error(`User fetch error! status: ${userRes.status}`);
-        const userData = await userRes.json();
-        
-        // Filter pending users (employees with is_staff=false)
-        const pending = userData.filter((user: any) => {
-          const role = user.user_type || user.role; // support both field names
-          return role === 'employee' && !user.is_staff;
-        });
-        
-        setEmployees(empData || []);
-        setPendingUsers(pending || []);
-        setError("");
-      } catch (err: any) {
-        console.error("Failed to fetch data:", err);
-        setError("Failed to fetch employee data. Please check console for details.");
-        toast.error("Failed to fetch employee data");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch active employees
+      const empRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`);
+      if (!empRes.ok) throw new Error(`Employee fetch error! status: ${empRes.status}`);
+      const empData: Employee[] = await empRes.json();
+      
+      // Fetch users for pending employees
+      const userRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/users/`);
+      if (!userRes.ok) throw new Error(`User fetch error! status: ${userRes.status}`);
+      const userData: ApiUser[] = await userRes.json();
+      
+      // Filter pending users (employees with is_staff=false)
+      const pending = userData.filter((user: ApiUser) => {
+        const role = user.user_type || user.role;
+        return role === 'employee' && !user.is_staff;
+      }).map(user => ({
+        id: user.id,
+        email: user.email,
+        fullname: user.fullname,
+        is_staff: user.is_staff,
+        user_type: user.user_type || 'employee',
+        role: user.role
+      }));
+      
+      setEmployees(empData || []);
+      setPendingUsers(pending || []);
+      setError("");
+    } catch (err: unknown) {
+      console.error("Failed to fetch data:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch employee data";
+      setError(`Failed to fetch employee data. Please check console for details. Error: ${errorMessage}`);
+      toast.error("Failed to fetch employee data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -157,38 +176,10 @@ export default function onboarding() {
       setIsOnboarding(false);
       toast.success("Employee onboarded successfully!");
       // Refresh employees and pending users
-      setIsLoading(true);
-      // fetchData is inside useEffect, so re-run it here:
-      // (copy fetch logic here)
-      try {
-        // Fetch active employees
-        const empRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`);
-
-        if (!empRes.ok) throw new Error( `Employee fetch error! status: ${empRes.status}`);
-        const empData = await empRes.json();
-        // Fetch users for pending employees
-        const userRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/users/`);
-
-        if (!userRes.ok) throw new Error(`User fetch error! status: ${userRes.status}`);
-        const userData = await userRes.json();
-        // Filter pending users (employees with is_staff=false)
-        const pending = userData.filter((user: any) => {
-          const role = user.user_type || user.role;
-          return role === 'employee' && !user.is_staff;
-        });
-        setEmployees(empData || []);
-        setPendingUsers(pending || []);
-        setError("");
-      } catch (err: any) {
-        setError("Failed to fetch employee data. Please check console for details.");
-        toast.error("Failed to fetch employee data");
-      } finally {
-        setIsLoading(false);
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to onboard employee");
+      await fetchData();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to onboard employee";
+      toast.error(errorMessage);
     } finally {
       setIsSubmittingOnboard(false);
     }
@@ -218,14 +209,8 @@ export default function onboarding() {
       toast.success( `${user.fullname} has been approved as an employee`);
       
       // Refresh employee list
-      const empRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`);
-
-      if (empRes.ok) {
-        const empData = await empRes.json();
-        setEmployees(empData);
-      }
-    } catch (err: any) {
+      await fetchData();
+    } catch (err: unknown) {
       console.error("Failed to approve employee:", err);
       toast.error("Failed to approve employee");
     }
@@ -299,7 +284,7 @@ export default function onboarding() {
 
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
-      const updatedEmployee = await res.json();
+      const updatedEmployee: Employee = await res.json();
 
       setEmployees(prev =>
         prev.map(emp => (emp.email === selectedEmployee.email ? updatedEmployee : emp))
@@ -310,7 +295,7 @@ export default function onboarding() {
       setSelectedEmployee(null);
       setEditFormData({});
       setProfilePictureFile(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to update employee:", err);
       toast.error("Failed to update employee");
     }
@@ -320,7 +305,7 @@ export default function onboarding() {
   const departments = Array.from(new Set(employees.map(emp => emp.department).filter(Boolean))) as string[];
 
   // Filter employees/users based on tab selection
-  const filteredData = React.useMemo(() => {
+  const filteredData = useMemo(() => {
     if (activeTab === 'pending') {
       // Return pending users for pending tab
       return pendingUsers.filter(user => {
@@ -344,13 +329,13 @@ export default function onboarding() {
   }, [employees, pendingUsers, searchTerm, filterDepartment, activeTab]);
 
   // Sort data
-  const filteredAndSortedData = React.useMemo(() => {
-    let sorted = [...filteredData];
+  const filteredAndSortedData = useMemo(() => {
+    const sorted = [...filteredData];
 
     if (sortConfig && activeTab === 'all') {
-      sorted.sort((a: any, b: any) => {
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
+      sorted.sort((a: Employee | User, b: Employee | User) => {
+        const aValue = a[sortConfig.key as keyof (Employee | User)];
+        const bValue = b[sortConfig.key as keyof (Employee | User)];
 
         if (aValue == null || bValue == null) return 0;
 
@@ -391,7 +376,14 @@ export default function onboarding() {
       <div className="flex items-center mb-3">
         <div className="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold overflow-hidden mr-3">
           {employee.profile_picture ? (
-            <img className="h-12 w-12 object-cover rounded-full" src={employee.profile_picture} alt={employee.fullname || employee.email} />
+            <div className="relative h-12 w-12">
+              <Image 
+                src={employee.profile_picture} 
+                alt={employee.fullname || employee.email}
+                fill
+                className="object-cover rounded-full"
+              />
+            </div>
           ) : (
             (employee.fullname && employee.fullname.charAt(0)) ||
             (employee.email && employee.email.charAt(0))
@@ -641,17 +633,23 @@ export default function onboarding() {
               <div className="flex items-center mb-6">
                 <div className="flex-shrink-0 h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl overflow-hidden">
                   {profilePictureFile ? (
-                    <img
-                      className="h-16 w-16 object-cover rounded-full"
-                      src={URL.createObjectURL(profilePictureFile)}
-                      alt="Preview"
-                    />
+                    <div className="relative h-16 w-16">
+                      <Image
+                        src={URL.createObjectURL(profilePictureFile)}
+                        alt="Preview"
+                        fill
+                        className="object-cover rounded-full"
+                      />
+                    </div>
                   ) : selectedEmployee.profile_picture ? (
-                    <img
-                      className="h-16 w-16 object-cover rounded-full"
-                      src={selectedEmployee.profile_picture}
-                      alt={selectedEmployee.fullname || selectedEmployee.email}
-                    />
+                    <div className="relative h-16 w-16">
+                      <Image
+                        src={selectedEmployee.profile_picture}
+                        alt={selectedEmployee.fullname || selectedEmployee.email}
+                        fill
+                        className="object-cover rounded-full"
+                      />
+                    </div>
                   ) : (
                     (selectedEmployee.fullname && selectedEmployee.fullname.charAt(0)) ||
                     (selectedEmployee.email && selectedEmployee.email.charAt(0))
@@ -898,11 +896,11 @@ export default function onboarding() {
         {!isLoading && !error && isMobile && (
           <>
             <div className="mb-4">
-              {filteredAndSortedData.map((item: any) => (
+              {filteredAndSortedData.map((item) => (
                 activeTab === 'all' ? (
-                  <EmployeeCard key={item.email} employee={item} />
+                  <EmployeeCard key={item.email} employee={item as Employee} />
                 ) : (
-                  <PendingUserCard key={item.id} user={item} />
+                  <PendingUserCard key={item.id} user={item as User} />
                 )
               ))}
             </div>
@@ -989,16 +987,23 @@ export default function onboarding() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredAndSortedData.map((item: any) => (
+                  {filteredAndSortedData.map((item) => (
                     <tr key={item.email} className="hover:bg-gray-50 transition">
                       <td className="p-3">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold overflow-hidden">
-                            {activeTab === 'all' && item.profile_picture ? (
-                              <img className="h-10 w-10 object-cover rounded-full" src={item.profile_picture} alt={item.fullname || item.email} />
+                            {activeTab === 'all' && (item as Employee).profile_picture ? (
+                              <div className="relative h-10 w-10">
+                                <Image 
+                                  src={(item as Employee).profile_picture!} 
+                                  alt={(item as Employee).fullname || item.email}
+                                  fill
+                                  className="object-cover rounded-full"
+                                />
+                              </div>
                             ) : (
                               (item.fullname && item.fullname.charAt(0)) ||
-                                (item.email && item.email.charAt(0))
+                              (item.email && item.email.charAt(0))
                             )}
                           </div>
                           <div className="ml-4">
@@ -1009,9 +1014,9 @@ export default function onboarding() {
                       </td>
                       {activeTab === 'all' && (
                         <>
-                          <td className="p-3 text-sm text-gray-700">{item.designation || "N/A"}</td>
-                          <td className="p-3 text-sm text-gray-700">{item.department || "N/A"}</td>
-                          <td className="p-3 text-sm text-gray-700">{formatDate(item.date_joined)}</td>
+                          <td className="p-3 text-sm text-gray-700">{(item as Employee).designation || "N/A"}</td>
+                          <td className="p-3 text-sm text-gray-700">{(item as Employee).department || "N/A"}</td>
+                          <td className="p-3 text-sm text-gray-700">{formatDate((item as Employee).date_joined)}</td>
                         </>
                       )}
                       {activeTab === 'pending' && (
@@ -1025,7 +1030,7 @@ export default function onboarding() {
                         <div className="flex space-x-3">
                           <>
                             <button
-                              onClick={() => handleViewDetails(item)}
+                              onClick={() => handleViewDetails(item as Employee)}
                               className="text-blue-600 hover:text-blue-900 flex items-center"
                             >
                               <FiEye className="mr-1" />
@@ -1034,7 +1039,7 @@ export default function onboarding() {
                             {/* Only show Edit button if not in pending tab */}
                             {activeTab !== 'pending' && (
                               <button
-                                onClick={() => handleEditEmployee(item)}
+                                onClick={() => handleEditEmployee(item as Employee)}
                                 className="text-green-600 hover:text-green-900 flex items-center"
                               >
                                 <FiEdit className="mr-1" />

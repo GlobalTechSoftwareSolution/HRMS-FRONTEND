@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 
+type LeaveStatus = "Pending" | "Approved" | "Rejected";
+
 type Leave = {
   id: number;
   employeeId: string;
@@ -11,15 +13,32 @@ type Leave = {
   reason: string;
   startDate: string;
   endDate: string;
-  status: "Pending" | "Approved" | "Rejected";
+  status: LeaveStatus;
   daysRequested: number;
   submittedDate: string;
+};
+
+// Raw API response (before mapping into Leave)
+type LeaveApiResponseItem = {
+  id?: number;
+  employeeId?: string;
+  name?: string;
+  email?: string;
+  reason?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: LeaveStatus;
+  daysRequested?: number;
+  submittedDate?: string;
+  start_date?: string;
+  end_date?: string;
+  submitted_date?: string;
 };
 
 export default function HRLeavePage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"All" | "Pending" | "Approved" | "Rejected">("All");
+  const [filter, setFilter] = useState<"All" | LeaveStatus>("All");
   const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
 
   useEffect(() => {
@@ -31,17 +50,18 @@ export default function HRLeavePage() {
         const data = await res.json();
 
         const mappedLeaves: Leave[] = (data.leaves ?? []).map(
-          (item: any, index: number) => ({
+          (item: LeaveApiResponseItem, index: number) => ({
             id: item.id ?? index + 1,
-            employeeId: item.employeeId ?? item.email,
+            employeeId: item.employeeId ?? item.email ?? "",
             name: item.name ?? (item.email ? item.email.split("@")[0] : ""),
-            email: item.email,
-            reason: item.reason,
-            startDate: item.startDate ?? item.start_date,
-            endDate: item.endDate ?? item.end_date,
-            status: item.status,
+            email: item.email ?? "",
+            reason: item.reason ?? "",
+            startDate: item.startDate ?? item.start_date ?? "",
+            endDate: item.endDate ?? item.end_date ?? "",
+            status: item.status ?? "Pending",
             daysRequested: item.daysRequested ?? 1,
-            submittedDate: item.submittedDate ?? item.submitted_date ?? item.start_date,
+            submittedDate:
+              item.submittedDate ?? item.submitted_date ?? item.start_date ?? "",
           })
         );
 
@@ -82,7 +102,7 @@ export default function HRLeavePage() {
                     ? "bg-blue-600 text-white shadow-md"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
-                onClick={() => setFilter(tab as any)}
+                onClick={() => setFilter(tab as "All" | LeaveStatus)}
               >
                 {tab}
               </button>
@@ -161,40 +181,39 @@ export default function HRLeavePage() {
             </div>
 
             {/* Cards for small screens */}
-<div className="sm:hidden mt-4 space-y-4">
-  {filteredLeaves.map((leave) => (
-    <div
-      key={leave.id}
-      className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg transition-shadow w-full"
-      onClick={() => setSelectedLeave(leave)}
-    >
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="text-lg font-semibold text-gray-800 break-all">
-          {leave.employeeId}
-        </h3>
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-semibold ${
-            leave.status === "Approved"
-              ? "bg-green-100 text-green-800"
-              : leave.status === "Rejected"
-              ? "bg-red-100 text-red-800"
-              : "bg-yellow-100 text-yellow-800"
-          }`}
-        >
-          {leave.status}
-        </span>
-      </div>
-      <p className="text-sm text-gray-600 mb-1 truncate">{leave.reason}</p>
-      <div className="flex justify-between text-sm text-gray-500">
-        <span>
-          {leave.startDate} → {leave.endDate}
-        </span>
-        <span>{leave.daysRequested} day(s)</span>
-      </div>
-    </div>
-  ))}
-</div>
-
+            <div className="sm:hidden mt-4 space-y-4">
+              {filteredLeaves.map((leave) => (
+                <div
+                  key={leave.id}
+                  className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg transition-shadow w-full"
+                  onClick={() => setSelectedLeave(leave)}
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-lg font-semibold text-gray-800 break-all">
+                      {leave.employeeId}
+                    </h3>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                        leave.status === "Approved"
+                          ? "bg-green-100 text-green-800"
+                          : leave.status === "Rejected"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      {leave.status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-1 truncate">{leave.reason}</p>
+                  <div className="flex justify-between text-sm text-gray-500">
+                    <span>
+                      {leave.startDate} → {leave.endDate}
+                    </span>
+                    <span>{leave.daysRequested} day(s)</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </>
         )}
 
@@ -292,13 +311,23 @@ export default function HRLeavePage() {
 
       <style jsx>{`
         @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
 
         @keyframes scaleIn {
-          from { transform: scale(0.95); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
+          from {
+            transform: scale(0.95);
+            opacity: 0;
+          }
+          to {
+            transform: scale(1);
+            opacity: 1;
+          }
         }
 
         .animate-fadeIn {

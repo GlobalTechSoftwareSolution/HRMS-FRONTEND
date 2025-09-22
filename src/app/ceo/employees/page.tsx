@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
-import Image from "next/image"; // optimized image
+import Image from "next/image"; 
 import DashboardLayout from "@/components/DashboardLayout";
 
 type Employee = {
@@ -16,9 +16,17 @@ type Employee = {
   picture?: string;
 };
 
-type SortConfig = {
-  key: keyof Employee | "";
-  direction: "ascending" | "descending";
+type EmployeeAPIResponse = {
+  id?: number;
+  fullname?: string;
+  designation?: string;
+  department?: string;
+  email_id?: string;
+  status?: "active" | "on-leave" | "offboarded";
+  join_date?: string;
+  phone?: string;
+  salary?: number;
+  profile_picture?: string;
 };
 
 export default function EmployeesPage() {
@@ -29,10 +37,6 @@ export default function EmployeesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [sortConfig, setSortConfig] = useState<SortConfig>({
-    key: "",
-    direction: "ascending",
-  });
 
   // --------------------- FETCH EMPLOYEES ---------------------
   useEffect(() => {
@@ -44,22 +48,20 @@ export default function EmployeesPage() {
         );
         if (!res.ok) throw new Error("Failed to fetch employees");
 
-        const data: Record<string, any>[] = await res.json();
+        const data: EmployeeAPIResponse[] = await res.json();
 
-        const mappedEmployees: Employee[] = (data || []).map(
-          (emp, index) => ({
-            id: emp.id ?? index + 1,
-            name: emp.fullname ?? "",
-            role: emp.designation ?? "Employee",
-            department: emp.department ?? "General",
-            email: emp.email_id ?? "",
-            status: emp.status ?? "active",
-            joinDate: emp.join_date ?? new Date().toISOString(),
-            phone: emp.phone ?? "",
-            salary: emp.salary ?? 0,
-            picture: emp.profile_picture || undefined,
-          })
-        );
+        const mappedEmployees: Employee[] = (data || []).map((emp, index) => ({
+          id: emp.id ?? index + 1,
+          name: emp.fullname ?? "",
+          role: emp.designation ?? "Employee",
+          department: emp.department ?? "General",
+          email: emp.email_id ?? "",
+          status: emp.status ?? "active",
+          joinDate: emp.join_date ?? new Date().toISOString(),
+          phone: emp.phone ?? "",
+          salary: emp.salary ?? 0,
+          picture: emp.profile_picture || undefined,
+        }));
 
         setEmployees(mappedEmployees);
         setError("");
@@ -84,52 +86,21 @@ export default function EmployeesPage() {
     return ["all", ...Array.from(depts)];
   }, [employees]);
 
-  // --------------------- FILTER & SORT ---------------------
-  const filteredAndSortedEmployees = useMemo(() => {
-    let filtered = employees.filter((employee) => {
+  // --------------------- FILTERED EMPLOYEES ---------------------
+  const filteredEmployees = useMemo(() => {
+    return employees.filter((emp) => {
       const matchesSearch =
-        employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        employee.role.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesDepartment =
-        departmentFilter === "all" || employee.department === departmentFilter;
+        emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.role.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesDept =
+        departmentFilter === "all" || emp.department === departmentFilter;
       const matchesStatus =
-        statusFilter === "all" || employee.status === statusFilter;
-
-      return matchesSearch && matchesDepartment && matchesStatus;
+        statusFilter === "all" || emp.status === statusFilter;
+      return matchesSearch && matchesDept && matchesStatus;
     });
+  }, [employees, searchTerm, departmentFilter, statusFilter]);
 
-    if (sortConfig.key) {
-  const key = sortConfig.key as keyof Employee; // type assertion
-  filtered.sort((a, b) => {
-    const aValue = a[key];
-    const bValue = b[key];
-
-    if (typeof aValue === "string" && typeof bValue === "string") {
-      return sortConfig.direction === "ascending"
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
-    } else if (typeof aValue === "number" && typeof bValue === "number") {
-      return sortConfig.direction === "ascending"
-        ? aValue - bValue
-        : bValue - aValue;
-    }
-    return 0;
-  });
-}
-
-    return filtered;
-  }, [employees, searchTerm, departmentFilter, statusFilter, sortConfig]);
-
-  const handleSort = (key: keyof Employee) => {
-    let direction: "ascending" | "descending" = "ascending";
-    if (sortConfig.key === key && sortConfig.direction === "ascending")
-      direction = "descending";
-    setSortConfig({ key, direction });
-  };
-
-  // --------------------- RENDER ---------------------
   return (
     <DashboardLayout role="ceo">
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -140,6 +111,7 @@ export default function EmployeesPage() {
 
         {!loading && !error && (
           <>
+            {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
@@ -154,13 +126,16 @@ export default function EmployeesPage() {
             {/* Filters */}
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 transition-all duration-300">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                <input
-                  type="text"
-                  placeholder="Search employees..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search employees..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                  />
+                  <span className="absolute left-3 top-2.5 text-gray-400 text-sm">🔍</span>
+                </div>
                 <select
                   value={departmentFilter}
                   onChange={(e) => setDepartmentFilter(e.target.value)}
@@ -187,67 +162,67 @@ export default function EmployeesPage() {
 
             {/* Employee Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {filteredAndSortedEmployees.map((emp) => (
-                <div
-                  key={emp.id}
-                  className="bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105 hover:shadow-2xl duration-300"
-                >
-                  {/* Profile Image */}
-                  {emp.picture ? (
-                    <div className="relative w-24 h-24 mb-4">
-                      <Image
-                        src={emp.picture}
-                        alt={emp.name}
-                        className="rounded-full object-cover"
-                        fill
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-800 font-bold text-xl mb-4 shadow-md">
-                      {emp.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </div>
-                  )}
-
-                  {/* Name and Role */}
-                  <h2 className="font-semibold text-lg sm:text-xl text-gray-900">
-                    {emp.name}
-                  </h2>
-                  <p className="text-gray-500 text-sm sm:text-base capitalize">
-                    {emp.role}
-                  </p>
-                  <p className="text-gray-500 text-sm">{emp.department}</p>
-
-                  {/* Email & Phone */}
-                  <p className="text-gray-400 text-xs mt-1">{emp.email}</p>
-                  <p className="text-gray-400 text-xs">{emp.phone}</p>
-
-                  {/* Status */}
-                  <span
-                    className={`mt-3 px-4 py-1 rounded-full text-xs font-semibold transition-colors duration-300 ${
-                      emp.status === "active"
-                        ? "bg-green-100 text-green-800"
-                        : emp.status === "on-leave"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
+              {filteredEmployees.length === 0 ? (
+                <p className="text-center text-gray-500 col-span-full mt-6">No employees found.</p>
+              ) : (
+                filteredEmployees.map((emp) => (
+                  <div
+                    key={emp.id}
+                    className="bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105 hover:shadow-2xl duration-300"
                   >
-                    {emp.status.charAt(0).toUpperCase() + emp.status.slice(1)}
-                  </span>
+                    {/* Profile Image */}
+                    {emp.picture ? (
+                      <div className="relative w-24 h-24 mb-4">
+                        <Image
+                          src={emp.picture}
+                          alt={emp.name}
+                          className="rounded-full object-cover"
+                          fill
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-800 font-bold text-xl mb-4 shadow-md">
+                        {emp.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </div>
+                    )}
 
-                  {/* Joined Date */}
-                  <p className="mt-2 text-gray-400 text-xs">
-                    Joined: {new Date(emp.joinDate).toLocaleDateString()}
-                  </p>
+                    {/* Name & Role */}
+                    <h2 className="font-semibold text-lg sm:text-xl text-gray-900">{emp.name}</h2>
+                    <p className="text-gray-500 text-sm sm:text-base capitalize">{emp.role}</p>
+                    <p className="text-gray-500 text-sm">{emp.department}</p>
 
-                  {/* Salary */}
-                  <p className="mt-2 font-semibold text-gray-900 text-sm">
-                    ${emp.salary.toLocaleString()}
-                  </p>
-                </div>
-              ))}
+                    {/* Email & Phone */}
+                    <p className="text-gray-400 text-xs mt-1">{emp.email}</p>
+                    <p className="text-gray-400 text-xs">{emp.phone}</p>
+
+                    {/* Status Badge */}
+                    <span
+                      className={`mt-3 px-4 py-1 rounded-full text-xs font-semibold transition-colors duration-300 ${
+                        emp.status === "active"
+                          ? "bg-green-100 text-green-800"
+                          : emp.status === "on-leave"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {emp.status.charAt(0).toUpperCase() + emp.status.slice(1)}
+                    </span>
+
+                    {/* Join Date */}
+                    <p className="mt-2 text-gray-400 text-xs">
+                      Joined: {new Date(emp.joinDate).toLocaleDateString()}
+                    </p>
+
+                    {/* Salary */}
+                    <p className="mt-2 font-semibold text-gray-900 text-sm">
+                      ${emp.salary.toLocaleString()}
+                    </p>
+                  </div>
+                ))
+              )}
             </div>
           </>
         )}

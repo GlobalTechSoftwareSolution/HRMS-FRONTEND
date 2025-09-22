@@ -3,6 +3,19 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Building, User, Lock, Mail } from "lucide-react";
 
+interface UserData {
+  user: {
+    email: string;
+    role: string;
+    is_staff: boolean;
+    phone?: string;
+    department?: string;
+    picture?: string;
+  };
+  token?: string;
+  detail?: string;
+}
+
 const LoginPage = () => {
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
@@ -12,7 +25,7 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setMessage("");
@@ -27,9 +40,9 @@ const LoginPage = () => {
         body: JSON.stringify({ role, email, password }),
       });
 
-      let data: any;
+      let data: UserData;
       try {
-        data = await response.json();
+        data = (await response.json()) as UserData;
       } catch {
         setMessage("Invalid server response. Try again.");
         setIsLoading(false);
@@ -239,7 +252,7 @@ const LoginPage = () => {
             </button>
             <div className="mt-6 text-center">
             <p className="text-gray-600">
-              Don't have an account?{" "}
+              Don&apos;t have an account? 
               <button
                 onClick={() => router.push("/signup")}
                 className="font-medium text-blue-600 hover:text-blue-500 transition-colors hover:underline"

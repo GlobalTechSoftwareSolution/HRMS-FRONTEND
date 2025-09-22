@@ -12,6 +12,16 @@ type AttendanceRecord = {
   hours: number;
 };
 
+type ApiAttendanceResponse = {
+  attendance: {
+    email: string;
+    name: string;
+    date: string;
+    check_in: string | null;
+    check_out: string | null;
+  }[];
+};
+
 export default function ManagerDashboard() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,31 +34,31 @@ export default function ManagerDashboard() {
           `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_attendance/`
         );
         if (!res.ok) throw new Error("Failed to fetch attendance");
-        const data = await res.json();
+        const data: ApiAttendanceResponse = await res.json();
 
-        // ✅ Map API response into your type
-        const mapped: AttendanceRecord[] = (data.attendance || []).map(
-          (a: any) => {
-            let hours = 0;
-            if (a.check_in && a.check_out) {
-              const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
-              const outTime = new Date(`${a.date}T${a.check_out}`).getTime();
-              hours = Math.max(0, (outTime - inTime) / (1000 * 60 * 60));
-            }
-            return {
-              email: a.email,
-              name: a.name,
-              date: a.date,
-              check_in: a.check_in,
-              check_out: a.check_out,
-              hours: parseFloat(hours.toFixed(2)),
-            };
+        // Map API response into AttendanceRecord
+        const mapped: AttendanceRecord[] = (data.attendance || []).map((a) => {
+          let hours = 0;
+          if (a.check_in && a.check_out) {
+            const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
+            const outTime = new Date(`${a.date}T${a.check_out}`).getTime();
+            hours = Math.max(0, (outTime - inTime) / (1000 * 60 * 60));
           }
-        );
+          return {
+            email: a.email,
+            name: a.name,
+            date: a.date,
+            check_in: a.check_in,
+            check_out: a.check_out,
+            hours: parseFloat(hours.toFixed(2)),
+          };
+        });
 
         setAttendance(mapped);
-      } catch (err: any) {
-        console.error("Error fetching data:", err.message || err);
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Unknown error occurred";
+        console.error("Error fetching data:", message);
       } finally {
         setLoading(false);
       }
@@ -56,7 +66,7 @@ export default function ManagerDashboard() {
     fetchData();
   }, []);
 
-  // ✅ Summary calculations
+  // Summary calculations
   const totalEmployees = attendance.length;
   const checkedIn = attendance.filter((a) => a.check_in).length;
   const absent = totalEmployees - checkedIn;

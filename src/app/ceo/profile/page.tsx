@@ -1,5 +1,7 @@
 "use client";
+
 import React, { useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   FiSave,
@@ -78,13 +80,17 @@ export default function Profile() {
     const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => setUser((prev) => ({ ...prev, picture: reader.result as string }));
+    reader.onload = () =>
+      setUser((prev) => ({ ...prev, picture: reader.result as string }));
     reader.readAsDataURL(file);
   };
 
   // Save profile
   const handleSave = async () => {
-    if (user.phone && !/^[\+]?[0-9]{6,15}$/.test(user.phone.replace(/\s/g, ""))) {
+    if (
+      user.phone &&
+      !/^[\+]?[0-9]{6,15}$/.test(user.phone.replace(/\s/g, ""))
+    ) {
       setSaveMessage({ type: "error", text: "Please enter a valid phone number" });
       return;
     }
@@ -112,7 +118,9 @@ export default function Profile() {
 
       // PUT request
       const response = await fetch(
-       `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/ceos/${encodeURIComponent(user.email)}/`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/ceos/${encodeURIComponent(
+          user.email
+        )}/`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -141,9 +149,11 @@ export default function Profile() {
       localStorage.setItem("userInfo", JSON.stringify(updatedUser));
       setSaveMessage({ type: "success", text: "Profile updated successfully!" });
       setIsEditing(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      setSaveMessage({ type: "error", text: error.message || "Failed to save profile changes." });
+      const message =
+        error instanceof Error ? error.message : "Failed to save profile changes.";
+      setSaveMessage({ type: "error", text: message });
     } finally {
       setIsSaving(false);
       setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
@@ -178,11 +188,22 @@ export default function Profile() {
 
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
           <div className="relative flex-shrink-0">
-            <img
-              src={user.picture || "/default-profile.png"}
-              alt={user.name || "Profile"}
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
-            />
+            {user.picture ? (
+              <Image
+                src={user.picture}
+                alt={user.name || "Profile"}
+                width={96}
+                height={96}
+                className="w-24 h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xl shadow-md">
+                {user.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
+              </div>
+            )}
             {isEditing && (
               <>
                 <button

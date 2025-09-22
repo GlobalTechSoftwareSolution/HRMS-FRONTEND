@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
-import { Users, Wallet, Clock, TrendingUp, UserCheck, PlusCircle } from "lucide-react";
+import { Users, Wallet, Clock, TrendingUp, UserCheck } from "lucide-react";
 
 const modules = [
   {

@@ -10,6 +10,15 @@ import {
   FiFilter,
 } from "react-icons/fi";
 
+type PayrollAPIItem = {
+  month: string;
+  year: string | number;
+  basic_salary: string | number;
+  status: string;
+  pay_date: string;
+  email: string;
+};
+
 type PayrollRecord = {
   id: number;
   month: string;
@@ -46,17 +55,16 @@ export default function PayrollDashboard() {
         };
 
         const mappedData: PayrollRecord[] = (data.payrolls || []).map(
-          (item: any, index: number) => ({
+          (item: PayrollAPIItem, index: number) => ({
             id: index + 1,
             month: `${item.month} ${item.year}`,
-            basicSalary: parseFloat(item.basic_salary) || 0,
-            status: normalizeStatus(item.status),
+            basicSalary: parseFloat(item.basic_salary as string) || 0,
+            status: normalizeStatus(item.status) as "paid" | "pending" | "processing",
             paymentDate: item.pay_date,
             email: item.email,
           })
         );
 
-        // Filter by logged-in user's email
         const userEmail = localStorage.getItem("user_email");
         const userData = mappedData.filter((item) => item.email === userEmail);
 
@@ -71,7 +79,7 @@ export default function PayrollDashboard() {
 
   const calculateNetPay = (record: PayrollRecord) => record.basicSalary;
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: PayrollRecord["status"]) => {
     const statusClasses = {
       paid: "bg-green-100 text-green-800",
       pending: "bg-yellow-100 text-yellow-800",
@@ -80,7 +88,7 @@ export default function PayrollDashboard() {
     return (
       <span
         className={`px-2 py-1 rounded-full text-xs font-medium ${
-          statusClasses[status as keyof typeof statusClasses]
+          statusClasses[status]
         }`}
       >
         {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -179,9 +187,7 @@ export default function PayrollDashboard() {
           <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-purple-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-xs sm:text-sm">
-                  Average Net Pay
-                </p>
+                <p className="text-gray-500 text-xs sm:text-sm">Average Net Pay</p>
                 <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">
                   ₹{averageNetPay.toLocaleString()}
                 </p>
@@ -199,29 +205,22 @@ export default function PayrollDashboard() {
             <table className="min-w-[700px] w-full divide-y divide-gray-200 text-xs sm:text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {[
-                    "Month",
-                    "Basic Salary",
-                    "Net Pay",
-                    "Status",
-                    "Payment Date",
-                  ].map((head) => (
-                    <th
-                      key={head}
-                      className="px-4 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      {head}
-                    </th>
-                  ))}
+                  {["Month", "Basic Salary", "Net Pay", "Status", "Payment Date"].map(
+                    (head) => (
+                      <th
+                        key={head}
+                        className="px-4 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        {head}
+                      </th>
+                    )
+                  )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredData.length > 0 ? (
                   filteredData.map((record) => (
-                    <tr
-                      key={record.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
+                    <tr key={record.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-700 font-medium">
                         {record.month}
                       </td>

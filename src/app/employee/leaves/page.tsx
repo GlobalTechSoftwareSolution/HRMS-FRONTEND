@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 
 type Leave = {
@@ -13,6 +13,17 @@ type Leave = {
   daysRequested: number;
   submittedDate: string;
   department: string;
+};
+
+// ✅ Type for backend response leave object
+type LeaveApiResponse = {
+  reason: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  applied_on: string;
+  department?: string;
 };
 
 export default function LeaveSection() {
@@ -54,7 +65,7 @@ export default function LeaveSection() {
   };
 
   // Fetch leaves for the logged-in employee
-  const fetchLeaves = async () => {
+  const fetchLeaves = useCallback(async () => {
     if (!email) return;
     setLoading(true);
 
@@ -65,9 +76,11 @@ export default function LeaveSection() {
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
 
-      const leavesArray = Array.isArray(data.leaves) ? data.leaves : [];
+      const leavesArray: LeaveApiResponse[] = Array.isArray(data.leaves)
+        ? data.leaves
+        : [];
 
-      const mappedLeaves: Leave[] = leavesArray.map((leave: any) => ({
+      const mappedLeaves: Leave[] = leavesArray.map((leave) => ({
         id: Math.random(), // temporary id if backend doesn't provide one
         reason: leave.reason,
         leaveType: leave.leave_type,
@@ -90,11 +103,11 @@ export default function LeaveSection() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [email]);
 
   useEffect(() => {
-    if (email) fetchLeaves();
-  }, [email]);
+    fetchLeaves();
+  }, [fetchLeaves]);
 
   // Submit new leave
   const handleAddLeave = async () => {
@@ -290,8 +303,12 @@ export default function LeaveSection() {
                             to {formatDate(leave.endDate)}
                           </div>
                         </td>
-                        <td className="py-4 pr-4">{leave.daysRequested} day(s)</td>
-                        <td className="py-4 pr-4">{formatDate(leave.submittedDate)}</td>
+                        <td className="py-4 pr-4">
+                          {leave.daysRequested} day(s)
+                        </td>
+                        <td className="py-4 pr-4">
+                          {formatDate(leave.submittedDate)}
+                        </td>
                         <td className="py-4">
                           <div
                             className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
@@ -302,7 +319,9 @@ export default function LeaveSection() {
                                 : "bg-red-100 text-red-800"
                             }`}
                           >
-                            <span className="mr-1.5">{getStatusIcon(leave.status)}</span>
+                            <span className="mr-1.5">
+                              {getStatusIcon(leave.status)}
+                            </span>
                             {leave.status}
                           </div>
                         </td>

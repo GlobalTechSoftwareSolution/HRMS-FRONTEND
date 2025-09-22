@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 
-type Attendance = {
+type AttendanceRecord = {
   id: number;
   email: string;
   role: string;
@@ -12,26 +12,32 @@ type Attendance = {
   check_out?: string;
 };
 
+type AttendanceAPIResponse = {
+  attendance: AttendanceRecord[];
+};
+
 export default function HRAttendancePage() {
-  const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAttendance = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_attendance/`
         );
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data = await res.json();
-        // Assuming your API returns { attendance: [...] } or list directly
-        setAttendance(data.attendance || data);
-        setError(null);
-      } catch (err: any) {
-        console.error(err);
-        setError(err.message || "Failed to fetch attendance");
+
+        // 👇 Properly typed API response
+        const data: AttendanceAPIResponse = await res.json();
+        setAttendance(data.attendance);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        console.error(message);
+        setError(message);
         setAttendance([]);
       } finally {
         setLoading(false);
@@ -41,7 +47,7 @@ export default function HRAttendancePage() {
     fetchAttendance();
   }, []);
 
-  const getStatus = (record: Attendance) => {
+  const getStatus = (record: AttendanceRecord) => {
     if (record.check_in && record.check_out) return "Present";
     if (record.check_in && !record.check_out) return "Active";
     return "Absent";
@@ -51,6 +57,12 @@ export default function HRAttendancePage() {
     Present: "bg-green-100 text-green-800",
     Active: "bg-yellow-100 text-yellow-800",
     Absent: "bg-red-100 text-red-800",
+  };
+
+  const iconMap: Record<string, string> = {
+    Present: "✔️",
+    Active: "⏳",
+    Absent: "❌",
   };
 
   if (loading)
@@ -86,16 +98,21 @@ export default function HRAttendancePage() {
                 const count = attendance.filter(
                   (rec) => getStatus(rec) === label
                 ).length;
-                const color = label === "Present" ? "green" : label === "Active" ? "yellow" : "red";
-                const icon = label === "Present" ? "✔️" : label === "Active" ? "⏳" : "❌";
+                const icon = iconMap[label];
 
                 return (
                   <div
                     key={label}
-                    className={`bg-white rounded-xl shadow-lg p-5 flex items-center space-x-4 transform transition-transform hover:scale-105 duration-300`}
+                    className="bg-white rounded-xl shadow-lg p-5 flex items-center space-x-4 transform transition-transform hover:scale-105 duration-300"
                   >
                     <div
-                      className={`text-${color}-500 text-3xl bg-${color}-100 p-3 rounded-full animate-bounce`}
+                      className={`text-3xl bg-white p-3 rounded-full animate-bounce ${
+                        label === "Present"
+                          ? "text-green-500"
+                          : label === "Active"
+                          ? "text-yellow-500"
+                          : "text-red-500"
+                      }`}
                     >
                       {icon}
                     </div>
@@ -122,11 +139,11 @@ export default function HRAttendancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {attendance.map((record, idx) => {
+                  {attendance.map((record) => {
                     const status = getStatus(record);
                     return (
                       <tr
-                        key={record.id || idx}
+                        key={`${record.id}-${record.email}-${record.date}`}
                         className="hover:bg-gray-50 transition-colors duration-300 border-b"
                       >
                         <td className="p-3 break-words">{record.email}</td>
@@ -136,7 +153,9 @@ export default function HRAttendancePage() {
                         <td className="p-3">{record.check_out || "-"}</td>
                         <td className="p-3">
                           <span
-                            className={`px-3 py-1 rounded-full text-sm font-semibold ${statusColors[status]}`}
+                            className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                              statusColors[status]
+                            }`}
                           >
                             {status}
                           </span>
@@ -150,11 +169,11 @@ export default function HRAttendancePage() {
 
             {/* Cards for small screens */}
             <div className="sm:hidden space-y-4 mt-6">
-              {attendance.map((record, idx) => {
+              {attendance.map((record) => {
                 const status = getStatus(record);
                 return (
                   <div
-                    key={record.id || idx}
+                    key={`${record.id}-${record.email}-${record.date}`}
                     className="bg-white shadow-lg rounded-xl p-4 animate-fadeIn"
                   >
                     <div className="flex justify-between items-center mb-2">

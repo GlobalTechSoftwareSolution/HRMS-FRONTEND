@@ -9,7 +9,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     const endpoint = `${process.env.NEXT_PUBLIC_API_BASE}/accounts/signup/`;
@@ -21,24 +21,32 @@ export default function SignupPage() {
         body: JSON.stringify({ role, email, password }),
       });
 
-      let data;
+      let data: unknown;
       try {
         data = await res.json();
-      } catch (err) {
+      } catch {
         throw new Error("Response was not JSON");
       }
 
       if (!res.ok) {
         console.error("Signup failed:", data);
-        throw new Error(data.detail || JSON.stringify(data));
+        // if backend sends { detail: "..." }
+        if (typeof data === "object" && data !== null && "detail" in data) {
+          throw new Error((data as { detail: string }).detail);
+        }
+        throw new Error(JSON.stringify(data));
       }
 
       setMessage("Signup successful! You can now log in.");
       setTimeout(() => {
         window.location.href = "/login";
       }, 1500);
-    } catch (err: any) {
-      setMessage(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setMessage(err.message);
+      } else {
+        setMessage("An unexpected error occurred.");
+      }
     }
   }
 
@@ -48,7 +56,8 @@ export default function SignupPage() {
       <div className="flex flex-col justify-center items-center w-1/2 bg-gradient-to-b from-green-700 to-green-400 text-white p-12">
         <h1 className="text-5xl font-extrabold mb-6">Welcome to HRMS</h1>
         <p className="text-lg max-w-md text-center">
-          Join our team and manage your company's human resources efficiently. Create your account to get started with HRMS today!
+          Join our team and manage your company&apos;s human resources
+          efficiently. Create your account to get started with HRMS today!
         </p>
       </div>
 
@@ -102,9 +111,7 @@ export default function SignupPage() {
           {message && (
             <p
               className={`text-center mt-2 font-medium ${
-                message.includes("Ensure")
-                  ? "text-red-600"
-                  : "text-green-700"
+                message.includes("Ensure") ? "text-red-600" : "text-green-700"
               }`}
             >
               {message}

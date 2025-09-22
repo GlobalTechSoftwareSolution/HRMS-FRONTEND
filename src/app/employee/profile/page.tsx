@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   FiSave,
@@ -60,7 +61,7 @@ export default function Profile() {
           phone: currentUser.phone || "",
           department: currentUser.department || "",
         });
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Error fetching user data:", error);
         setSaveMessage({ type: "error", text: "Failed to load profile data." });
       }
@@ -78,7 +79,8 @@ export default function Profile() {
     const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => setUser((prev) => ({ ...prev, picture: reader.result as string }));
+    reader.onload = () =>
+      setUser((prev) => ({ ...prev, picture: reader.result as string }));
     reader.readAsDataURL(file);
   };
 
@@ -112,7 +114,9 @@ export default function Profile() {
 
       // PUT request
       const response = await fetch(
-       `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/${encodeURIComponent(user.email)}/`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/${encodeURIComponent(
+          user.email
+        )}/`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -141,9 +145,11 @@ export default function Profile() {
       localStorage.setItem("userInfo", JSON.stringify(updatedUser));
       setSaveMessage({ type: "success", text: "Profile updated successfully!" });
       setIsEditing(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      setSaveMessage({ type: "error", text: error.message || "Failed to save profile changes." });
+      const message =
+        error instanceof Error ? error.message : "Failed to save profile changes.";
+      setSaveMessage({ type: "error", text: message });
     } finally {
       setIsSaving(false);
       setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
@@ -178,10 +184,12 @@ export default function Profile() {
 
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
           <div className="relative flex-shrink-0">
-            <img
+            <Image
               src={user.picture || "/default-profile.png"}
               alt={user.name || "Profile"}
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
+              width={96}
+              height={96}
+              className="rounded-full border-2 border-blue-500 shadow-md object-cover"
             />
             {isEditing && (
               <>
