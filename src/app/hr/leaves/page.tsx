@@ -45,7 +45,7 @@ export default function HRLeavePage() {
     const fetchLeaves = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_leaves/`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/`
         );
         const data = await res.json();
 

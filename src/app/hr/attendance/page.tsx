@@ -27,7 +27,7 @@ export default function HRAttendancePage() {
       setError(null);
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_attendance/`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_attendance/`
         );
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 

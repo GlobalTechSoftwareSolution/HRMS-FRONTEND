@@ -5,7 +5,8 @@ const nextConfig: NextConfig = {
     domains: [
       "ejanftgxxtlbadbqzdib.supabase.co", // your Supabase host
       "images.unsplash.com",               // Unsplash
-      "ui-avatars.com",                    // avatar generation
+      "ui-avatars.com", 
+      'shorturl.at', 'example.com',                   // avatar generation
     ],
   },
 };

@@ -37,7 +37,7 @@ export default function PayrollDashboard() {
     const fetchPayrolls = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_payrolls/`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_payrolls/`
         );
         const data = await res.json();
 

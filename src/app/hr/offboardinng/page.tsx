@@ -30,7 +30,7 @@ export default function Offboarding() {
         setLoading(true);
         const token = localStorage.getItem("authToken");
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`,
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`,
           {
             method: "GET",
             headers: {
@@ -95,7 +95,7 @@ export default function Offboarding() {
       // DELETE request using email
       const token = localStorage.getItem("authToken");
       const deleteResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/${encodeURIComponent(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(
           selectedEmployee.email
         )}/`,
         { 

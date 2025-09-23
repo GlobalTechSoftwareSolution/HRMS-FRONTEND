@@ -12,7 +12,7 @@ export default function SignupPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    const endpoint = `${process.env.NEXT_PUBLIC_API_BASE}/accounts/signup/`;
+    const endpoint = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/signup/`;
 
     try {
       const res = await fetch(endpoint, {

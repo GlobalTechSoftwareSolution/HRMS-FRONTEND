@@ -30,7 +30,7 @@ const LoginPage = () => {
     setIsLoading(true);
     setMessage("");
 
-    const endpoint = `${process.env.NEXT_PUBLIC_API_BASE}/accounts/login/`;
+    const endpoint = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/login/`;
     console.log("Login API:", endpoint);
 
     try {

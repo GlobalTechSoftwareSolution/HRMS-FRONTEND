@@ -31,7 +31,8 @@ export default function TasksDashboard() {
 
   useEffect(() => {
     // Fetch tasks from backend API on mount
-    fetch("http://127.0.0.1:8000/api/accounts/list_tasks/")
+    fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_tasks/`)
       .then((response) => {
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -86,7 +87,7 @@ export default function TasksDashboard() {
   const handleUpdateStatus = async (taskId: number, newStatusValue: Task["status"]) => {
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/api/accounts/update_task/${taskId}/`,
+        `{process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_task/${taskId}/`,
         {
           method: "PUT",
           headers: {

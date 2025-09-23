@@ -1,8 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { supabase } from "@/app/lib/supabaseClient";
-import { FiUser, FiSend, FiPlus, FiX } from "react-icons/fi";
+import { FiUser, FiSend, FiPlus } from "react-icons/fi";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Image from "next/image";
@@ -20,10 +19,10 @@ type Task = {
 };
 
 type Employee = {
-  email_id: string;
+  email: string; // <-- changed from email_id
   fullname: string;
-  department: string;
-  designation: string;
+  department: string | null;
+  designation: string | null;
   profile_picture?: string | null;
 };
 
@@ -36,28 +35,22 @@ export default function ManagerTasks() {
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState<"HIGH" | "MEDIUM" | "LOW">("MEDIUM");
   const [sending, setSending] = useState(false);
-  const [showEmployeeList, setShowEmployeeList] = useState(false);
   const [scrollToForm, setScrollToForm] = useState(false);
   const formRef = React.useRef<HTMLDivElement | null>(null);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
+
+  const API_BASE = "https://hrms-6qja.onrender.com";
 
   // Fetch employees
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const { data, error } = await supabase
-          .from("accounts_employee")
-          .select("email_id, fullname, department, designation, profile_picture")
-          .order("fullname", { ascending: true });
-
-        if (error) throw error;
-        setEmployees(data as Employee[] ?? []);
+        const res = await fetch(`${API_BASE}/api/accounts/employees/`);
+        if (!res.ok) throw new Error("Failed to fetch employees");
+        const data = await res.json();
+        setEmployees(data || []); // data is already array
       } catch (err: unknown) {
-        if (err instanceof Error) {
-          console.error("Error fetching employees:", err.message);
-        } else {
-          console.error("Unknown error fetching employees:", err);
-        }
+        console.error("Error fetching employees:", err);
         toast.error("Failed to load employees");
       } finally {
         setLoadingEmployees(false);
@@ -70,19 +63,12 @@ export default function ManagerTasks() {
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        const { data, error } = await supabase
-          .from("accounts_tasktable")
-          .select("*")
-          .order("start_date", { ascending: false });
-
-        if (error) throw error;
-        setTasks(data as Task[] ?? []);
+        const res = await fetch(`${API_BASE}/api/accounts/list_tasks/`);
+        if (!res.ok) throw new Error("Failed to fetch tasks");
+        const data = await res.json();
+        setTasks(data.tasks || []);
       } catch (err: unknown) {
-        if (err instanceof Error) {
-          console.error("Error fetching tasks:", err.message);
-        } else {
-          console.error("Unknown error fetching tasks:", err);
-        }
+        console.error("Error fetching tasks:", err);
         toast.error("Failed to load tasks");
       }
     };
@@ -102,7 +88,7 @@ export default function ManagerTasks() {
       return;
     }
 
-    const selectedEmployee = employees.find(emp => emp.email_id === assignedTo);
+    const selectedEmployee = employees.find((emp) => emp.email === assignedTo);
     if (!selectedEmployee) {
       toast.error("Selected employee not found");
       return;
@@ -110,7 +96,7 @@ export default function ManagerTasks() {
 
     setSending(true);
     try {
-      const newTask = {
+      const payload = {
         title,
         description,
         department: selectedEmployee.department || "General",
@@ -118,30 +104,29 @@ export default function ManagerTasks() {
         status: "PENDING",
         start_date: new Date().toISOString(),
         due_date: dueDate || null,
+        assigned_to: assignedTo,
       };
 
-      const { data, error } = await supabase
-        .from("accounts_tasktable")
-        .insert([newTask])
-        .select();
+      const res = await fetch(`${API_BASE}/api/accounts/apply_task/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        setTasks(prev => [data[0] as Task, ...prev]);
-        setTitle("");
-        setDescription("");
-        setAssignedTo("");
-        setDueDate("");
-        setPriority("MEDIUM");
-        toast.success("Task assigned successfully!");
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to assign task");
       }
+
+      setTasks((prev) => [data.task, ...prev]);
+      setTitle("");
+      setDescription("");
+      setAssignedTo("");
+      setDueDate("");
+      setPriority("MEDIUM");
+      toast.success("Task assigned successfully!");
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        console.error("Failed to assign task:", err.message);
-      } else {
-        console.error("Unknown error assigning task:", err);
-      }
+      console.error("Failed to assign task:", err);
       toast.error("Failed to assign task");
     } finally {
       setSending(false);
@@ -150,19 +135,27 @@ export default function ManagerTasks() {
 
   const getPriorityClass = (priority: Task["priority"]) => {
     switch (priority) {
-      case "HIGH": return "bg-red-100 text-red-800";
-      case "MEDIUM": return "bg-yellow-100 text-yellow-800";
-      case "LOW": return "bg-green-100 text-green-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "HIGH":
+        return "bg-red-100 text-red-800";
+      case "MEDIUM":
+        return "bg-yellow-100 text-yellow-800";
+      case "LOW":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const getStatusClass = (status: Task["status"]) => {
     switch (status) {
-      case "COMPLETED": return "bg-green-100 text-green-800";
-      case "IN_PROGRESS": return "bg-blue-100 text-blue-800";
-      case "PENDING": return "bg-orange-100 text-orange-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "COMPLETED":
+        return "bg-green-100 text-green-800";
+      case "IN_PROGRESS":
+        return "bg-blue-100 text-blue-800";
+      case "PENDING":
+        return "bg-orange-100 text-orange-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -190,9 +183,9 @@ export default function ManagerTasks() {
             <p className="text-gray-500">No employee data available.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {employees.map(emp => (
+              {employees.map((emp) => (
                 <div
-                  key={emp.email_id}
+                  key={emp.email}
                   className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow flex items-center gap-4"
                 >
                   <div className="relative w-12 h-12 flex-shrink-0">
@@ -201,7 +194,7 @@ export default function ManagerTasks() {
                       alt={emp.fullname}
                       fill
                       className="rounded-full object-cover border border-gray-300"
-                      onError={(e) => {
+                      onErrorCapture={(e) => {
                         (e.target as HTMLImageElement).src = "/default-avatar.png";
                       }}
                     />
@@ -210,16 +203,16 @@ export default function ManagerTasks() {
                     <h3 className="text-lg font-semibold text-gray-800 mb-1">
                       {emp.fullname}
                     </h3>
-                    <p className="text-sm text-gray-500 mb-1">{emp.email_id}</p>
+                    <p className="text-sm text-gray-500 mb-1">{emp.email}</p>
                     <p className="text-sm text-gray-600">
-                      <span className="font-medium">Role:</span> {emp.designation}
+                      <span className="font-medium">Role:</span> {emp.designation || "N/A"}
                     </p>
                     <p className="text-sm text-gray-600 mb-3">
-                      <span className="font-medium">Department:</span> {emp.department}
+                      <span className="font-medium">Department:</span> {emp.department || "N/A"}
                     </p>
                     <button
                       onClick={() => {
-                        setAssignedTo(emp.email_id);
+                        setAssignedTo(emp.email);
                         setScrollToForm(true);
                       }}
                       className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition"
@@ -243,109 +236,43 @@ export default function ManagerTasks() {
             <h2 className="text-lg font-semibold mb-4 flex items-center">
               <FiPlus className="mr-2" /> Create New Task
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Task Title *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter task title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
-              </div>
-              <div className="relative">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Assign to Employee *
-                </label>
-                <div
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 flex items-center justify-between cursor-pointer bg-white"
-                  onClick={() => setShowEmployeeList(!showEmployeeList)}
-                >
-                  {assignedTo ? (
-                    <div className="flex items-center">
-                      <FiUser className="text-gray-500 mr-2" />
-                      <span>
-                        {employees.find((e) => e.email_id === assignedTo)?.fullname ||
-                          assignedTo}
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-gray-400">Select an employee</span>
-                  )}
-                  {showEmployeeList ? <FiX /> : <FiUser />}
-                </div>
-                {showEmployeeList && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    {employees.map((employee) => (
-                      <div
-                        key={employee.email_id}
-                        className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                        onClick={() => {
-                          setAssignedTo(employee.email_id);
-                          setShowEmployeeList(false);
-                        }}
-                      >
-                        <div className="font-medium">{employee.fullname}</div>
-                        <div className="text-sm text-gray-500">{employee.email_id}</div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          {employee.designation} • {employee.department}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Due Date
-                </label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Priority</label>
-                <select
-                  value={priority}
-                  onChange={(e) =>
-                    setPriority(e.target.value as "HIGH" | "MEDIUM" | "LOW")
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                >
-                  <option value="HIGH">High</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="LOW">Low</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Task Description *
-              </label>
-              <textarea
-                placeholder="Describe the task in detail..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition resize-none"
-                rows={4}
-              />
-            </div>
-
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Task Title"
+              className="w-full border p-2 rounded mb-3"
+            />
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Task Description"
+              className="w-full border p-2 rounded mb-3"
+            />
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full border p-2 rounded mb-3"
+            />
+            <select
+              value={priority}
+              onChange={(e) =>
+                setPriority(e.target.value as "HIGH" | "MEDIUM" | "LOW")
+              }
+              className="w-full border p-2 rounded mb-3"
+            >
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
             <button
               onClick={handleSendTask}
               disabled={sending}
               className={`flex items-center justify-center px-6 py-3 rounded-lg text-white font-medium transition-all ${
-                sending ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                sending
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
               }`}
             >
               <FiSend className="mr-2" />

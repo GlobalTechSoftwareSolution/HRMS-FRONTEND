@@ -21,7 +21,7 @@ export default function Reports() {
     const fetchReports = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_reports/`);
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_reports/`);
         if (!res.ok) throw new Error("Failed to fetch reports");
         const data = await res.json();
 

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
-import { FiSearch, FiChevronDown, FiChevronUp, FiEye, FiUser } from "react-icons/fi";
+import { FiSearch, FiChevronDown, FiChevronUp, FiEye, FiUser, FiX } from "react-icons/fi";
 import { ToastContainer, toast } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -35,13 +35,14 @@ export default function HREmployeePage() {
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null); // for modal
 
   // Fetch employees from API
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         setIsLoading(true);
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const data: Employee[] = await res.json();
         if (!Array.isArray(data)) throw new Error("Unexpected data format: expected an array");
@@ -67,12 +68,14 @@ export default function HREmployeePage() {
   }, []);
 
   const handleOnboardEmployee = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/signup`;
+    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/signup`;
   };
 
   const handleViewDetails = (employee: Employee) => {
-    toast.info(`Viewing details for ${employee.fullname}`);
+    setSelectedEmployee(employee); // open modal with employee details
   };
+
+  const closeModal = () => setSelectedEmployee(null);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "N/A";
@@ -248,6 +251,38 @@ export default function HREmployeePage() {
           </div>
         )}
       </div>
+
+      {/* Employee Details Modal */}
+      {selectedEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg w-11/12 max-w-md p-6 relative">
+            <button onClick={closeModal} className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"><FiX size={20} /></button>
+            <div className="flex flex-col items-center">
+              {selectedEmployee.profile_picture ? (
+                <Image src={selectedEmployee.profile_picture} 
+                alt={selectedEmployee.fullname}
+                 width={80}
+                  height={80}
+                  className="rounded-full object-cover"/>
+              ) : (
+                <div className="h-20 w-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl font-bold">{selectedEmployee.fullname.charAt(0)}</div>
+              )}
+              <h3 className="text-lg font-semibold mt-2">{selectedEmployee.fullname}</h3>
+              <p className="text-sm text-gray-500">{selectedEmployee.email}</p>
+            </div>
+            <div className="mt-4 space-y-2 text-sm">
+              <p><strong>Designation:</strong> {selectedEmployee.designation || "N/A"}</p>
+              <p><strong>Department:</strong> {selectedEmployee.department || "N/A"}</p>
+              <p><strong>Age:</strong> {selectedEmployee.age || "N/A"}</p>
+              <p><strong>Phone:</strong> {selectedEmployee.phone || "N/A"}</p>
+              <p><strong>Date of Birth:</strong> {formatDate(selectedEmployee.date_of_birth)}</p>
+              <p><strong>Date Joined:</strong> {formatDate(selectedEmployee.date_joined)}</p>
+              <p><strong>Skills:</strong> {selectedEmployee.skills || "N/A"}</p>
+              <p><strong>Reports To:</strong> {selectedEmployee.reports_to || "N/A"}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

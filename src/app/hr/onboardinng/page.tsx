@@ -81,13 +81,13 @@ export default function Onboarding() {
       
       // Fetch active employees
       const empRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`);
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`);
       if (!empRes.ok) throw new Error(`Employee fetch error! status: ${empRes.status}`);
       const empData: Employee[] = await empRes.json();
       
       // Fetch users for pending employees
       const userRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/users/`);
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/users/`);
       if (!userRes.ok) throw new Error(`User fetch error! status: ${userRes.status}`);
       const userData: ApiUser[] = await userRes.json();
       
@@ -161,7 +161,7 @@ export default function Onboarding() {
         role: onboardFormData.role,
       };
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/signup/`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/signup/`,
          {
         method: "POST",
         headers: {
@@ -190,7 +190,7 @@ export default function Onboarding() {
     try {
       // Update user to is_staff=true
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/users/${user.id}/`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/users/${user.id}/`,
         {
           method: "PATCH",
           headers: {
@@ -253,53 +253,61 @@ export default function Onboarding() {
 
   // Save edited employee data
   const handleSaveEdit = async () => {
-    if (!selectedEmployee) return;
+  if (!selectedEmployee) return;
 
-    try {
-      // build a clean payload with only allowed fields
-      const payload = {
-        email: selectedEmployee.email, // keep email as PK
-        fullname: editFormData.fullname ?? selectedEmployee.fullname,
-        age: editFormData.age ?? selectedEmployee.age,
-        phone: editFormData.phone ?? selectedEmployee.phone,
-        department: editFormData.department ?? selectedEmployee.department,
-        designation: editFormData.designation ?? selectedEmployee.designation,
-        date_of_birth: editFormData.date_of_birth ?? selectedEmployee.date_of_birth,
-        date_joined: editFormData.date_joined ?? selectedEmployee.date_joined,
-        skills: editFormData.skills ?? selectedEmployee.skills,
-        profile_picture: editFormData.profile_picture ?? selectedEmployee.profile_picture,
-        reports_to: editFormData.reports_to ?? selectedEmployee.reports_to,
-      };
+  try {
+    const formData = new FormData();
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/${selectedEmployee.email}/`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+    // always include PK
+    formData.append("email", selectedEmployee.email);
 
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    // append editable fields
+    formData.append("fullname", editFormData.fullname ?? selectedEmployee.fullname ?? "");
+    formData.append("age", String(editFormData.age ?? selectedEmployee.age ?? ""));
+    formData.append("phone", editFormData.phone ?? selectedEmployee.phone ?? "");
+    formData.append("department", editFormData.department ?? selectedEmployee.department ?? "");
+    formData.append("designation", editFormData.designation ?? selectedEmployee.designation ?? "");
+    formData.append("date_of_birth", editFormData.date_of_birth ?? selectedEmployee.date_of_birth ?? "");
+    formData.append("date_joined", editFormData.date_joined ?? selectedEmployee.date_joined ?? "");
+    formData.append("skills", editFormData.skills ?? selectedEmployee.skills ?? "");
+    formData.append("reports_to", editFormData.reports_to ?? selectedEmployee.reports_to ?? "");
 
-      const updatedEmployee: Employee = await res.json();
-
-      setEmployees(prev =>
-        prev.map(emp => (emp.email === selectedEmployee.email ? updatedEmployee : emp))
-      );
-
-      toast.success("Employee updated successfully");
-      setIsEditing(false);
-      setSelectedEmployee(null);
-      setEditFormData({});
-      setProfilePictureFile(null);
-    } catch (err: unknown) {
-      console.error("Failed to update employee:", err);
-      toast.error("Failed to update employee");
+    // ✅ handle file upload
+    if (profilePictureFile) {
+      formData.append("profile_picture", profilePictureFile); // must match backend field
+    } else if (selectedEmployee.profile_picture) {
+      // if no new file chosen, send old URL/path
+      formData.append("profile_picture", selectedEmployee.profile_picture);
     }
-  };
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${selectedEmployee.email}/`,
+      {
+        method: "PUT", // or PATCH if backend prefers partial update
+        body: formData,
+        // ❌ don’t set Content-Type, browser will set it with boundary
+      }
+    );
+
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+    const updatedEmployee: Employee = await res.json();
+
+    setEmployees(prev =>
+      prev.map(emp => (emp.email === selectedEmployee.email ? updatedEmployee : emp))
+    );
+
+    toast.success("Employee updated successfully");
+    setIsEditing(false);
+    setSelectedEmployee(null);
+    setEditFormData({});
+    setProfilePictureFile(null);
+  } catch (err: unknown) {
+    console.error("Failed to update employee:", err);
+    toast.error("Failed to update employee");
+  }
+};
+
 
   // Get unique departments for filter
   const departments = Array.from(new Set(employees.map(emp => emp.department).filter(Boolean))) as string[];

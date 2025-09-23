@@ -15,7 +15,6 @@ type Leave = {
   department: string;
 };
 
-// ✅ Type for backend response leave object
 type LeaveApiResponse = {
   reason: string;
   leave_type: string;
@@ -31,12 +30,13 @@ export default function LeaveSection() {
   const [email, setEmail] = useState("");
   const [department, setDepartment] = useState("");
   const [reason, setReason] = useState("");
+  const [leaveType, setLeaveType] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get user email and department from localStorage
+  // Get logged-in user info once
   useEffect(() => {
     const userInfo = localStorage.getItem("userInfo");
     if (userInfo) {
@@ -64,14 +64,14 @@ export default function LeaveSection() {
     }
   };
 
-  // Fetch leaves for the logged-in employee
+  // Fetch leaves only after email is set
   const fetchLeaves = useCallback(async () => {
     if (!email) return;
     setLoading(true);
 
     try {
       const res = await fetch(
-        `http://127.0.0.1:8000/api/accounts/list_leaves/?email=${email}`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/?email=${email}`
       );
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
@@ -81,7 +81,7 @@ export default function LeaveSection() {
         : [];
 
       const mappedLeaves: Leave[] = leavesArray.map((leave) => ({
-        id: Math.random(), // temporary id if backend doesn't provide one
+        id: Math.random(), // fallback id if backend doesn't provide one
         reason: leave.reason,
         leaveType: leave.leave_type,
         startDate: leave.start_date,
@@ -105,13 +105,13 @@ export default function LeaveSection() {
     }
   }, [email]);
 
+  // Fetch leaves whenever email is set
   useEffect(() => {
     fetchLeaves();
   }, [fetchLeaves]);
 
-  // Submit new leave
   const handleAddLeave = async () => {
-    if (!reason || !startDate || !endDate) {
+    if (!reason || !startDate || !endDate || !leaveType) {
       alert("Please fill all fields");
       return;
     }
@@ -128,18 +128,17 @@ export default function LeaveSection() {
 
     try {
       const res = await fetch(
-        "http://127.0.0.1:8000/api/accounts/apply_leave/",
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/apply_leave/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email: email,
-            department: department,
+            email,
+            department,
             reason,
             start_date: startDate,
             end_date: endDate,
-            leave_type: reason.toLowerCase().replace(" ", "_"),
-            status: "Pending",
+            leave_type: leaveType,
           }),
         }
       );
@@ -157,10 +156,11 @@ export default function LeaveSection() {
 
       // Reset form
       setReason("");
+      setLeaveType("");
       setStartDate("");
       setEndDate("");
 
-      // Refresh leaves
+      // Refresh leaves for the user
       fetchLeaves();
     } catch (err) {
       console.error("Leave submission error:", err);
@@ -192,7 +192,10 @@ export default function LeaveSection() {
               </label>
               <select
                 value={reason}
-                onChange={(e) => setReason(e.target.value)}
+                onChange={(e) => {
+                  setReason(e.target.value);
+                  setLeaveType(e.target.value.toLowerCase().replace(" ", "_"));
+                }}
                 className="border border-gray-300 rounded-md p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               >
                 <option value="">Select a reason</option>
@@ -236,8 +239,7 @@ export default function LeaveSection() {
               {startDate && endDate && (
                 <span>
                   {Math.ceil(
-                    (new Date(endDate).getTime() -
-                      new Date(startDate).getTime()) /
+                    (new Date(endDate).getTime() - new Date(startDate).getTime()) /
                       (1000 * 60 * 60 * 24)
                   ) + 1}{" "}
                   day(s)
@@ -263,7 +265,7 @@ export default function LeaveSection() {
           </div>
         </div>
 
-        {/* Leave Summary & History */}
+        {/* Leave History */}
         {loading ? (
           <p>Loading leaves...</p>
         ) : (
@@ -303,12 +305,8 @@ export default function LeaveSection() {
                             to {formatDate(leave.endDate)}
                           </div>
                         </td>
-                        <td className="py-4 pr-4">
-                          {leave.daysRequested} day(s)
-                        </td>
-                        <td className="py-4 pr-4">
-                          {formatDate(leave.submittedDate)}
-                        </td>
+                        <td className="py-4 pr-4">{leave.daysRequested} day(s)</td>
+                        <td className="py-4 pr-4">{formatDate(leave.submittedDate)}</td>
                         <td className="py-4">
                           <div
                             className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
@@ -319,9 +317,7 @@ export default function LeaveSection() {
                                 : "bg-red-100 text-red-800"
                             }`}
                           >
-                            <span className="mr-1.5">
-                              {getStatusIcon(leave.status)}
-                            </span>
+                            <span className="mr-1.5">{getStatusIcon(leave.status)}</span>
                             {leave.status}
                           </div>
                         </td>

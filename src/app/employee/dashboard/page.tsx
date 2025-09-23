@@ -9,7 +9,6 @@ import {
   FiTrendingUp,
   FiAlertCircle,
 } from "react-icons/fi";
-import { supabase } from "@/app/lib/supabaseClient";
 
 type AttendanceRecord = {
   email: string;
@@ -28,12 +27,10 @@ type LeaveRecord = {
   reason: string;
 };
 
-// Backend/raw shape (what your API returns)
 type RawAttendance = {
   email: string;
   role?: string;
   date: string;
-  // backend may use snake_case, camelCase, or either — accept both
   check_in?: string | null;
   check_out?: string | null;
   checkIn?: string | null;
@@ -44,12 +41,12 @@ export default function DashboardOverview() {
   const [attendanceRate, setAttendanceRate] = useState<number>(0);
   const [pendingRequests, setPendingRequests] = useState<number>(0);
   const [hoursThisWeek, setHoursThisWeek] = useState<number>(0);
-  const [, setDailyHours] = useState<Record<string, number>>({}); // only setter used
+  const [, setDailyHours] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [leaveData, setLeaveData] = useState<LeaveRecord[]>([]);
 
-  const totalPossibleHours = 200; // Total working hours for calculation
+  const totalPossibleHours = 200;
 
   const fetchDashboardData = async () => {
     try {
@@ -57,13 +54,13 @@ export default function DashboardOverview() {
       if (!userEmail) return;
 
       // Fetch leaves
-      const leaveRes = await fetch("http://127.0.0.1:8000/api/accounts/list_leaves/");
+      const leaveRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/`);
       if (!leaveRes.ok) throw new Error("Failed to fetch leave data");
       const leaveJson = await leaveRes.json();
       const leaves: LeaveRecord[] = leaveJson.leaves || [];
       setLeaveData(leaves);
 
-      // Calculate pending requests
+      // Pending requests
       const userLeaves = leaves.filter((l) => l.email === userEmail);
       const pendingCount = userLeaves.reduce(
         (acc, l) => (l.status?.toLowerCase() === "pending" ? acc + 1 : acc),
@@ -72,33 +69,29 @@ export default function DashboardOverview() {
       setPendingRequests(pendingCount);
 
       // Fetch attendance
-      const attendanceRes = await fetch("http://127.0.0.1:8000/api/accounts/list_attendance/");
+      const attendanceRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_attendance/`);
       const attendanceJson = attendanceRes.ok ? await attendanceRes.json() : { attendance: [] };
-
-      // Cast the raw API array into RawAttendance[], then normalize to AttendanceRecord
-      const rawAttendance: RawAttendance[] = (attendanceJson.attendance || []) as RawAttendance[];
+      const rawAttendance: RawAttendance[] = attendanceJson.attendance || [];
 
       const allAttendance: AttendanceRecord[] = rawAttendance.map((rec) => ({
         email: rec.email,
         role: rec.role ?? "",
         date: rec.date,
-        // prefer camelCase if present, otherwise fallback to snake_case, otherwise null
         checkIn: rec.checkIn ?? rec.check_in ?? null,
         checkOut: rec.checkOut ?? rec.check_out ?? null,
       }));
 
-      // Filter for current user
       const userAttendance = allAttendance.filter((a) => a.email === userEmail);
       setAttendanceRecords(userAttendance);
 
-      // Calculate attendance rate
+      // Attendance rate
       const totalDays = userAttendance.length;
       const presentDays = userAttendance.filter((a) => a.checkIn && a.checkOut).length;
       setAttendanceRate(totalDays ? Math.round((presentDays / totalDays) * 100) : 0);
 
-      // Calculate hours this week and daily hours
+      // Hours this week
       const startOfWeek = new Date();
-      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
       let weekHours = 0;
       const dailyHoursCalc: Record<string, number> = {};
 
@@ -125,27 +118,8 @@ export default function DashboardOverview() {
 
   useEffect(() => {
     fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 60000);
-
-    // Supabase realtime subscription
-    const channel = supabase
-      .channel("dashboard-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "attendance" },
-        () => fetchDashboardData()
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "leaves" },
-        () => fetchDashboardData()
-      )
-      .subscribe();
-
-    return () => {
-      clearInterval(interval);
-      supabase.removeChannel(channel);
-    };
+    const interval = setInterval(fetchDashboardData, 60000); // refresh every 1 min
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) {
@@ -155,6 +129,8 @@ export default function DashboardOverview() {
       </DashboardLayout>
     );
   }
+
+  const userEmail = localStorage.getItem("user_email") || "";
 
   return (
     <DashboardLayout role="employee">
@@ -185,7 +161,7 @@ export default function DashboardOverview() {
           <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-green-500">
             <div className="flex items-center justify-between">
               <span className="text-green-600 text-xl sm:text-2xl font-bold">
-                {leaveData.filter((l) => l.email === localStorage.getItem("user_email")).length}
+                {leaveData.filter((l) => l.email === userEmail).length}
               </span>
               <div className="p-2 bg-green-100 rounded-lg">
                 <FiCalendar className="text-green-600 text-lg sm:text-xl" />
@@ -255,9 +231,8 @@ export default function DashboardOverview() {
                 {attendanceRecords.map((rec) => {
                   const hours =
                     rec.checkIn && rec.checkOut
-                      ? (
-                          (new Date(`${rec.date}T${rec.checkOut}`).getTime() -
-                            new Date(`${rec.date}T${rec.checkIn}`).getTime()) /
+                      ? ((new Date(`${rec.date}T${rec.checkOut}`).getTime() -
+                          new Date(`${rec.date}T${rec.checkIn}`).getTime()) /
                           1000 /
                           3600
                         ).toFixed(2)
@@ -292,7 +267,7 @@ export default function DashboardOverview() {
               </thead>
               <tbody>
                 {leaveData
-                  .filter((l) => l.email === localStorage.getItem("user_email"))
+                  .filter((l) => l.email === userEmail)
                   .map((l, idx) => (
                     <tr key={idx} className="border-b">
                       <td className="py-2 px-4">{l.start_date}</td>

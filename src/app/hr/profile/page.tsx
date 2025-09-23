@@ -11,12 +11,6 @@ import {
   FiMail,
   FiCamera,
 } from "react-icons/fi";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
 
 type UserProfile = {
   name: string;
@@ -41,14 +35,14 @@ export default function Profile() {
   const [saveMessage, setSaveMessage] = useState({ type: "", text: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
   // ✅ Fetch user data from backend
   useEffect(() => {
     const fetchUserData = async (email: string) => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/hrs/${encodeURIComponent(
-            email
-          )}/`,
+          `${BASE_URL}/api/accounts/hrs/${encodeURIComponent(email)}/`,
           { method: "GET", headers: { "Content-Type": "application/json" } }
         );
 
@@ -76,7 +70,7 @@ export default function Profile() {
       const parsed = JSON.parse(storedUser);
       if (parsed.email) fetchUserData(parsed.email);
     }
-  }, []);
+  }, [BASE_URL]);
 
   // ✅ Handle image preview
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,51 +97,31 @@ export default function Profile() {
     setIsSaving(true);
 
     try {
-      let profilePictureUrl = user.picture || "";
-
-      // Upload new picture to Supabase if selected
-      const fileInput = fileInputRef.current?.files?.[0];
-      if (fileInput && user.email) {
-        const fileExt = fileInput.name.split(".").pop();
-        const fileName = `${user.email.replace(/[@.]/g, "_")}.${fileExt}`;
-        const filePath = `${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("profile-pictures")
-          .upload(filePath, fileInput, { upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        const { data: publicUrlData } = supabase.storage
-          .from("profile-pictures")
-          .getPublicUrl(filePath);
-
-        // ✅ Cache-busting
-        profilePictureUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
-      }
-
-      // Send update request
       const formData = new FormData();
       formData.append("email", user.email);
       formData.append("fullname", user.name);
       formData.append("phone", user.phone || "");
       formData.append("department", user.department || "");
-      formData.append("profile_picture", profilePictureUrl);
+
+      // Attach image file if uploaded
+      const fileInput = fileInputRef.current?.files?.[0];
+      if (fileInput) {
+        formData.append("profile_picture", fileInput);
+      }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/hrs/${encodeURIComponent(
-          user.email
-        )}/`,
+        `${BASE_URL}/api/accounts/hrs/${encodeURIComponent(user.email)}/`,
         { method: "PUT", body: formData }
       );
 
       if (!response.ok) throw new Error("Failed to update profile");
 
       const updatedUser = await response.json();
+
       setUser({
         name: updatedUser.fullname || user.name,
         email: updatedUser.email || user.email,
-        picture: updatedUser.profile_picture || profilePictureUrl,
+        picture: updatedUser.profile_picture || user.picture,
         role: updatedUser.role || user.role,
         phone: updatedUser.phone || user.phone,
         department: updatedUser.department || user.department,
@@ -165,7 +139,6 @@ export default function Profile() {
     }
   };
 
-  // ✅ Cancel Editing
   const handleCancel = () => {
     setIsEditing(false);
     setSaveMessage({ type: "", text: "" });

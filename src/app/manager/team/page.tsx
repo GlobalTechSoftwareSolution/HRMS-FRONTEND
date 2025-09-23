@@ -1,17 +1,10 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { createClient } from "@supabase/supabase-js";
+import { nhost } from "@/app/lib/nhost";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, Briefcase, Eye, X } from "lucide-react";
 import Image from "next/image";
-
-
-// ✅ Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type Employee = {
   email_id: string;
@@ -23,41 +16,50 @@ type Employee = {
   profile_picture?: string | null;
 };
 
+// Type for HR table (same fields for simplicity)
+type Hr = Employee;
+
+// Type for Manager table (same fields)
+type Manager = Employee;
+
 export default function TeamReport() {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [hrs, setHrs] = useState<Employee[]>([]);
-  const [managers, setManagers] = useState<Employee[]>([]);
+  const [hrs, setHrs] = useState<Hr[]>([]);
+  const [managers, setManagers] = useState<Manager[]>([]);
   const [view, setView] = useState<"employee" | "hr" | "manager">("employee");
   const [loading, setLoading] = useState(false);
 
-  // Popup
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      try {
+        // Fetch employees
+        const { data: empData, error: empErr } = await nhost
+          .from<Employee>("accounts_employee")
+          .select("*");
+        if (empErr) console.error("Employee fetch error:", empErr);
+        if (empData) setEmployees(empData);
 
-      const { data: empData, error: empErr } = await supabase
-        .from("accounts_employee")
-        .select("*");
+        // Fetch HR
+        const { data: hrData, error: hrErr } = await nhost
+          .from<Hr>("accounts_hr")
+          .select("*");
+        if (hrErr) console.error("HR fetch error:", hrErr);
+        if (hrData) setHrs(hrData);
 
-      const { data: hrData, error: hrErr } = await supabase
-        .from("accounts_hr")
-        .select("*");
-
-      const { data: managerData, error: managerErr } = await supabase
-        .from("accounts_manager")
-        .select("*");
-
-      if (empErr) console.error("Employee fetch error:", empErr);
-      if (hrErr) console.error("HR fetch error:", hrErr);
-      if (managerErr) console.error("Manager fetch error:", managerErr);
-
-      if (empData) setEmployees(empData);
-      if (hrData) setHrs(hrData);
-      if (managerData) setManagers(managerData);
-
-      setLoading(false);
+        // Fetch Managers
+        const { data: managerData, error: managerErr } = await nhost
+          .from<Manager>("accounts_manager")
+          .select("*");
+        if (managerErr) console.error("Manager fetch error:", managerErr);
+        if (managerData) setManagers(managerData);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchData();
@@ -66,7 +68,6 @@ export default function TeamReport() {
   const list =
     view === "employee" ? employees : view === "hr" ? hrs : managers;
 
-  // Avatar helper
   const getAvatar = (emp: Employee) =>
     emp.profile_picture ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(
@@ -85,8 +86,7 @@ export default function TeamReport() {
           <div className="flex gap-4 mb-8">
             <button
               onClick={() => setView("employee")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow 
-              ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow ${
                 view === "employee"
                   ? "bg-blue-600 text-white scale-105"
                   : "bg-gray-200 text-gray-700 hover:bg-blue-100"
@@ -97,8 +97,7 @@ export default function TeamReport() {
 
             <button
               onClick={() => setView("hr")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow 
-              ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow ${
                 view === "hr"
                   ? "bg-purple-600 text-white scale-105"
                   : "bg-gray-200 text-gray-700 hover:bg-purple-100"
@@ -109,8 +108,7 @@ export default function TeamReport() {
 
             <button
               onClick={() => setView("manager")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow 
-              ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow ${
                 view === "manager"
                   ? "bg-green-600 text-white scale-105"
                   : "bg-gray-200 text-gray-700 hover:bg-green-100"
@@ -138,25 +136,21 @@ export default function TeamReport() {
                     className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-300"
                   >
                     <div className="flex items-center gap-4 mb-3">
-                     <Image
-  src={getAvatar(emp)}
-  alt={emp.fullname || "Profile"}
-  width={48}        // Tailwind w-12 = 48px
-  height={48}       // Tailwind h-12 = 48px
-  className="rounded-full object-cover border"
-/>
+                      <Image
+                        src={getAvatar(emp)}
+                        alt={emp.fullname || "Profile"}
+                        width={48}
+                        height={48}
+                        className="rounded-full object-cover border"
+                      />
                       <h2 className="text-xl font-semibold text-gray-800">
                         {emp.fullname || "Unknown"}
                       </h2>
                     </div>
 
                     <p className="text-gray-600 text-sm mb-1">📧 {emp.email_id}</p>
-                    {emp.phone && (
-                      <p className="text-gray-600 text-sm mb-1">📞 {emp.phone}</p>
-                    )}
-                    {emp.department && (
-                      <p className="text-gray-600 text-sm mb-1">🏢 {emp.department}</p>
-                    )}
+                    {emp.phone && <p className="text-gray-600 text-sm mb-1">📞 {emp.phone}</p>}
+                    {emp.department && <p className="text-gray-600 text-sm mb-1">🏢 {emp.department}</p>}
 
                     {/* View button */}
                     <button
@@ -198,41 +192,21 @@ export default function TeamReport() {
 
               <div className="flex items-center gap-4 mb-4">
                 <Image
-  src={getAvatar(selectedEmp)}
-  alt={selectedEmp?.fullname || "Profile"}
-  width={64}        // Tailwind w-16 = 64px
-  height={64}       // Tailwind h-16 = 64px
-  className="rounded-full object-cover border"
-/>
-                <h2 className="text-2xl font-bold text-gray-800">
-                  {selectedEmp.fullname}
-                </h2>
+                  src={getAvatar(selectedEmp)}
+                  alt={selectedEmp?.fullname || "Profile"}
+                  width={64}
+                  height={64}
+                  className="rounded-full object-cover border"
+                />
+                <h2 className="text-2xl font-bold text-gray-800">{selectedEmp.fullname}</h2>
               </div>
 
               <div className="space-y-2 text-gray-700">
-                <p>
-                  <strong>Email:</strong> {selectedEmp.email_id}
-                </p>
-                {selectedEmp.phone && (
-                  <p>
-                    <strong>Phone:</strong> {selectedEmp.phone}
-                  </p>
-                )}
-                {selectedEmp.department && (
-                  <p>
-                    <strong>Department:</strong> {selectedEmp.department}
-                  </p>
-                )}
-                {selectedEmp.age && (
-                  <p>
-                    <strong>Age:</strong> {selectedEmp.age}
-                  </p>
-                )}
-                {selectedEmp.date_of_birth && (
-                  <p>
-                    <strong>DOB:</strong> {selectedEmp.date_of_birth}
-                  </p>
-                )}
+                <p><strong>Email:</strong> {selectedEmp.email_id}</p>
+                {selectedEmp.phone && <p><strong>Phone:</strong> {selectedEmp.phone}</p>}
+                {selectedEmp.department && <p><strong>Department:</strong> {selectedEmp.department}</p>}
+                {selectedEmp.age && <p><strong>Age:</strong> {selectedEmp.age}</p>}
+                {selectedEmp.date_of_birth && <p><strong>DOB:</strong> {selectedEmp.date_of_birth}</p>}
               </div>
             </motion.div>
           </motion.div>

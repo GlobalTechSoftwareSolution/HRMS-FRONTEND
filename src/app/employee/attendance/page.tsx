@@ -74,7 +74,7 @@ export default function AttendancePortal() {
       setLoadingFetchedAttendance(true);
       setFetchError(null);
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_attendance/`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_attendance/`);
         if (!res.ok) throw new Error(`Error fetching attendance: ${res.statusText}`);
         const data: { attendance: APIResponseRecord[] } = await res.json();
 
@@ -138,7 +138,7 @@ export default function AttendancePortal() {
     localStorage.setItem("capturedImage", imageData);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/recognize_face/`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/recognize_face/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ image: imageData }),

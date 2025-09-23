@@ -17,7 +17,7 @@ export const Navbar: React.FC = () => {
     { id: "about", label: "About", href: "/about", icon: <User size={18} /> },
     { id: "contact", label: "Contact", href: "/contact", icon: <Mail size={18} /> },
     { id: "blogs", label: "Blogs", href: "/blogs", icon: <FileText size={18} /> },
-    { id: "attendance", label: "Attendance", href: "/attendance", icon: <Users size={18} /> },
+    { id: "attendance", label: "Attendance", href: "/employee/attendance", icon: <Users size={18} /> },
   ];
 
   return (
