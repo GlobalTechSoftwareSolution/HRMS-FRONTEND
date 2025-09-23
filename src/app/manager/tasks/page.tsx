@@ -19,10 +19,10 @@ type Task = {
 };
 
 type Employee = {
-  email: string; // <-- changed from email_id
+  email: string;
   fullname: string;
-  department: string | null;
-  designation: string | null;
+  department?: string | null;
+  designation?: string | null;
   profile_picture?: string | null;
 };
 
@@ -39,7 +39,7 @@ export default function ManagerTasks() {
   const formRef = React.useRef<HTMLDivElement | null>(null);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
 
-  const API_BASE = "https://hrms-6qja.onrender.com";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
   // Fetch employees
   useEffect(() => {
@@ -47,8 +47,18 @@ export default function ManagerTasks() {
       try {
         const res = await fetch(`${API_BASE}/api/accounts/employees/`);
         if (!res.ok) throw new Error("Failed to fetch employees");
-        const data = await res.json();
-        setEmployees(data || []); // data is already array
+let data;
+const text = await res.text(); // read once
+try {
+  data = JSON.parse(text);      // try parsing JSON manually
+} catch {
+  console.error("Response is not valid JSON:", text);
+  toast.error("Server returned invalid response");
+  return;
+}
+
+
+        setEmployees(data || []);
       } catch (err: unknown) {
         console.error("Error fetching employees:", err);
         toast.error("Failed to load employees");
@@ -65,7 +75,16 @@ export default function ManagerTasks() {
       try {
         const res = await fetch(`${API_BASE}/api/accounts/list_tasks/`);
         if (!res.ok) throw new Error("Failed to fetch tasks");
-        const data = await res.json();
+
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          console.error("Response is not valid JSON:", await res.text());
+          toast.error("Server returned invalid task data");
+          return;
+        }
+
         setTasks(data.tasks || []);
       } catch (err: unknown) {
         console.error("Error fetching tasks:", err);
@@ -88,7 +107,9 @@ export default function ManagerTasks() {
       return;
     }
 
-    const selectedEmployee = employees.find((emp) => emp.email === assignedTo);
+    const selectedEmployee = employees.find(
+      (emp) => emp.email === assignedTo
+    );
     if (!selectedEmployee) {
       toast.error("Selected employee not found");
       return;
@@ -107,13 +128,21 @@ export default function ManagerTasks() {
         assigned_to: assignedTo,
       };
 
-      const res = await fetch(`${API_BASE}/api/accounts/apply_task/`, {
+      const res = await fetch(`${API_BASE}/api/accounts/create_task/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        console.error("Response is not valid JSON:", await res.text());
+        toast.error("Server returned invalid response");
+        return;
+      }
+
       if (!res.ok) {
         throw new Error(data.message || "Failed to assign task");
       }
@@ -194,9 +223,9 @@ export default function ManagerTasks() {
                       alt={emp.fullname}
                       fill
                       className="rounded-full object-cover border border-gray-300"
-                      onErrorCapture={(e) => {
-                        (e.target as HTMLImageElement).src = "/default-avatar.png";
-                      }}
+                      onErrorCapture={(e) =>
+                        (e.currentTarget.src = "/default-avatar.png")
+                      }
                     />
                   </div>
                   <div className="flex-1">
@@ -205,10 +234,12 @@ export default function ManagerTasks() {
                     </h3>
                     <p className="text-sm text-gray-500 mb-1">{emp.email}</p>
                     <p className="text-sm text-gray-600">
-                      <span className="font-medium">Role:</span> {emp.designation || "N/A"}
+                      <span className="font-medium">Role:</span>{" "}
+                      {emp.designation || "N/A"}
                     </p>
                     <p className="text-sm text-gray-600 mb-3">
-                      <span className="font-medium">Department:</span> {emp.department || "N/A"}
+                      <span className="font-medium">Department:</span>{" "}
+                      {emp.department || "N/A"}
                     </p>
                     <button
                       onClick={() => {

@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
-import Image from "next/image"; 
+import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
 
 type Employee = {
@@ -44,7 +44,7 @@ export default function EmployeesPage() {
       try {
         setLoading(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/employees/`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`
         );
         if (!res.ok) throw new Error("Failed to fetch employees");
 
@@ -100,6 +100,16 @@ export default function EmployeesPage() {
       return matchesSearch && matchesDept && matchesStatus;
     });
   }, [employees, searchTerm, departmentFilter, statusFilter]);
+
+  // --------------------- SAFE IMAGE URL ---------------------
+  const getValidImage = (url: string | undefined, name: string) => {
+    if (!url) return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`;
+    try {
+      return new URL(url).href;
+    } catch {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`;
+    }
+  };
 
   return (
     <DashboardLayout role="ceo">
@@ -171,23 +181,14 @@ export default function EmployeesPage() {
                     className="bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center text-center transition-transform transform hover:scale-105 hover:shadow-2xl duration-300"
                   >
                     {/* Profile Image */}
-                    {emp.picture ? (
-                      <div className="relative w-24 h-24 mb-4">
-                        <Image
-                          src={emp.picture}
-                          alt={emp.name}
-                          className="rounded-full object-cover"
-                          fill
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-800 font-bold text-xl mb-4 shadow-md">
-                        {emp.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </div>
-                    )}
+                    <div className="relative w-24 h-24 mb-4">
+                      <Image
+                        src={getValidImage(emp.picture, emp.name)}
+                        alt={emp.name}
+                        className="rounded-full object-cover"
+                        fill
+                      />
+                    </div>
 
                     {/* Name & Role */}
                     <h2 className="font-semibold text-lg sm:text-xl text-gray-900">{emp.name}</h2>

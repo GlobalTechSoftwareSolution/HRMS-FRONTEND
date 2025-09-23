@@ -1,12 +1,13 @@
+// next.config.js
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
     domains: [
-      "ejanftgxxtlbadbqzdib.supabase.co", // your Supabase host
-      "images.unsplash.com",               // Unsplash
-      "ui-avatars.com", 
-      'shorturl.at', 'example.com',                   // avatar generation
+      "ui-avatars.com",
+      "ejanftgxxtlbadbqzdib.supabase.co",
+      "images.unsplash.com",
+      "hrms-6qja.onrender.com", // Add your backend host
     ],
   },
 };

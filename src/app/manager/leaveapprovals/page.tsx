@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
 import {  
   FiCalendar, 
@@ -12,12 +11,6 @@ import {
   FiXCircle, 
   FiClock 
 } from "react-icons/fi";
-
-// Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type Employee = {
   email_id: string;
@@ -37,14 +30,12 @@ type LeaveRequest = {
 };
 
 // Status badge component
-// Status badge component
 const StatusBadge = ({ status }: { status?: string }) => {
   const statusConfig: Record<string, { color: string; icon: React.ReactNode }> = {
-  Pending: { color: "bg-yellow-100 text-yellow-800", icon: <FiClock className="mr-1" /> },
-  Approved: { color: "bg-green-100 text-green-800", icon: <FiCheckCircle className="mr-1" /> },
-  Rejected: { color: "bg-red-100 text-red-800", icon: <FiXCircle className="mr-1" /> },
-};
-
+    Pending: { color: "bg-yellow-100 text-yellow-800", icon: <FiClock className="mr-1" /> },
+    Approved: { color: "bg-green-100 text-green-800", icon: <FiCheckCircle className="mr-1" /> },
+    Rejected: { color: "bg-red-100 text-red-800", icon: <FiXCircle className="mr-1" /> },
+  };
 
   const config = status && statusConfig[status] ? statusConfig[status] : { color: "bg-gray-100 text-gray-800", icon: <FiClock className="mr-1" /> };
 
@@ -56,7 +47,6 @@ const StatusBadge = ({ status }: { status?: string }) => {
   );
 };
 
-
 export default function ManagerDashboard() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -64,30 +54,33 @@ export default function ManagerDashboard() {
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [filter, setFilter] = useState<"Pending" | "Approved" | "Rejected" | "All">("All");
 
-  // Fetch data
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+
+  // Fetch data from API
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data: empData } = await supabase.from("accounts_employee").select("*");
-      if (empData) setEmployees(empData);
+      // Employees
+      const empRes = await fetch(`${API_BASE}/api/accounts/list_employees/`);
+      const empData = await empRes.json();
+      setEmployees(empData.employees || []);
 
-      const { data: leaveData } = await supabase
-        .from("accounts_leave")
-        .select("*")
-        .order("applied_on", { ascending: false });
-        
-      if (leaveData) setLeaveRequests(leaveData as LeaveRequest[]);
+      // Leave requests
+      const leaveRes = await fetch(`${API_BASE}/api/accounts/list_leave_requests/`);
+      const leaveData = await leaveRes.json();
+      setLeaveRequests(leaveData.leaves || []);
     } catch (err) {
       console.error("Error fetching data:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Update leave status
+  // Update leave status via API
   const updateLeaveStatus = async (
     email_id: string,
     applied_on: string,
@@ -96,38 +89,32 @@ export default function ManagerDashboard() {
     const key = `${email_id}-${applied_on}`;
     setUpdatingKey(key);
 
-    const { error } = await supabase
-      .from("accounts_leave")
-      .update({ status })
-      .eq("email_id", email_id)
-      .eq("applied_on", applied_on);
+    try {
+      const res = await fetch(`${API_BASE}/api/accounts/update_leave_status/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email_id, applied_on, status }),
+      });
+      if (!res.ok) throw new Error("Failed to update status");
 
-    if (error) {
-      console.error("Update error:", error);
-    } else {
-      setLeaveRequests((prev) =>
-        prev.map((lr) =>
-          lr.email_id === email_id && lr.applied_on === applied_on
-            ? { ...lr, status }
-            : lr
+      setLeaveRequests(prev =>
+        prev.map(lr =>
+          lr.email_id === email_id && lr.applied_on === applied_on ? { ...lr, status } : lr
         )
       );
+    } catch (err) {
+      console.error("Update error:", err);
+    } finally {
+      setUpdatingKey(null);
     }
-    setUpdatingKey(null);
   };
 
   // Helper: get employee by email
   const getEmployee = (email_id: string) =>
-    employees.find((e) => e.email_id === email_id) || {
-      fullname: "Unknown Employee",
-      designation: "-",
-      department: "-",
-    };
+    employees.find(e => e.email_id === email_id) || { fullname: "Unknown Employee", designation: "-", department: "-" };
 
-  // Filtered leaves
-  const filteredLeaves = leaveRequests.filter((lr) => filter === "All" || lr.status === filter);
+  const filteredLeaves = leaveRequests.filter(lr => filter === "All" || lr.status === filter);
 
-  // Stats
   const stats = {
     total: leaveRequests.length,
     pending: leaveRequests.filter(lr => lr.status === "Pending").length,
@@ -178,17 +165,15 @@ export default function ManagerDashboard() {
 
           {/* Status filter buttons */}
           <div className="flex flex-wrap gap-2 mb-6 mt-2">
-            {(["All", "Pending", "Approved", "Rejected"] as const).map((status) => (
+            {(["All", "Pending", "Approved", "Rejected"] as const).map(status => (
               <button
                 key={status}
                 onClick={() => setFilter(status)}
                 className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center ${
-                  filter === status
-                    ? "bg-blue-600 text-white shadow"
-                    : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                  filter === status ? "bg-blue-600 text-white shadow" : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                 }`}
               >
-                {status} {status !== "All" && `(${stats[status.toLowerCase() as keyof Omit<typeof stats, "total">]})`}
+                {status} {status !== "All" && `(${stats[status.toLowerCase() as keyof Omit<typeof stats,"total">]})`}
               </button>
             ))}
           </div>
@@ -207,12 +192,12 @@ export default function ManagerDashboard() {
           ) : (
             <div className="flex flex-col gap-4 mb-6">
               <AnimatePresence>
-                {filteredLeaves.map((lr) => {
-  const emp = getEmployee(lr.email_id);
-  const key = `${lr.email_id}-${lr.applied_on}`; // unique string key
+                {filteredLeaves.map(lr => {
+                  const emp = getEmployee(lr.email_id);
+                  const key = `${lr.email_id}-${lr.applied_on}`;
                   return (
                     <motion.div
-      key={key} // use the unique string key
+                      key={key}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -50 }}
@@ -225,14 +210,14 @@ export default function ManagerDashboard() {
                             <h3 className="font-bold text-gray-800 text-lg">{emp.fullname}</h3>
                             <StatusBadge status={lr.status} />
                           </div>
-                          
+
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
                             <div className="flex items-center"><FiMail className="mr-2 text-gray-400" />{lr.email_id}</div>
                             <div className="flex items-center"><FiBriefcase className="mr-2 text-gray-400" />{emp.designation || "N/A"}</div>
                             <div className="flex items-center"><FiUser className="mr-2 text-gray-400" />{emp.department || "N/A"}</div>
                             <div className="flex items-center"><FiCalendar className="mr-2 text-gray-400" />Applied on: {new Date(lr.applied_on).toLocaleDateString()}</div>
                           </div>
-                          
+
                           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <p className="text-sm font-medium text-gray-700">Leave Details</p>

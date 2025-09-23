@@ -1,3 +1,5 @@
+
+
 "use client";
 import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
@@ -11,12 +13,7 @@ import {
   FiMail,
   FiCamera,
 } from "react-icons/fi";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabase: SupabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
 
 type UserProfile = {
   name: string;
@@ -55,7 +52,7 @@ export default function Profile() {
     const fetchUserData = async (email: string) => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/managers/${encodeURIComponent(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/managers/${encodeURIComponent(
             email
           )}/`,
           { headers: { "Content-Type": "application/json" } }
@@ -108,42 +105,26 @@ export default function Profile() {
 
     setIsSaving(true);
     try {
-      let profilePictureUrl = user.picture || "";
-
-      // Upload new picture to Supabase
       const fileInput = fileInputRef.current?.files?.[0];
-      if (fileInput && user.email) {
-        const fileExt = fileInput.name.split(".").pop();
-        const fileName = `${user.email.replace(/[@.]/g, "_")}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from("profile-pictures")
-          .upload(fileName, fileInput, { upsert: true });
-        if (uploadError) throw uploadError;
 
-        const { data: publicUrlData } = supabase.storage
-          .from("profile-pictures")
-          .getPublicUrl(fileName);
-
-        if (publicUrlData.publicUrl) {
-          profilePictureUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
-        }
+      const formData = new FormData();
+      formData.append("email", user.email);
+      formData.append("fullname", user.name);
+      formData.append("phone", user.phone || "");
+      formData.append("department", user.department || "");
+      if (fileInput) {
+        formData.append("profile_picture", fileInput);
+      } else {
+        formData.append("profile_picture", "");
       }
 
-      // PUT request
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/managers/${encodeURIComponent(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/managers/${encodeURIComponent(
           user.email
         )}/`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: user.email,
-            fullname: user.name,
-            phone: user.phone,
-            department: user.department,
-            profile_picture: profilePictureUrl,
-          }),
+          body: formData,
         }
       );
 
@@ -153,7 +134,7 @@ export default function Profile() {
       setUser({
         name: updatedUser.fullname || user.name,
         email: updatedUser.email || user.email,
-        picture: updatedUser.profile_picture || profilePictureUrl,
+        picture: updatedUser.profile_picture || user.picture || "/default-profile.png",
         role: updatedUser.role || user.role,
         phone: updatedUser.phone || user.phone,
         department: updatedUser.department || user.department,
@@ -212,6 +193,7 @@ export default function Profile() {
               width={96}
               height={96}
               className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
+              unoptimized={!!(user.picture && user.picture.startsWith("http"))}
             />
             {isEditing && (
               <>

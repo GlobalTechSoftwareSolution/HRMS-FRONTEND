@@ -102,7 +102,7 @@ export default function DashboardLayout({ children, role }: Props) {
 
       const fetchUser = async () => {
         try {
-          const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/${role}s/${encodeURIComponent(email)}/`;
+          const url = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/${role}s/${encodeURIComponent(email)}/`;
           const res = await fetch(url);
           if (!res.ok) {
             console.warn("Failed to fetch user data. Status:", res.status);
@@ -151,6 +151,7 @@ export default function DashboardLayout({ children, role }: Props) {
             alt={userInfo?.name || "Profile"}
             width={64}
             height={64}
+            unoptimized
             className="rounded-full border-2 border-white shadow-md object-cover"
           />
           <div className="flex flex-col">
@@ -204,6 +205,7 @@ export default function DashboardLayout({ children, role }: Props) {
                 alt={userInfo?.name || "Profile"}
                 width={64}
                 height={64}
+                unoptimized
                 className="rounded-full border-2 border-white shadow-md object-cover"
               />
               <div className="flex flex-col">
@@ -267,6 +269,7 @@ export default function DashboardLayout({ children, role }: Props) {
                 alt={userInfo?.name || "Profile"}
                 width={40}
                 height={40}
+                unoptimized
                 className="rounded-full border border-gray-300 shadow-sm object-cover cursor-pointer"
               />
             </button>

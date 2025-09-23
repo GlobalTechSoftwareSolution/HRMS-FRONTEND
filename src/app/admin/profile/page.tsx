@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
-import DashboardLayout from "@/components/DashboardLayout";
 import Image from "next/image";
+import DashboardLayout from "@/components/DashboardLayout";
 import {
   FiSave,
   FiEdit,
@@ -11,12 +11,7 @@ import {
   FiMail,
   FiCamera,
 } from "react-icons/fi";
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
 
 type UserProfile = {
   name: string;
@@ -27,11 +22,20 @@ type UserProfile = {
   department?: string;
 };
 
+type FetchUserResponse = {
+  fullname?: string;
+  email: string;
+  profile_picture?: string;
+  role: string;
+  phone?: string;
+  department?: string;
+};
+
 export default function Profile() {
   const [user, setUser] = useState<UserProfile>({
     name: "",
     email: "",
-    picture: "/default-profile.png",
+    picture: "",
     role: "",
     phone: "",
     department: "",
@@ -46,13 +50,13 @@ export default function Profile() {
     const fetchUserData = async (email: string) => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/admins/${encodeURIComponent(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/admin/${encodeURIComponent(
             email
           )}/`,
           { headers: { "Content-Type": "application/json" } }
         );
         if (!response.ok) throw new Error("Failed to fetch user data");
-        const currentUser = await response.json();
+        const currentUser: FetchUserResponse = await response.json();
         setUser({
           name: currentUser.fullname || "",
           email: currentUser.email || email,
@@ -69,7 +73,7 @@ export default function Profile() {
 
     const storedUser = localStorage.getItem("userInfo");
     if (storedUser) {
-      const parsed = JSON.parse(storedUser);
+      const parsed = JSON.parse(storedUser) as { email?: string };
       if (parsed.email) fetchUserData(parsed.email);
     }
   }, []);
@@ -86,72 +90,67 @@ export default function Profile() {
 
   // Save profile
   const handleSave = async () => {
-    if (user.phone && !/^[\+]?[0-9]{6,15}$/.test(user.phone.replace(/\s/g, ""))) {
-      setSaveMessage({ type: "error", text: "Please enter a valid phone number" });
+    if (
+      user.phone &&
+      !/^[\+]?[0-9]{6,15}$/.test(user.phone.replace(/\s/g, ""))
+    ) {
+      setSaveMessage({
+        type: "error",
+        text: "Please enter a valid phone number",
+      });
       return;
     }
 
     setIsSaving(true);
     try {
-      let profilePictureUrl = user.picture || "/default-profile.png";
-
-      // Upload new picture to Supabase
       const fileInput = fileInputRef.current?.files?.[0];
-      if (fileInput && user.email) {
-        const fileExt = fileInput.name.split(".").pop();
-        const fileName = `${user.email.replace(/[@.]/g, "_")}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from("profile-pictures")
-          .upload(fileName, fileInput, { upsert: true });
-        if (uploadError) throw uploadError;
 
-        const { data: publicUrlData } = supabase.storage
-          .from("profile-pictures")
-          .getPublicUrl(fileName);
-
-        profilePictureUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+      const formData = new FormData();
+      formData.append("email", user.email);
+      formData.append("fullname", user.name);
+      formData.append("phone", user.phone || "");
+      formData.append("department", user.department || "");
+      if (fileInput) {
+        formData.append("profile_picture", fileInput);
+      } else {
+        formData.append("profile_picture", "");
       }
 
-      // PUT request
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/admins/${encodeURIComponent(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/admins/${encodeURIComponent(
           user.email
         )}/`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: user.email,
-            fullname: user.name,
-            phone: user.phone,
-            department: user.department,
-            profile_picture: profilePictureUrl,
-          }),
+          body: formData,
         }
       );
 
       if (!response.ok) throw new Error("Failed to update profile");
-      const updatedUser = await response.json();
+      const updatedUser: FetchUserResponse = await response.json();
 
       setUser({
         name: updatedUser.fullname || user.name,
         email: updatedUser.email || user.email,
-        picture: updatedUser.profile_picture || profilePictureUrl,
+        picture: updatedUser.profile_picture || user.picture || "/default-profile.png",
         role: updatedUser.role || user.role,
         phone: updatedUser.phone || user.phone,
         department: updatedUser.department || user.department,
       });
 
       localStorage.setItem("userInfo", JSON.stringify(updatedUser));
-      setSaveMessage({ type: "success", text: "Profile updated successfully!" });
+      setSaveMessage({
+        type: "success",
+        text: "Profile updated successfully!",
+      });
       setIsEditing(false);
     } catch (error: unknown) {
       console.error(error);
-      if (error instanceof Error) {
-        setSaveMessage({ type: "error", text: error.message });
-      } else {
-        setSaveMessage({ type: "error", text: "Failed to save profile changes." });
-      }
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to save profile changes.";
+      setSaveMessage({ type: "error", text: message });
     } finally {
       setIsSaving(false);
       setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
@@ -191,7 +190,8 @@ export default function Profile() {
               alt={user.name || "Profile"}
               width={96}
               height={96}
-              className="rounded-full border-2 border-blue-500 shadow-md object-cover"
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
+              unoptimized={!!(user.picture && user.picture.startsWith("http"))}
             />
             {isEditing && (
               <>
@@ -296,7 +296,11 @@ export default function Profile() {
               disabled={isSaving}
               className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-70"
             >
-              {isSaving ? "Saving..." : <><FiSave size={16} /> Save Changes</>}
+              {isSaving ? "Saving..." : (
+                <>
+                  <FiSave size={16} /> Save Changes
+                </>
+              )}
             </button>
           </div>
         )}

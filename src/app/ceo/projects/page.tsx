@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { supabase } from "@/app/lib/supabaseClient";
+import { nhost } from "@/app/lib/nhost"; // your Nhost client
+import { useSession } from "next-auth/react";
 import {
   FiPlus,
   FiCheckCircle,
@@ -32,6 +33,8 @@ interface Project {
 type NewProject = Omit<Project, "id">;
 
 const ProjectsDashboard: React.FC = () => {
+  const { data: session } = useSession();
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -62,7 +65,7 @@ const ProjectsDashboard: React.FC = () => {
       try {
         setIsLoading(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_projects/`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_projects/`
         );
 
         if (!res.ok) {
@@ -110,10 +113,12 @@ const ProjectsDashboard: React.FC = () => {
   // ------------------ Filtered Projects ------------------
   const filteredProjects = projects.filter((project) => {
     const matchesSearch =
-      project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.description.toLowerCase().includes(searchTerm.toLowerCase());
+      (project.name ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (project.description ?? "").toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesFilter =
       statusFilter === "All" || project.status === statusFilter;
+
     return matchesSearch && matchesFilter;
   });
 
@@ -122,14 +127,31 @@ const ProjectsDashboard: React.FC = () => {
     if (!newProject.name.trim()) return;
 
     try {
-      const { data, error } = await supabase
-        .from("accounts_project")
-        .insert([newProject])
-        .select();
+      // Always include CEO email
+      const ownerEmail = session?.user?.email || "ceo@example.com";
 
-      if (error) throw error;
+      const body = {
+        ...newProject,
+        owner_email: ownerEmail, // REQUIRED
+      };
 
-      setProjects([...projects, data![0]]);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/create_project/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Add project failed:", res.status, text);
+        throw new Error(`Failed to add project: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setProjects([...projects, data]);
       resetForm();
       setIsModalOpen(false);
       alert(`📢 New project "${newProject.name}" added!`);
@@ -143,16 +165,20 @@ const ProjectsDashboard: React.FC = () => {
     if (!selectedProject) return;
 
     try {
-      const { data, error } = await supabase
-        .from("accounts_project")
-        .update(newProject)
-        .eq("id", selectedProject.id)
-        .select();
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_project/${selectedProject.id}/`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newProject),
+        }
+      );
 
-      if (error) throw error;
+      if (!res.ok) throw new Error("Failed to update project");
 
+      const data: Project = await res.json();
       setProjects(
-        projects.map((p) => (p.id === selectedProject.id ? data![0] : p))
+        projects.map((p) => (p.id === selectedProject.id ? data : p))
       );
       resetForm();
       setIsModalOpen(false);
@@ -169,12 +195,12 @@ const ProjectsDashboard: React.FC = () => {
     if (!selectedProject) return;
 
     try {
-      const { error } = await supabase
-        .from("accounts_project")
-        .delete()
-        .eq("id", selectedProject.id);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/delete_project/${selectedProject.id}/`,
+        { method: "DELETE" }
+      );
 
-      if (error) throw error;
+      if (!res.ok) throw new Error("Failed to delete project");
 
       setProjects(projects.filter((p) => p.id !== selectedProject.id));
       setIsDeleteModalOpen(false);

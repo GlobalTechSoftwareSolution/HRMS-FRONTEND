@@ -9,17 +9,15 @@ import Image from "next/image";
 type Employee = {
   email_id: string;
   fullname: string;
-  age: number | null;
-  phone: string | null;
-  department: string | null;
-  date_of_birth: string | null;
+  age?: number | null;
+  phone?: string | null;
+  department?: string | null;
+  date_of_birth?: string | null;
   profile_picture?: string | null;
 };
 
-// Type for HR table (same fields for simplicity)
+// HR and Manager use same structure for simplicity
 type Hr = Employee;
-
-// Type for Manager table (same fields)
 type Manager = Employee;
 
 export default function TeamReport() {
@@ -28,45 +26,38 @@ export default function TeamReport() {
   const [managers, setManagers] = useState<Manager[]>([]);
   const [view, setView] = useState<"employee" | "hr" | "manager">("employee");
   const [loading, setLoading] = useState(false);
-
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Fetch employees
-        const { data: empData, error: empErr } = await nhost
-          .from<Employee>("accounts_employee")
-          .select("*");
-        if (empErr) console.error("Employee fetch error:", empErr);
-        if (empData) setEmployees(empData);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Employees
+      const empRes = await nhost.from<Employee>("accounts_employee").select("*");
+      if (empRes.error) console.error("Employee fetch error:", empRes.error);
+      if (empRes.data) setEmployees(empRes.data);
 
-        // Fetch HR
-        const { data: hrData, error: hrErr } = await nhost
-          .from<Hr>("accounts_hr")
-          .select("*");
-        if (hrErr) console.error("HR fetch error:", hrErr);
-        if (hrData) setHrs(hrData);
+      // HR
+      const hrRes = await nhost.from<Hr>("accounts_hr").select("*");
+      if (hrRes.error) console.error("HR fetch error:", hrRes.error);
+      if (hrRes.data) setHrs(hrRes.data);
 
-        // Fetch Managers
-        const { data: managerData, error: managerErr } = await nhost
-          .from<Manager>("accounts_manager")
-          .select("*");
-        if (managerErr) console.error("Manager fetch error:", managerErr);
-        if (managerData) setManagers(managerData);
-      } catch (err) {
-        console.error("Error fetching data:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+      // Managers
+      const managerRes = await nhost.from<Manager>("accounts_manager").select("*");
+      if (managerRes.error) console.error("Manager fetch error:", managerRes.error);
+      if (managerRes.data) setManagers(managerRes.data);
+    } catch (err) {
+      console.error("Error fetching data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchData();
-  }, []);
+  fetchData();
+}, []);
 
-  const list =
-    view === "employee" ? employees : view === "hr" ? hrs : managers;
+
+  const list = view === "employee" ? employees : view === "hr" ? hrs : managers;
 
   const getAvatar = (emp: Employee) =>
     emp.profile_picture ||
@@ -205,7 +196,7 @@ export default function TeamReport() {
                 <p><strong>Email:</strong> {selectedEmp.email_id}</p>
                 {selectedEmp.phone && <p><strong>Phone:</strong> {selectedEmp.phone}</p>}
                 {selectedEmp.department && <p><strong>Department:</strong> {selectedEmp.department}</p>}
-                {selectedEmp.age && <p><strong>Age:</strong> {selectedEmp.age}</p>}
+                {selectedEmp.age !== undefined && <p><strong>Age:</strong> {selectedEmp.age}</p>}
                 {selectedEmp.date_of_birth && <p><strong>DOB:</strong> {selectedEmp.date_of_birth}</p>}
               </div>
             </motion.div>

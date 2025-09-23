@@ -71,7 +71,7 @@ const FinanceDashboard: React.FC = () => {
   useEffect(() => {
     const fetchPayroll = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_payrolls/`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_payrolls/`);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
         const data: PayrollItem[] | { results?: PayrollItem[]; payrolls?: PayrollItem[] } = await res.json();

@@ -31,7 +31,7 @@ export default function ManagerDashboard() {
       try {
         setLoading(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_attendance/`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_attendance/`
         );
         if (!res.ok) throw new Error("Failed to fetch attendance");
         const data: ApiAttendanceResponse = await res.json();

@@ -29,7 +29,7 @@ const NoticeBoard: React.FC = () => {
       try {
         console.log("🔄 Fetching notices from API...");
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/accounts/list_notices/`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_notices/`
         );
 
         if (!res.ok) throw new Error("Failed to fetch notices");
