@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { nhost } from "@/app/lib/nhost"; // your Nhost client
 import { useSession } from "next-auth/react";
 import {
   FiPlus,
@@ -127,7 +128,7 @@ const ProjectsDashboard: React.FC = () => {
 
     try {
       // Always include CEO email
-      const ownerEmail = session?.user?.email || "ceo@example.com";
+      const ownerEmail = "sharan@gmail.com";
 
       const body = {
         ...newProject,
