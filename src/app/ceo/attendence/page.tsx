@@ -3,8 +3,6 @@
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 type AttendanceRecord = {
   email: string;
@@ -50,7 +48,7 @@ export default function ManagerDashboard() {
           }
           return {
             email: a.email,
-           Department: a.Department,
+            Department: a.Department,
             name: a.name,
             date: a.date,
             check_in: a.check_in,
@@ -79,103 +77,87 @@ export default function ManagerDashboard() {
   const absent = totalEmployees - checkedIn;
   const avgHours =
     totalEmployees > 0
-      ? (
-          attendance.reduce((acc, a) => acc + a.hours, 0) / totalEmployees
-        ).toFixed(2)
-      : 0;
+      ? (attendance.reduce((acc, a) => acc + a.hours, 0) / totalEmployees).toFixed(2)
+      : "0.00";
 
   // ------------------ PDF Generation ------------------
-const downloadPDF = async () => {
-  const jsPDFModule = (await import("jspdf")).default;
-  const autoTableModule = (await import("jspdf-autotable")).default;
+  const downloadPDF = async () => {
+    const jsPDFModule = (await import("jspdf")).default;
+    const autoTableModule = (await import("jspdf-autotable")).default;
 
-  const doc = new jsPDFModule({
-    orientation: "portrait",
-    unit: "pt",
-    format: "A4",
-  });
+    const doc = new jsPDFModule({
+      orientation: "portrait",
+      unit: "pt",
+      format: "A4",
+    });
 
-  // Title
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  doc.text("Today's Attendance Report", doc.internal.pageSize.getWidth() / 2, 40, {
-    align: "center",
-  });
+    // Title
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.text(
+      "Today&apos;s Attendance Report",
+      doc.internal.pageSize.getWidth() / 2,
+      40,
+      { align: "center" }
+    );
 
-  // Date
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "normal");
-  const today = new Date().toLocaleDateString();
-  doc.text(`Date: ${today}`, doc.internal.pageSize.getWidth() / 2, 60, {
-    align: "center",
-  });
+    // Date
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    const todayStr = new Date().toLocaleDateString();
+    doc.text(`Date: ${todayStr}`, doc.internal.pageSize.getWidth() / 2, 60, {
+      align: "center",
+    });
 
-  // Table Data (with Department)
-  const tableColumn = [
-    "ID",
-    "Employee Name",
-    "Email",
-    "Department",
-    "Check-in",
-    "Check-out",
-    "Hours",
-  ];
-  const tableRows: any[] = [];
+    // Table Data (with Department)
+    const tableColumn = [
+      "ID",
+      "Employee Name",
+      "Email",
+      "Department",
+      "Check-in",
+      "Check-out",
+      "Hours",
+    ];
+    const tableRows: (string | number)[][] = [];
 
-  todaysAttendance.forEach((rec, idx) => {
-  tableRows.push([
-    idx + 1,
-    rec.name || "Unknown",
-    rec.email || "-",
-    rec.Department || "-",
-    rec.check_in || "Pending",
-    rec.check_out || "Pending",
-    typeof rec.hours === "number" ? rec.hours.toFixed(2) : "0.00",
-  ]);
-});
+    todaysAttendance.forEach((rec, idx) => {
+      tableRows.push([
+        idx + 1,
+        rec.name || "Unknown",
+        rec.email || "-",
+        rec.Department || "-",
+        rec.check_in || "Pending",
+        rec.check_out || "Pending",
+        typeof rec.hours === "number" ? rec.hours.toFixed(2) : "0.00",
+      ]);
+    });
 
+    autoTableModule(doc, {
+      startY: 90,
+      head: [tableColumn],
+      body: tableRows,
+      theme: "striped",
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: [255, 255, 255],
+        fontSize: 12,
+      },
+      bodyStyles: {
+        fontSize: 10,
+        cellPadding: 6,
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245],
+      },
+      styles: {
+        lineColor: [44, 62, 80],
+        lineWidth: 0.2,
+      },
+    });
 
-  autoTableModule(doc, {
-    startY: 90,
-    head: [tableColumn],
-    body: tableRows,
-    theme: "striped",
-    headStyles: {
-      fillColor: [41, 128, 185], // Blue header
-      textColor: [255, 255, 255],
-      fontSize: 12,
-    },
-    bodyStyles: {
-      fontSize: 10,
-      cellPadding: 6,
-    },
-    alternateRowStyles: {
-      fillColor: [245, 245, 245],
-    },
-    styles: {
-      lineColor: [44, 62, 80],
-      lineWidth: 0.2,
-    },
-  });
-
-  // Footer with page numbers
-//   const pageCount = doc.internal.getNumberOfPages();
-//   for (let i = 1; i <= pageCount; i++) {
-//     doc.setPage(i);
-//     doc.setFontSize(10);
-//     doc.setTextColor(150);
-//     doc.text(
-//       `Page ${i} of ${pageCount}`,
-//       doc.internal.pageSize.getWidth() - 60,
-//       doc.internal.pageSize.getHeight() - 20
-//     );
-//   }
-
-  // Save PDF
-  doc.save(`Attendance-Report-${today}.pdf`);
-};
-
-
+    doc.save(`Attendance-Report-${todayStr}.pdf`);
+  };
 
   return (
     <DashboardLayout role="ceo">
@@ -234,7 +216,7 @@ const downloadPDF = async () => {
         {/* Today Attendance + Download PDF */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-gray-700">
-            Today's Attendance
+            Today&apos;s Attendance
           </h2>
           <button
             onClick={downloadPDF}
@@ -244,6 +226,7 @@ const downloadPDF = async () => {
           </button>
         </div>
 
+        {/* Today Attendance Cards */}
         <motion.div
           className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8"
           initial={{ opacity: 0 }}
