@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { nhost } from "@/app/lib/nhost"; // your Nhost client
 import { useSession } from "next-auth/react";
 import {
   FiPlus,

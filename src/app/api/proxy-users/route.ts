@@ -14,7 +14,7 @@ type User = {
 
 export async function GET() {
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+    const apiBase = process.env.NEXT_PUBLIC_API_URL;
 
     if (!apiBase) {
       return NextResponse.json(
@@ -23,7 +23,7 @@ export async function GET() {
       );
     }
 
-    const res = await fetch(`${apiBase}/accounts/users`, {
+    const res = await fetch(`${apiBase}/accounts/users/`, {
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",

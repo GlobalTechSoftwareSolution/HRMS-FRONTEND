@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { FiUser, FiSend, FiPlus } from "react-icons/fi";
 import { toast, ToastContainer } from "react-toastify";
@@ -37,7 +37,7 @@ export default function ManagerTasks() {
   const [priority, setPriority] = useState<"HIGH" | "MEDIUM" | "LOW">("MEDIUM");
   const [sending, setSending] = useState(false);
   const [scrollToForm, setScrollToForm] = useState(false);
-  const formRef = React.useRef<HTMLDivElement | null>(null);
+  const formRef = useRef<HTMLDivElement | null>(null);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
@@ -48,7 +48,7 @@ export default function ManagerTasks() {
       try {
         const res = await fetch(`${API_BASE}/api/accounts/employees/`);
         if (!res.ok) throw new Error("Failed to fetch employees");
-        const data = await res.json();
+        const data: Employee[] = await res.json();
         setEmployees(data || []);
       } catch (err) {
         console.error("Error fetching employees:", err);
@@ -61,20 +61,21 @@ export default function ManagerTasks() {
   }, [API_BASE]);
 
   // Fetch tasks
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/accounts/list_tasks/`);
-        if (!res.ok) throw new Error("Failed to fetch tasks");
-        const data = await res.json();
-        setTasks(data.tasks || []);
-      } catch (err) {
-        console.error("Error fetching tasks:", err);
-        toast.error("Failed to load tasks");
-      }
-    };
-    fetchTasks();
+  const fetchTasks = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/accounts/list_tasks/`);
+      if (!res.ok) throw new Error("Failed to fetch tasks");
+      const data: { tasks: Task[] } = await res.json();
+      setTasks(data.tasks || []);
+    } catch (err) {
+      console.error("Error fetching tasks:", err);
+      toast.error("Failed to load tasks");
+    }
   }, [API_BASE]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
 
   // Scroll to form
   useEffect(() => {
@@ -85,58 +86,40 @@ export default function ManagerTasks() {
   }, [scrollToForm]);
 
   // Assign Task
-  const handleSendTask = async (email?: string) => {
-    const assignedEmail = email || assignedTo;
-
-    if (!title || !description || !assignedEmail || !priority) {
-      toast.error("Please fill all required fields");
-      return;
-    }
-
-    const selectedEmployee = employees.find((emp) => emp.email === assignedEmail);
-    if (!selectedEmployee) {
-      toast.error("Selected employee not found");
-      return;
-    }
+  const handleSendTask = async () => {
+    if (!assignedTo) return toast.error("Please select an employee to assign the task.");
+    if (!title.trim()) return toast.error("Please enter a task title.");
 
     setSending(true);
 
     try {
-      const payload = {
-        title,
-        description,
-        department: selectedEmployee.department || "General",
-        priority,
-        status: "PENDING",
-        start_date: new Date().toISOString(),
-        due_date: dueDate || null,
-        assigned_to: assignedEmail,
-      };
-
       const res = await fetch(`${API_BASE}/api/accounts/create_task/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          email: assignedTo,
+          title,
+          description,
+          due_date: dueDate || null,
+          priority,
+        }),
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`Failed: ${res.status} → ${errText}`);
-      }
-
       const data = await res.json();
-      if (!data.task) throw new Error("Server did not return task object");
+      if (!res.ok) throw new Error(`Failed: ${res.status} → ${JSON.stringify(data)}`);
 
-      setTasks((prev) => [data.task, ...prev]);
+      toast.success("Task assigned successfully!");
       setTitle("");
       setDescription("");
-      setAssignedTo("");
       setDueDate("");
+      setAssignedTo("");
       setPriority("MEDIUM");
-      toast.success("Task assigned successfully!");
-    } catch (err: any) {
-      console.error("Failed to assign task:", err);
-      toast.error(err.message || "Failed to assign task");
+
+      fetchTasks(); // refresh tasks
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to assign task";
+      console.error(err);
+      toast.error(message);
     } finally {
       setSending(false);
     }
@@ -203,8 +186,8 @@ export default function ManagerTasks() {
                       alt={emp.fullname}
                       fill
                       className="rounded-full object-cover border border-gray-300"
-                      onErrorCapture={(e) =>
-                        (e.currentTarget.src = "/default-avatar.png")
+                      onError={(e) =>
+                        ((e.target as HTMLImageElement).src = "/default-avatar.png")
                       }
                     />
                   </div>
@@ -223,7 +206,6 @@ export default function ManagerTasks() {
                     </p>
                     <button
                       onClick={() => {
-                        // Auto-fill form with selected employee
                         setAssignedTo(emp.email);
                         setScrollToForm(true);
                       }}
@@ -279,7 +261,6 @@ export default function ManagerTasks() {
               <option value="LOW">Low</option>
             </select>
 
-            {/* Assign directly to employee if selected */}
             {assignedTo && (
               <p className="mb-3 text-gray-700">
                 Assigning to: <span className="font-medium">{assignedTo}</span>
@@ -287,7 +268,7 @@ export default function ManagerTasks() {
             )}
 
             <button
-              onClick={() => handleSendTask()}
+              onClick={handleSendTask}
               disabled={sending}
               className={`flex items-center justify-center px-6 py-3 rounded-lg text-white font-medium transition-all ${
                 sending

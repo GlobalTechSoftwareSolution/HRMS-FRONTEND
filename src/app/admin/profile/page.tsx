@@ -50,7 +50,7 @@ export default function Profile() {
     const fetchUserData = async (email: string) => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/admin/${encodeURIComponent(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/admins/${encodeURIComponent(
             email
           )}/`,
           { headers: { "Content-Type": "application/json" } }

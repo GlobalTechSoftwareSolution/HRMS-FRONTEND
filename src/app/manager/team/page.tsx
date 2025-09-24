@@ -20,13 +20,21 @@ type Employee = {
 type Hr = Employee;
 type Manager = Employee;
 
+type ViewType = "employee" | "hr" | "manager";
+
 export default function TeamReport() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [hrs, setHrs] = useState<Hr[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
-  const [view, setView] = useState<"employee" | "hr" | "manager">("employee");
+  const [view, setView] = useState<ViewType>("employee");
   const [loading, setLoading] = useState(false);
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
+
+  const tabs: { label: string; value: ViewType; icon: React.ReactNode }[] = [
+    { label: "Employees", value: "employee", icon: <Users className="w-5 h-5" /> },
+    { label: "HR", value: "hr", icon: <Briefcase className="w-5 h-5" /> },
+    { label: "Managers", value: "manager", icon: <Briefcase className="w-5 h-5" /> },
+  ];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -38,9 +46,9 @@ export default function TeamReport() {
           fetch(`${API_BASE}/api/accounts/managers/`),
         ]);
 
-        const empData = await empRes.json();
-        const hrData = await hrRes.json();
-        const managerData = await managerRes.json();
+        const empData: Employee[] = await empRes.json();
+        const hrData: Hr[] = await hrRes.json();
+        const managerData: Manager[] = await managerRes.json();
 
         setEmployees(empData || []);
         setHrs(hrData || []);
@@ -58,7 +66,9 @@ export default function TeamReport() {
 
   const getAvatar = (emp: Employee) =>
     emp.profile_picture ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.fullname || emp.email_id)}&background=random`;
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      emp.fullname || emp.email_id
+    )}&background=random`;
 
   return (
     <DashboardLayout role="manager">
@@ -68,16 +78,12 @@ export default function TeamReport() {
             Team Report 📋
           </h1>
 
-          {/* Toggle buttons */}
+          {/* Tabs */}
           <div className="flex flex-wrap gap-3 mb-8">
-            {[
-              { label: "Employees", value: "employee", icon: <Users className="w-5 h-5" /> },
-              { label: "HR", value: "hr", icon: <Briefcase className="w-5 h-5" /> },
-              { label: "Managers", value: "manager", icon: <Briefcase className="w-5 h-5" /> },
-            ].map((tab) => (
+            {tabs.map((tab) => (
               <button
                 key={tab.value}
-                onClick={() => setView(tab.value as any)}
+                onClick={() => setView(tab.value)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow ${
                   view === tab.value
                     ? "bg-blue-600 text-white scale-105"
@@ -91,7 +97,9 @@ export default function TeamReport() {
 
           {/* Data list */}
           {loading ? (
-            <p className="text-gray-500 animate-pulse text-center py-10">Loading {view} data...</p>
+            <p className="text-gray-500 animate-pulse text-center py-10">
+              Loading {view} data...
+            </p>
           ) : list.length === 0 ? (
             <p className="text-gray-500 text-center py-10">No {view} found.</p>
           ) : (
