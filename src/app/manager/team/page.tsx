@@ -1,10 +1,11 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { nhost } from "@/app/lib/nhost";
 import { motion, AnimatePresence } from "framer-motion";
 import { Users, Briefcase, Eye, X } from "lucide-react";
 import Image from "next/image";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 type Employee = {
   email_id: string;
@@ -16,7 +17,6 @@ type Employee = {
   profile_picture?: string | null;
 };
 
-// HR and Manager use same structure for simplicity
 type Hr = Employee;
 type Manager = Employee;
 
@@ -29,102 +29,82 @@ export default function TeamReport() {
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
 
   useEffect(() => {
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      // Employees
-      const empRes = await nhost.from<Employee>("accounts_employee").select("*");
-      if (empRes.error) console.error("Employee fetch error:", empRes.error);
-      if (empRes.data) setEmployees(empRes.data);
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [empRes, hrRes, managerRes] = await Promise.all([
+          fetch(`${API_BASE}/api/accounts/employees/`),
+          fetch(`${API_BASE}/api/accounts/hrs/`),
+          fetch(`${API_BASE}/api/accounts/managers/`),
+        ]);
 
-      // HR
-      const hrRes = await nhost.from<Hr>("accounts_hr").select("*");
-      if (hrRes.error) console.error("HR fetch error:", hrRes.error);
-      if (hrRes.data) setHrs(hrRes.data);
+        const empData = await empRes.json();
+        const hrData = await hrRes.json();
+        const managerData = await managerRes.json();
 
-      // Managers
-      const managerRes = await nhost.from<Manager>("accounts_manager").select("*");
-      if (managerRes.error) console.error("Manager fetch error:", managerRes.error);
-      if (managerRes.data) setManagers(managerRes.data);
-    } catch (err) {
-      console.error("Error fetching data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchData();
-}, []);
-
+        setEmployees(empData || []);
+        setHrs(hrData || []);
+        setManagers(managerData || []);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const list = view === "employee" ? employees : view === "hr" ? hrs : managers;
 
   const getAvatar = (emp: Employee) =>
     emp.profile_picture ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(
-      emp.fullname || emp.email_id
-    )}&background=random`;
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(emp.fullname || emp.email_id)}&background=random`;
 
   return (
     <DashboardLayout role="manager">
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
-        <div className="max-w-6xl mx-auto">
-          <h1 className="text-3xl md:text-4xl font-bold mb-6 text-gray-800">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 sm:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 text-gray-800">
             Team Report 📋
           </h1>
 
           {/* Toggle buttons */}
-          <div className="flex gap-4 mb-8">
-            <button
-              onClick={() => setView("employee")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow ${
-                view === "employee"
-                  ? "bg-blue-600 text-white scale-105"
-                  : "bg-gray-200 text-gray-700 hover:bg-blue-100"
-              }`}
-            >
-              <Users className="w-5 h-5" /> Employees
-            </button>
-
-            <button
-              onClick={() => setView("hr")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow ${
-                view === "hr"
-                  ? "bg-purple-600 text-white scale-105"
-                  : "bg-gray-200 text-gray-700 hover:bg-purple-100"
-              }`}
-            >
-              <Briefcase className="w-5 h-5" /> HR
-            </button>
-
-            <button
-              onClick={() => setView("manager")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow ${
-                view === "manager"
-                  ? "bg-green-600 text-white scale-105"
-                  : "bg-gray-200 text-gray-700 hover:bg-green-100"
-              }`}
-            >
-              <Briefcase className="w-5 h-5" /> Manager
-            </button>
+          <div className="flex flex-wrap gap-3 mb-8">
+            {[
+              { label: "Employees", value: "employee", icon: <Users className="w-5 h-5" /> },
+              { label: "HR", value: "hr", icon: <Briefcase className="w-5 h-5" /> },
+              { label: "Managers", value: "manager", icon: <Briefcase className="w-5 h-5" /> },
+            ].map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setView(tab.value as any)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 shadow ${
+                  view === tab.value
+                    ? "bg-blue-600 text-white scale-105"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                }`}
+              >
+                {tab.icon} {tab.label}
+              </button>
+            ))}
           </div>
 
           {/* Data list */}
           {loading ? (
-            <p className="text-gray-500 animate-pulse">Loading {view} data...</p>
+            <p className="text-gray-500 animate-pulse text-center py-10">Loading {view} data...</p>
           ) : list.length === 0 ? (
-            <p className="text-gray-500">No {view} found.</p>
+            <p className="text-gray-500 text-center py-10">No {view} found.</p>
           ) : (
             <AnimatePresence>
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {list.map((emp, idx) => (
                   <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, y: 30 }}
+                    key={emp.email_id || idx}
+                    initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
-                    className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 hover:shadow-2xl transition-all duration-300"
+                    className="bg-white p-5 rounded-2xl shadow-md border border-gray-100 hover:shadow-xl transition-all duration-300"
                   >
                     <div className="flex items-center gap-4 mb-3">
                       <Image
@@ -132,21 +112,22 @@ export default function TeamReport() {
                         alt={emp.fullname || "Profile"}
                         width={48}
                         height={48}
-                        className="rounded-full object-cover border"
+                        className="rounded-full object-cover border border-gray-200"
                       />
-                      <h2 className="text-xl font-semibold text-gray-800">
+                      <h2 className="text-lg sm:text-xl font-semibold text-gray-800">
                         {emp.fullname || "Unknown"}
                       </h2>
                     </div>
 
-                    <p className="text-gray-600 text-sm mb-1">📧 {emp.email_id}</p>
-                    {emp.phone && <p className="text-gray-600 text-sm mb-1">📞 {emp.phone}</p>}
-                    {emp.department && <p className="text-gray-600 text-sm mb-1">🏢 {emp.department}</p>}
+                    <div className="text-black text-sm space-y-1">
+                      <p>📧 {emp.email_id}</p>
+                      {emp.phone && <p>📞 {emp.phone}</p>}
+                      {emp.department && <p>🏢 {emp.department}</p>}
+                    </div>
 
-                    {/* View button */}
                     <button
                       onClick={() => setSelectedEmp(emp)}
-                      className="mt-3 flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-all duration-300"
+                      className="mt-4 flex items-center gap-2 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-all duration-300"
                     >
                       <Eye className="w-4 h-4" /> View
                     </button>
@@ -158,14 +139,14 @@ export default function TeamReport() {
         </div>
       </div>
 
-      {/* Popup modal */}
+      {/* Modal */}
       <AnimatePresence>
         {selectedEmp && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
@@ -187,17 +168,35 @@ export default function TeamReport() {
                   alt={selectedEmp?.fullname || "Profile"}
                   width={64}
                   height={64}
-                  className="rounded-full object-cover border"
+                  className="rounded-full object-cover border border-gray-200"
                 />
                 <h2 className="text-2xl font-bold text-gray-800">{selectedEmp.fullname}</h2>
               </div>
 
-              <div className="space-y-2 text-gray-700">
-                <p><strong>Email:</strong> {selectedEmp.email_id}</p>
-                {selectedEmp.phone && <p><strong>Phone:</strong> {selectedEmp.phone}</p>}
-                {selectedEmp.department && <p><strong>Department:</strong> {selectedEmp.department}</p>}
-                {selectedEmp.age !== undefined && <p><strong>Age:</strong> {selectedEmp.age}</p>}
-                {selectedEmp.date_of_birth && <p><strong>DOB:</strong> {selectedEmp.date_of_birth}</p>}
+              <div className="space-y-2 text-gray-700 text-sm sm:text-base">
+                <p>
+                  <strong>Email:</strong> {selectedEmp.email_id}
+                </p>
+                {selectedEmp.phone && (
+                  <p>
+                    <strong>Phone:</strong> {selectedEmp.phone}
+                  </p>
+                )}
+                {selectedEmp.department && (
+                  <p>
+                    <strong>Department:</strong> {selectedEmp.department}
+                  </p>
+                )}
+                {selectedEmp.age !== undefined && (
+                  <p>
+                    <strong>Age:</strong> {selectedEmp.age}
+                  </p>
+                )}
+                {selectedEmp.date_of_birth && (
+                  <p>
+                    <strong>DOB:</strong> {selectedEmp.date_of_birth}
+                  </p>
+                )}
               </div>
             </motion.div>
           </motion.div>

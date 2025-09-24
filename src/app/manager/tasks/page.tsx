@@ -16,6 +16,7 @@ type Task = {
   start_date: string;
   due_date?: string | null;
   completed_date?: string | null;
+  assigned_to?: string;
 };
 
 type Employee = {
@@ -39,7 +40,7 @@ export default function ManagerTasks() {
   const formRef = React.useRef<HTMLDivElement | null>(null);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
 
   // Fetch employees
   useEffect(() => {
@@ -47,19 +48,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
       try {
         const res = await fetch(`${API_BASE}/api/accounts/employees/`);
         if (!res.ok) throw new Error("Failed to fetch employees");
-let data;
-const text = await res.text(); // read once
-try {
-  data = JSON.parse(text);      // try parsing JSON manually
-} catch {
-  console.error("Response is not valid JSON:", text);
-  toast.error("Server returned invalid response");
-  return;
-}
-
-
+        const data = await res.json();
         setEmployees(data || []);
-      } catch (err: unknown) {
+      } catch (err) {
         console.error("Error fetching employees:", err);
         toast.error("Failed to load employees");
       } finally {
@@ -67,7 +58,7 @@ try {
       }
     };
     fetchEmployees();
-  }, []);
+  }, [API_BASE]);
 
   // Fetch tasks
   useEffect(() => {
@@ -75,25 +66,17 @@ try {
       try {
         const res = await fetch(`${API_BASE}/api/accounts/list_tasks/`);
         if (!res.ok) throw new Error("Failed to fetch tasks");
-
-        let data;
-        try {
-          data = await res.json();
-        } catch {
-          console.error("Response is not valid JSON:", await res.text());
-          toast.error("Server returned invalid task data");
-          return;
-        }
-
+        const data = await res.json();
         setTasks(data.tasks || []);
-      } catch (err: unknown) {
+      } catch (err) {
         console.error("Error fetching tasks:", err);
         toast.error("Failed to load tasks");
       }
     };
     fetchTasks();
-  }, []);
+  }, [API_BASE]);
 
+  // Scroll to form
   useEffect(() => {
     if (scrollToForm && formRef.current) {
       formRef.current.scrollIntoView({ behavior: "smooth" });
@@ -101,21 +84,23 @@ try {
     }
   }, [scrollToForm]);
 
-  const handleSendTask = async () => {
-    if (!title || !description || !assignedTo || !priority) {
+  // Assign Task
+  const handleSendTask = async (email?: string) => {
+    const assignedEmail = email || assignedTo;
+
+    if (!title || !description || !assignedEmail || !priority) {
       toast.error("Please fill all required fields");
       return;
     }
 
-    const selectedEmployee = employees.find(
-      (emp) => emp.email === assignedTo
-    );
+    const selectedEmployee = employees.find((emp) => emp.email === assignedEmail);
     if (!selectedEmployee) {
       toast.error("Selected employee not found");
       return;
     }
 
     setSending(true);
+
     try {
       const payload = {
         title,
@@ -125,7 +110,7 @@ try {
         status: "PENDING",
         start_date: new Date().toISOString(),
         due_date: dueDate || null,
-        assigned_to: assignedTo,
+        assigned_to: assignedEmail,
       };
 
       const res = await fetch(`${API_BASE}/api/accounts/create_task/`, {
@@ -134,18 +119,13 @@ try {
         body: JSON.stringify(payload),
       });
 
-      let data;
-      try {
-        data = await res.json();
-      } catch {
-        console.error("Response is not valid JSON:", await res.text());
-        toast.error("Server returned invalid response");
-        return;
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Failed: ${res.status} → ${errText}`);
       }
 
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to assign task");
-      }
+      const data = await res.json();
+      if (!data.task) throw new Error("Server did not return task object");
 
       setTasks((prev) => [data.task, ...prev]);
       setTitle("");
@@ -154,9 +134,9 @@ try {
       setDueDate("");
       setPriority("MEDIUM");
       toast.success("Task assigned successfully!");
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error("Failed to assign task:", err);
-      toast.error("Failed to assign task");
+      toast.error(err.message || "Failed to assign task");
     } finally {
       setSending(false);
     }
@@ -243,6 +223,7 @@ try {
                     </p>
                     <button
                       onClick={() => {
+                        // Auto-fill form with selected employee
                         setAssignedTo(emp.email);
                         setScrollToForm(true);
                       }}
@@ -297,8 +278,16 @@ try {
               <option value="MEDIUM">Medium</option>
               <option value="LOW">Low</option>
             </select>
+
+            {/* Assign directly to employee if selected */}
+            {assignedTo && (
+              <p className="mb-3 text-gray-700">
+                Assigning to: <span className="font-medium">{assignedTo}</span>
+              </p>
+            )}
+
             <button
-              onClick={handleSendTask}
+              onClick={() => handleSendTask()}
               disabled={sending}
               className={`flex items-center justify-center px-6 py-3 rounded-lg text-white font-medium transition-all ${
                 sending

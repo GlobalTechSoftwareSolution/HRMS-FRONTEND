@@ -20,6 +20,7 @@ type Employee = {
 };
 
 type LeaveRequest = {
+  id: number; // Use this as the unique identifier
   email_id: string;
   applied_on: string;
   start_date: string;
@@ -61,12 +62,12 @@ export default function ManagerDashboard() {
     setLoading(true);
     try {
       // Employees
-      const empRes = await fetch(`${API_BASE}/api/accounts/list_employees/`);
+      const empRes = await fetch(`${API_BASE}/api/accounts/employees/`);
       const empData = await empRes.json();
       setEmployees(empData.employees || []);
 
       // Leave requests
-      const leaveRes = await fetch(`${API_BASE}/api/accounts/list_leave_requests/`);
+      const leaveRes = await fetch(`${API_BASE}/api/accounts/list_leaves/`);
       const leaveData = await leaveRes.json();
       setLeaveRequests(leaveData.leaves || []);
     } catch (err) {
@@ -80,34 +81,34 @@ export default function ManagerDashboard() {
     fetchData();
   }, []);
 
-  // Update leave status via API
-  const updateLeaveStatus = async (
-    email_id: string,
-    applied_on: string,
-    status: "Pending" | "Approved" | "Rejected"
-  ) => {
-    const key = `${email_id}-${applied_on}`;
-    setUpdatingKey(key);
+  // Update leave status via API using leave id
+  const updateLeaveStatus = async (leaveId: number, status: "Approved" | "Rejected") => {
+  try {
+    setUpdatingKey(leaveId.toString()); // always store as string
+    const res = await fetch(`${API_BASE}/api/accounts/update_leave/${leaveId}/`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
 
-    try {
-      const res = await fetch(`${API_BASE}/api/accounts/update_leave_status/`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email_id, applied_on, status }),
-      });
-      if (!res.ok) throw new Error("Failed to update status");
-
-      setLeaveRequests(prev =>
-        prev.map(lr =>
-          lr.email_id === email_id && lr.applied_on === applied_on ? { ...lr, status } : lr
-        )
-      );
-    } catch (err) {
-      console.error("Update error:", err);
-    } finally {
-      setUpdatingKey(null);
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Failed to update status: ${errorText}`);
     }
-  };
+
+    setLeaveRequests((prev) =>
+      prev.map((lr) =>
+        lr.id === leaveId ? { ...lr, status } : lr
+      )
+    );
+  } catch (err) {
+    console.error("Error updating leave status:", err);
+    alert(`Error updating leave status: ${(err as Error).message}`);
+  } finally {
+    setUpdatingKey(null);
+  }
+};
+
 
   // Helper: get employee by email
   const getEmployee = (email_id: string) =>
@@ -194,7 +195,7 @@ export default function ManagerDashboard() {
               <AnimatePresence>
                 {filteredLeaves.map(lr => {
                   const emp = getEmployee(lr.email_id);
-                  const key = `${lr.email_id}-${lr.applied_on}`;
+                  const key = `${lr.id}`;
                   return (
                     <motion.div
                       key={key}
@@ -233,26 +234,33 @@ export default function ManagerDashboard() {
                         {lr.status === "Pending" && (
                           <div className="flex flex-col gap-2 md:items-end mt-2 md:mt-0">
                             <div className="flex gap-2">
-                              <motion.button
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => updateLeaveStatus(lr.email_id, lr.applied_on, "Approved")}
-                                disabled={updatingKey === key}
-                                className={`flex items-center px-4 py-2 rounded-lg text-white text-sm font-medium ${
-                                  updatingKey === key ? "bg-green-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
-                                }`}
-                              >
-                                <FiCheckCircle className="mr-1" /> Approve
-                              </motion.button>
-                              <motion.button
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => updateLeaveStatus(lr.email_id, lr.applied_on, "Rejected")}
-                                disabled={updatingKey === key}
-                                className={`flex items-center px-4 py-2 rounded-lg text-white text-sm font-medium ${
-                                  updatingKey === key ? "bg-red-400 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"
-                                }`}
-                              >
-                                <FiXCircle className="mr-1" /> Reject
-                              </motion.button>
+                             <motion.button
+  whileTap={{ scale: 0.95 }}
+  onClick={() => lr.id !== undefined && updateLeaveStatus(lr.id, "Approved")}
+  disabled={updatingKey === (lr.id?.toString() ?? `${lr.email_id}-${lr.applied_on}`)}
+  className={`flex items-center px-4 py-2 rounded-lg text-white text-sm font-medium ${
+    updatingKey === (lr.id?.toString() ?? `${lr.email_id}-${lr.applied_on}`)
+      ? "bg-green-400 cursor-not-allowed"
+      : "bg-green-600 hover:bg-green-700"
+  }`}
+>
+  <FiCheckCircle className="mr-1" /> Approve
+</motion.button>
+
+<motion.button
+  whileTap={{ scale: 0.95 }}
+  onClick={() => lr.id !== undefined && updateLeaveStatus(lr.id, "Rejected")}
+  disabled={updatingKey === (lr.id?.toString() ?? `${lr.email_id}-${lr.applied_on}`)}
+  className={`flex items-center px-4 py-2 rounded-lg text-white text-sm font-medium ${
+    updatingKey === (lr.id?.toString() ?? `${lr.email_id}-${lr.applied_on}`)
+      ? "bg-red-400 cursor-not-allowed"
+      : "bg-red-600 hover:bg-red-700"
+  }`}
+>
+  <FiXCircle className="mr-1" /> Reject
+</motion.button>
+
+
                             </div>
                             {updatingKey === key && <p className="text-xs text-gray-500">Updating...</p>}
                           </div>
