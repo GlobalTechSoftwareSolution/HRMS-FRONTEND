@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation"; // ✅ Import router
 import {
   ChevronDown,
   ChevronUp,
@@ -12,9 +13,11 @@ import {
   AlertCircle,
   CheckCircle,
   PhoneCall,
+  ArrowLeft,
 } from "lucide-react";
 
 const TermsPrivacy: React.FC = () => {
+  const router = useRouter(); // ✅ Initialize router
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     terms: false,
     privacy: false,
@@ -31,7 +34,16 @@ const TermsPrivacy: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 py-8 px-4">
       <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-8 text-center">
+        <div className="relative bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-8 text-center">
+          {/* Back Button */}
+          <button
+            onClick={() => router.push("/signup")}
+            className="absolute left-4 top-10 flex items-center gap-2 text-white hover:text-gray-200"
+          >
+            <ArrowLeft className="h-10 w-10" />
+            <span className="font-medium">Back</span>
+          </button>
+
           <div className="flex justify-center mb-4">
             <div className="bg-white/20 p-3 rounded-full">
               <Shield className="h-10 w-10" />
