@@ -35,9 +35,8 @@ export default function HREmployeePage() {
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null); // for modal
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
-  // Fetch employees from API
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
@@ -59,7 +58,6 @@ export default function HREmployeePage() {
     fetchEmployees();
   }, []);
 
-  // Detect mobile view
   useEffect(() => {
     const checkScreenSize = () => setIsMobileView(window.innerWidth < 768);
     checkScreenSize();
@@ -71,16 +69,9 @@ export default function HREmployeePage() {
     window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/signup`;
   };
 
-  const handleViewDetails = (employee: Employee) => {
-    setSelectedEmployee(employee); // open modal with employee details
-  };
-
+  const handleViewDetails = (employee: Employee) => setSelectedEmployee(employee);
   const closeModal = () => setSelectedEmployee(null);
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString();
-  };
+  const formatDate = (dateString: string | null) => !dateString ? "N/A" : new Date(dateString).toLocaleDateString();
 
   const requestSort = (key: keyof Employee) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -113,7 +104,6 @@ export default function HREmployeePage() {
     return filtered;
   }, [employees, searchTerm, filterDepartment, sortConfig]);
 
-  // Employee Card for Mobile
   const EmployeeCard = ({ employee }: { employee: Employee }) => (
     <div className="bg-white border rounded-lg p-4 mb-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
@@ -154,7 +144,7 @@ export default function HREmployeePage() {
       <ToastContainer position="top-right" autoClose={3000} />
       <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-4 md:p-6">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-3 md:gap-0">
           <h2 className="text-xl md:text-2xl font-bold text-gray-800">Employee Management</h2>
           <button onClick={handleOnboardEmployee} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 md:px-4 md:py-2 rounded-md text-sm md:text-base transition">Onboard New Employee</button>
         </div>
@@ -181,7 +171,10 @@ export default function HREmployeePage() {
             {isMobileView ? (
               <div className="md:hidden">
                 {filteredAndSortedEmployees.length ? filteredAndSortedEmployees.map(emp => <EmployeeCard key={emp.email} employee={emp} />) : (
-                  <div className="text-center py-8 text-gray-500"><FiUser className="mx-auto h-10 w-10 text-gray-400" /><p className="mt-4">No employees found</p></div>
+                  <div className="text-center py-8 text-gray-500">
+                    <FiUser className="mx-auto h-10 w-10 text-gray-400" />
+                    <p className="mt-4">No employees found</p>
+                  </div>
                 )}
               </div>
             ) : (
@@ -228,7 +221,10 @@ export default function HREmployeePage() {
                   </tbody>
                 </table>
                 {filteredAndSortedEmployees.length === 0 && (
-                  <div className="text-center py-8 text-gray-500"><FiUser className="mx-auto h-12 w-12 text-gray-400"/><p className="mt-4">No employees found</p></div>
+                  <div className="text-center py-8 text-gray-500">
+                    <FiUser className="mx-auto h-12 w-12 text-gray-400"/>
+                    <p className="mt-4">No employees found</p>
+                  </div>
                 )}
               </div>
             )}
@@ -259,11 +255,7 @@ export default function HREmployeePage() {
             <button onClick={closeModal} className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"><FiX size={20} /></button>
             <div className="flex flex-col items-center">
               {selectedEmployee.profile_picture ? (
-                <Image src={selectedEmployee.profile_picture} 
-                alt={selectedEmployee.fullname}
-                 width={80}
-                  height={80}
-                  className="rounded-full object-cover"/>
+                <Image src={selectedEmployee.profile_picture} alt={selectedEmployee.fullname} width={80} height={80} className="rounded-full object-cover"/>
               ) : (
                 <div className="h-20 w-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl font-bold">{selectedEmployee.fullname.charAt(0)}</div>
               )}

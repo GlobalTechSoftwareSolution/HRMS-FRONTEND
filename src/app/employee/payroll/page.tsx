@@ -2,13 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import {
-  FiDollarSign,
-  FiTrendingUp,
-  FiTrendingDown,
-  FiChevronDown,
-  FiFilter,
-} from "react-icons/fi";
+import { FiDollarSign, FiTrendingUp, FiTrendingDown, FiChevronDown, FiFilter } from "react-icons/fi";
 
 type PayrollAPIItem = {
   month: string;
@@ -32,45 +26,63 @@ export default function PayrollDashboard() {
   const [payrollData, setPayrollData] = useState<PayrollRecord[]>([]);
   const [filterYear, setFilterYear] = useState<string>("2025");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPayrolls = async () => {
+      setLoading(true);
+      setError(null);
+
       try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_payrolls/`
+        const userEmail =
+          typeof window !== "undefined" ? localStorage.getItem("user_email") : null;
+
+        if (!userEmail) {
+          setError("No employee logged in.");
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_payroll/${encodeURIComponent(userEmail)}/`
         );
-        const data = await res.json();
+
+        if (!response.ok) throw new Error(`Failed to fetch payrolls: ${response.status}`);
+
+        const data = await response.json();
 
         const normalizeStatus = (status: string) => {
           switch (status.toLowerCase()) {
-            case "done":
-              return "paid";
-            case "pending":
-              return "pending";
-            case "processing":
-              return "processing";
-            default:
-              return "pending";
+            case "done": return "paid";
+            case "pending": return "pending";
+            case "processing": return "processing";
+            default: return "pending";
           }
         };
 
-        const mappedData: PayrollRecord[] = (data.payrolls || []).map(
-          (item: PayrollAPIItem, index: number) => ({
-            id: index + 1,
-            month: `${item.month} ${item.year}`,
-            basicSalary: parseFloat(item.basic_salary as string) || 0,
-            status: normalizeStatus(item.status) as "paid" | "pending" | "processing",
-            paymentDate: item.pay_date,
-            email: item.email,
-          })
-        );
+        // Handle single object or array
+        const payrollArray: PayrollAPIItem[] = data.payroll
+          ? [data.payroll]
+          : data.payrolls || [];
 
-        const userEmail = localStorage.getItem("user_email");
-        const userData = mappedData.filter((item) => item.email === userEmail);
+        const mappedData: PayrollRecord[] = payrollArray.map((item, index) => ({
+          id: index + 1,
+          month: `${item.month} ${item.year}`,
+          basicSalary: parseFloat(item.basic_salary as string) || 0,
+          status: normalizeStatus(item.status) as "paid" | "pending" | "processing",
+          paymentDate: item.pay_date,
+          email: item.email,
+        }));
+
+        const userData = mappedData.filter(item => item.email === userEmail);
 
         setPayrollData(userData);
-      } catch (error) {
-        console.error("Error fetching payroll data:", error);
+      } catch (err: any) {
+        console.error("Error fetching payroll data:", err);
+        setError(err.message || "Failed to fetch payroll data");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -86,29 +98,32 @@ export default function PayrollDashboard() {
       processing: "bg-blue-100 text-blue-800",
     };
     return (
-      <span
-        className={`px-2 py-1 rounded-full text-xs font-medium ${
-          statusClasses[status]
-        }`}
-      >
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusClasses[status]}`}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
   };
 
-  const filteredData = payrollData.filter((record) => {
+  const filteredData = payrollData.filter(record => {
     const matchesYear = record.month.includes(filterYear);
-    const matchesStatus =
-      filterStatus === "all" || record.status === filterStatus;
+    const matchesStatus = filterStatus === "all" || record.status === filterStatus;
     return matchesYear && matchesStatus;
   });
 
-  const totalNetPay = filteredData.reduce(
-    (acc, rec) => acc + calculateNetPay(rec),
-    0
+  const totalNetPay = filteredData.reduce((acc, rec) => acc + calculateNetPay(rec), 0);
+  const averageNetPay = filteredData.length > 0 ? totalNetPay / filteredData.length : 0;
+
+  if (loading) return (
+    <DashboardLayout role="employee">
+      <p className="text-blue-500 font-semibold">⏳ Loading payroll data...</p>
+    </DashboardLayout>
   );
-  const averageNetPay =
-    filteredData.length > 0 ? totalNetPay / filteredData.length : 0;
+
+  if (error) return (
+    <DashboardLayout role="employee">
+      <p className="text-red-500 font-semibold">❌ {error}</p>
+    </DashboardLayout>
+  );
 
   return (
     <DashboardLayout role="employee">
@@ -116,21 +131,14 @@ export default function PayrollDashboard() {
         {/* Header + Filters */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
-              Payroll Dashboard
-            </h2>
-            <p className="text-gray-600 mt-1 text-sm sm:text-base">
-              View your salary history and download payslips
-            </p>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Payroll Dashboard</h2>
+            <p className="text-gray-600 mt-1 text-sm sm:text-base">View your salary history and download payslips</p>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <div className="relative">
-              <select
-                value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value)}
-                className="pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-              >
+              <select value={filterYear} onChange={e => setFilterYear(e.target.value)}
+                className="pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
                 <option value="2025">2025</option>
                 <option value="2024">2024</option>
                 <option value="2023">2023</option>
@@ -139,11 +147,8 @@ export default function PayrollDashboard() {
             </div>
 
             <div className="relative">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-              >
+              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                className="pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
                 <option value="all">All Status</option>
                 <option value="paid">Paid</option>
                 <option value="processing">Processing</option>
@@ -160,9 +165,7 @@ export default function PayrollDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-500 text-xs sm:text-sm">Total Records</p>
-                <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">
-                  {filteredData.length}
-                </p>
+                <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">{filteredData.length}</p>
               </div>
               <div className="p-2 sm:p-3 bg-blue-100 rounded-lg">
                 <FiDollarSign className="text-blue-600 text-lg sm:text-xl" />
@@ -174,9 +177,7 @@ export default function PayrollDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-500 text-xs sm:text-sm">Total Net Pay</p>
-                <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">
-                  ₹{totalNetPay.toLocaleString()}
-                </p>
+                <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">₹{totalNetPay.toLocaleString()}</p>
               </div>
               <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
                 <FiTrendingUp className="text-green-600 text-lg sm:text-xl" />
@@ -188,9 +189,7 @@ export default function PayrollDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-500 text-xs sm:text-sm">Average Net Pay</p>
-                <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">
-                  ₹{averageNetPay.toLocaleString()}
-                </p>
+                <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">₹{averageNetPay.toLocaleString()}</p>
               </div>
               <div className="p-2 sm:p-3 bg-purple-100 rounded-lg">
                 <FiTrendingDown className="text-purple-600 text-lg sm:text-xl" />
@@ -199,57 +198,50 @@ export default function PayrollDashboard() {
           </div>
         </div>
 
-        {/* Payroll Table */}
+        {/* Payroll Table or Cards */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-[700px] w-full divide-y divide-gray-200 text-xs sm:text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {["Month", "Basic Salary", "Net Pay", "Status", "Payment Date"].map(
-                    (head) => (
-                      <th
-                        key={head}
-                        className="px-4 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        {head}
-                      </th>
-                    )
-                  )}
+                  {["Month", "Basic Salary", "Net Pay", "Status", "Payment Date"].map(head => (
+                    <th key={head} className="px-4 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {head}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredData.length > 0 ? (
-                  filteredData.map((record) => (
-                    <tr key={record.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-700 font-medium">
-                        {record.month}
-                      </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-700">
-                        ₹{record.basicSalary.toLocaleString()}
-                      </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-blue-700 font-semibold">
-                        ₹{calculateNetPay(record).toLocaleString()}
-                      </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(record.status)}
-                      </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-500 text-xs sm:text-sm">
-                        {record.paymentDate}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
+                {filteredData.length > 0 ? filteredData.map(record => (
+                  <tr key={record.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-700 font-medium">{record.month}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-700">₹{record.basicSalary.toLocaleString()}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-blue-700 font-semibold">₹{calculateNetPay(record).toLocaleString()}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">{getStatusBadge(record.status)}</td>
+                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-500 text-xs sm:text-sm">{record.paymentDate}</td>
+                  </tr>
+                )) : (
                   <tr>
-                    <td
-                      colSpan={5}
-                      className="px-6 py-8 text-center text-gray-500 text-sm"
-                    >
-                      No payroll records found for the selected filters.
-                    </td>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-sm">No payroll records found for the selected filters.</td>
                   </tr>
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Cards for small devices */}
+          <div className="md:hidden flex flex-col gap-4 p-4">
+            {filteredData.length > 0 ? filteredData.map(record => (
+              <div key={record.id} className="bg-gray-50 rounded-xl p-4 shadow-sm">
+                <p><b>Month:</b> {record.month}</p>
+                <p><b>Basic Salary:</b> ₹{record.basicSalary.toLocaleString()}</p>
+                <p><b>Net Pay:</b> ₹{calculateNetPay(record).toLocaleString()}</p>
+                <p><b>Status:</b> {getStatusBadge(record.status)}</p>
+                <p><b>Payment Date:</b> {record.paymentDate}</p>
+              </div>
+            )) : (
+              <p className="text-gray-500 text-center">No payroll records found for the selected filters.</p>
+            )}
           </div>
         </div>
       </div>

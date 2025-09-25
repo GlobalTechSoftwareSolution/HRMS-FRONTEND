@@ -21,7 +21,7 @@ type Employee = {
 
 type LeaveRequest = {
   id: number; // still comes from backend, but we won’t use for updates
-  email_id: string;
+  email: string;
   applied_on: string;
   start_date: string;
   end_date: string;
@@ -76,15 +76,16 @@ export default function ManagerDashboard() {
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
+
   // fetch employees + leaves
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const empRes = await fetch(`${API_BASE}/api/accounts/employees/`);
+      const empRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`);
       const empData = await empRes.json();
       setEmployees(empData.employees || []);
 
-      const leaveRes = await fetch(`${API_BASE}/api/accounts/list_leaves/`);
+      const leaveRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/`);
       const leaveData = await leaveRes.json();
       setLeaveRequests(leaveData.leaves || []);
     } catch (err) {
@@ -98,57 +99,63 @@ export default function ManagerDashboard() {
     fetchData();
   }, [fetchData]);
 
-  const getCookie = (name: string) => {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(";").shift();
-  };
-
-  // ✅ updated: approve/reject using email + applied_on
-  const updateLeaveStatus = async (
-    email_id: string,
-    applied_on: string,
-    status: "Approved" | "Rejected"
-  ) => {
-    const key = `${email_id}-${applied_on}`;
-    setUpdatingKey(key);
-
-    try {
-      const csrfToken = getCookie("csrftoken");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_leave/`, {
+  // update leave status by leaveId and status
+// Update leave status by leaveKey (never undefined) and status
+const updateLeaveStatus = async (
+  leaveKey: number | string,
+  status: "Approved" | "Rejected"
+) => {
+  setUpdatingKey(String(leaveKey));
+  try {
+    // If leaveKey is a number, use as id in API path, else fallback to composite key (should not happen if backend always provides id)
+    const idPart = typeof leaveKey === "number" || !isNaN(Number(leaveKey))
+      ? leaveKey
+      : encodeURIComponent(String(leaveKey));
+    const res = await fetch(
+      `${API_BASE}/api/accounts/update_leave/${idPart}/`,
+      {
         method: "PATCH",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          "X-CSRFToken": csrfToken || "",
         },
-        body: JSON.stringify({ email_id, applied_on, status }),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error("Backend error:", errText);
-        throw new Error("Failed to update status");
+        body: JSON.stringify({ status }),
       }
+    );
 
-      // update local state
-      setLeaveRequests((prev) =>
-        prev.map((lr) =>
-          lr.email_id === email_id && lr.applied_on === applied_on
-            ? { ...lr, status }
-            : lr
-        )
-      );
-    } catch (err) {
-      console.error("Update error:", err);
-    } finally {
-      setUpdatingKey(null);
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Backend error:", errText);
+      alert("Failed to update leave status. Check console for details.");
+      return;
     }
-  };
 
-  const getEmployee = (email_id: string) =>
-    employees.find((e) => e.email_id === email_id) || {
-      fullname: "Unknown Employee",
+    // update local state
+    setLeaveRequests((prev) =>
+      prev.map((lr, idx) => {
+        // Use same leaveKey logic as below for matching
+        const lrKey =
+          typeof lr.id !== "undefined" && lr.id !== null
+            ? lr.id
+            : `${lr.email || "unknown"}-${lr.applied_on}-${idx}`;
+        return String(lrKey) === String(leaveKey) ? { ...lr, status } : lr;
+      })
+    );
+  } catch (err) {
+    console.error("Update error:", err);
+    alert("Network error. Could not update leave status.");
+  } finally {
+    setUpdatingKey(null);
+  }
+};
+  // Map leave's email to employee's email_id, case-insensitive
+  const getEmployee = (email: string | undefined) =>
+    employees.find(
+      (e) =>
+        typeof e.email_id === "string" &&
+        typeof email === "string" &&
+        e.email_id.toLowerCase() === email.toLowerCase()
+    ) || {
+      fullname: email || "Unknown Email",
       designation: "-",
       department: "-",
     };
@@ -279,12 +286,16 @@ export default function ManagerDashboard() {
           ) : (
             <div className="flex flex-col gap-4 mb-6">
               <AnimatePresence>
-                {filteredLeaves.map((lr) => {
-                  const emp = getEmployee(lr.email_id);
-                  const key = `${lr.email_id}-${lr.applied_on}`;
+                {filteredLeaves.map((lr, index) => {
+                  const emp = getEmployee(lr.email);
+                  // Use lr.id if available, else fallback to email-applied_on-index (handles possible undefined email)
+                  const leaveKey =
+                    typeof lr.id !== "undefined" && lr.id !== null
+                      ? lr.id
+                      : `${lr.email || "unknown"}-${lr.applied_on}-${index}`;
                   return (
                     <motion.div
-                      key={key}
+                      key={leaveKey}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -50 }}
@@ -302,7 +313,7 @@ export default function ManagerDashboard() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
                             <div className="flex items-center">
                               <FiMail className="mr-2 text-gray-400" />
-                              {lr.email_id}
+                              {lr.email}
                             </div>
                             <div className="flex items-center">
                               <FiBriefcase className="mr-2 text-gray-400" />
@@ -346,14 +357,13 @@ export default function ManagerDashboard() {
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() =>
                                   updateLeaveStatus(
-                                    lr.email_id,
-                                    lr.applied_on,
+                                    leaveKey,
                                     "Approved"
                                   )
                                 }
-                                disabled={updatingKey === key}
+                                disabled={updatingKey === String(leaveKey)}
                                 className={`flex items-center px-4 py-2 rounded-lg text-white text-sm font-medium ${
-                                  updatingKey === key
+                                  updatingKey === String(leaveKey)
                                     ? "bg-green-400 cursor-not-allowed"
                                     : "bg-green-600 hover:bg-green-700"
                                 }`}
@@ -364,14 +374,13 @@ export default function ManagerDashboard() {
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() =>
                                   updateLeaveStatus(
-                                    lr.email_id,
-                                    lr.applied_on,
+                                    leaveKey,
                                     "Rejected"
                                   )
                                 }
-                                disabled={updatingKey === key}
+                                disabled={updatingKey === String(leaveKey)}
                                 className={`flex items-center px-4 py-2 rounded-lg text-white text-sm font-medium ${
-                                  updatingKey === key
+                                  updatingKey === String(leaveKey)
                                     ? "bg-red-400 cursor-not-allowed"
                                     : "bg-red-600 hover:bg-red-700"
                                 }`}
@@ -379,7 +388,7 @@ export default function ManagerDashboard() {
                                 <FiXCircle className="mr-1" /> Reject
                               </motion.button>
                             </div>
-                            {updatingKey === key && (
+                            {updatingKey === String(leaveKey) && (
                               <p className="text-xs text-gray-500">
                                 Updating...
                               </p>
@@ -398,3 +407,4 @@ export default function ManagerDashboard() {
     </DashboardLayout>
   );
 }
+

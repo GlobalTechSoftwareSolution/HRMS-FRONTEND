@@ -24,27 +24,32 @@ const NoticeBoard: React.FC = () => {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newNotice, setNewNotice] = useState({
+    title: "",
+    message: "",
+    important: false,
+  });
+
+  // Fetch notices
   useEffect(() => {
     const fetchNotices = async () => {
       try {
-        console.log("🔄 Fetching notices from API...");
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_notices/`
         );
 
         if (!res.ok) throw new Error("Failed to fetch notices");
         const data = await res.json();
-        console.log("✅ Notices fetched:", data);
 
-        if (Array.isArray(data)) {
-          setNotices(data);
-        } else if (Array.isArray(data.notices)) {
+        if (Array.isArray(data.notices)) {
           setNotices(data.notices);
         } else {
           setNotices([]);
         }
       } catch (err) {
-        console.error("❌ API fetch error:", err);
+        console.error("API fetch error:", err);
       } finally {
         setLoading(false);
       }
@@ -52,6 +57,40 @@ const NoticeBoard: React.FC = () => {
 
     fetchNotices();
   }, []);
+
+  // Create new notice
+  const handleCreateNotice = async () => {
+    try {
+      const email = localStorage.user_email;
+      if (!email) return alert("CEO email not found!");
+
+      const body = { ...newNotice, email };
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/create_notice/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Failed to create notice:", text);
+        return alert("Failed to create notice");
+      }
+
+      const createdNotice = await res.json();
+      setNotices([createdNotice, ...notices]); // Update UI
+      setIsModalOpen(false);
+      setNewNotice({ title: "", message: "", important: false });
+      alert("Notice created successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong!");
+    }
+  };
 
   const getPriorityBorder = (important: boolean) =>
     important ? "border-red-500" : "border-blue-400";
@@ -74,7 +113,15 @@ const NoticeBoard: React.FC = () => {
   return (
     <DashboardLayout role="ceo">
       <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
-        <h1 className="text-3xl font-bold mb-6 text-gray-800">📢 Notice Board</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">📢 Notice Board</h1>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700"
+          >
+            + Create Notice
+          </button>
+        </div>
 
         {loading ? (
           <div className="text-center py-10 text-gray-500 animate-pulse">
@@ -89,7 +136,6 @@ const NoticeBoard: React.FC = () => {
                   notice.important
                 )} transition-transform duration-300 hover:scale-105 hover:shadow-xl`}
               >
-                {/* Category badge */}
                 {notice.category && (
                   <span
                     className={`absolute top-4 right-4 px-2 py-1 rounded-full text-xs font-semibold ${getCategoryBadge(
@@ -123,7 +169,8 @@ const NoticeBoard: React.FC = () => {
                   {notice.valid_until && (
                     <span className="flex items-center gap-1">
                       <FiClock />
-                      Valid until: {new Date(notice.valid_until).toLocaleDateString()}
+                      Valid until:{" "}
+                      {new Date(notice.valid_until).toLocaleDateString()}
                     </span>
                   )}
                 </div>
@@ -148,6 +195,62 @@ const NoticeBoard: React.FC = () => {
             <p className="text-gray-500 mt-1 text-center">
               Check back later or create new notices for employees
             </p>
+          </div>
+        )}
+
+        {/* Modal */}
+        {isModalOpen && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50 p-4">
+            <div className="bg-white rounded-xl shadow-lg w-full max-w-lg p-6">
+              <h2 className="text-xl font-semibold mb-4">Create New Notice</h2>
+
+              <input
+                type="text"
+                placeholder="Title"
+                value={newNotice.title}
+                onChange={(e) =>
+                  setNewNotice({ ...newNotice, title: e.target.value })
+                }
+                className="w-full border rounded-lg px-3 py-2 mb-3"
+              />
+
+              <textarea
+                placeholder="Message"
+                value={newNotice.message}
+                onChange={(e) =>
+                  setNewNotice({ ...newNotice, message: e.target.value })
+                }
+                className="w-full border rounded-lg px-3 py-2 mb-3"
+                rows={4}
+              />
+
+              <div className="flex items-center mb-3">
+                <input
+                  type="checkbox"
+                  checked={newNotice.important}
+                  onChange={(e) =>
+                    setNewNotice({ ...newNotice, important: e.target.checked })
+                  }
+                  className="mr-2"
+                />
+                <span>Mark as Important</span>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 border rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateNotice}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                >
+                  Create
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

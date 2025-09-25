@@ -28,6 +28,15 @@ export default function SystemSettingsPage() {
     systemStatus: "Online",
   });
 
+  // Detect mobile view
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // Fetch system info (simulated)
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -37,10 +46,10 @@ export default function SystemSettingsPage() {
         environment: "Production",
         lastUpdated: new Date().toLocaleString(),
       });
-    }, 1000);
+    }, 500);
 
     return () => clearTimeout(timer);
-  }, [settings.appName]); // ✅ added dependency
+  }, [settings.appName]);
 
   // Notification handler
   const showNotification = (message: string, type: "success" | "error") => {
@@ -48,6 +57,12 @@ export default function SystemSettingsPage() {
     setTimeout(() => setNotification(null), 3000);
   };
 
+  // Handle input change
+  const handleInputChange = (key: string, value: string | number) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Save changes
   const handleSave = () => {
     setSystemInfo((prev) => ({
       ...prev!,
@@ -58,14 +73,43 @@ export default function SystemSettingsPage() {
     showNotification("Settings saved successfully", "success");
   };
 
-  const handleInputChange = (key: string, value: string | number) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
+  // Render input field
+  const renderInput = (key: string, label: string, type: "text" | "number" | "select", options?: string[]) => {
+    if (type === "select") {
+      return (
+        <div>
+          <label className="block mb-2 text-sm font-medium text-gray-700">{label}</label>
+          <select
+            disabled={!editMode}
+            value={settings[key as keyof typeof settings]}
+            onChange={(e) => handleInputChange(key, e.target.value)}
+            className="w-full p-3 border rounded-md disabled:bg-gray-100"
+          >
+            {options?.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+      );
+    } else {
+      return (
+        <div>
+          <label className="block mb-2 text-sm font-medium text-gray-700">{label}</label>
+          <input
+            type={type}
+            disabled={!editMode}
+            value={settings[key as keyof typeof settings]}
+            onChange={(e) => handleInputChange(key, type === "number" ? Number(e.target.value) : e.target.value)}
+            className="w-full p-3 border rounded-md disabled:bg-gray-100"
+          />
+        </div>
+      );
+    }
   };
 
   return (
     <DashboardLayout role="admin">
       <div className="container mx-auto p-6">
-
         {/* Breadcrumb */}
         <div className="breadcrumb flex items-center gap-2 mb-7 text-gray-500 text-sm">
           <a href="#" className="text-indigo-600">Dashboard</a>
@@ -114,200 +158,54 @@ export default function SystemSettingsPage() {
         <div>
           {/* Overview */}
           {activeTab === "overview" && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-7">
-                <div className="bg-white p-5 rounded-lg shadow flex flex-col">
-                  <div className="w-12 h-12 mb-3 text-indigo-600 bg-indigo-100 flex items-center justify-center rounded-lg">
-                    <i className="fas fa-database"></i>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-7">
+              {[
+                { title: "Database Size", value: "2.5 GB", icon: "fas fa-database", bg: "bg-indigo-100", text: "text-indigo-600" },
+                { title: "Active Users", value: "154", icon: "fas fa-users", bg: "bg-green-100", text: "text-green-600" },
+                { title: "Uptime", value: "99.8%", icon: "fas fa-clock", bg: "bg-yellow-100", text: "text-yellow-500" },
+                { title: "CPU Temp", value: "42°C", icon: "fas fa-server", bg: "bg-blue-100", text: "text-blue-600" },
+              ].map((card) => (
+                <div key={card.title} className="bg-white p-5 rounded-lg shadow flex flex-col">
+                  <div className={`w-12 h-12 mb-3 flex items-center justify-center rounded-lg ${card.bg} ${card.text}`}>
+                    <i className={card.icon}></i>
                   </div>
-                  <div className="text-2xl font-bold">2.5 GB</div>
-                  <div className="text-gray-500">Database Size</div>
+                  <div className="text-2xl font-bold">{card.value}</div>
+                  <div className="text-gray-500">{card.title}</div>
                 </div>
-                <div className="bg-white p-5 rounded-lg shadow flex flex-col">
-                  <div className="w-12 h-12 mb-3 text-green-600 bg-green-100 flex items-center justify-center rounded-lg">
-                    <i className="fas fa-users"></i>
-                  </div>
-                  <div className="text-2xl font-bold">154</div>
-                  <div className="text-gray-500">Active Users</div>
-                </div>
-                <div className="bg-white p-5 rounded-lg shadow flex flex-col">
-                  <div className="w-12 h-12 mb-3 text-yellow-500 bg-yellow-100 flex items-center justify-center rounded-lg">
-                    <i className="fas fa-clock"></i>
-                  </div>
-                  <div className="text-2xl font-bold">99.8%</div>
-                  <div className="text-gray-500">Uptime</div>
-                </div>
-                <div className="bg-white p-5 rounded-lg shadow flex flex-col">
-                  <div className="w-12 h-12 mb-3 text-blue-600 bg-blue-100 flex items-center justify-center rounded-lg">
-                    <i className="fas fa-server"></i>
-                  </div>
-                  <div className="text-2xl font-bold">42°C</div>
-                  <div className="text-gray-500">CPU Temp</div>
-                </div>
-              </div>
-
-              {/* System Info Card */}
-              <div className="bg-white p-7 rounded-xl shadow mb-7">
-                <div className="flex justify-between items-center border-b pb-4 mb-5">
-                  <h2 className="text-lg font-semibold flex items-center gap-2"><i className="fas fa-info-circle"></i> System Info</h2>
-                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-600">
-                    {systemInfo?.environment || "-"}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <div className="text-sm text-gray-500 flex items-center gap-2"><i className="fas fa-signature"></i> App Name</div>
-                    <div className="text-md font-medium">{systemInfo?.appName}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500 flex items-center gap-2"><i className="fas fa-code-branch"></i> Version</div>
-                    <div className="text-md font-medium">{systemInfo?.version}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500 flex items-center gap-2"><i className="fas fa-calendar-alt"></i> Last Updated</div>
-                    <div className="text-md font-medium">{systemInfo?.lastUpdated}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500 flex items-center gap-2"><i className="fas fa-layer-group"></i> Environment</div>
-                    <div className="text-md font-medium">{systemInfo?.environment}</div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* General */}
-          {activeTab === "general" && (
-            <div className="bg-white p-7 rounded-xl shadow mb-7 grid gap-6">
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Application Name</label>
-                <input
-                  type="text"
-                  disabled={!editMode}
-                  value={settings.appName}
-                  onChange={(e) => handleInputChange("appName", e.target.value)}
-                  className="w-full p-3 border rounded-md disabled:bg-gray-100"
-                />
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Time Zone</label>
-                <select
-                  disabled={!editMode}
-                  value={settings.timeZone}
-                  onChange={(e) => handleInputChange("timeZone", e.target.value)}
-                  className="w-full p-3 border rounded-md disabled:bg-gray-100"
-                >
-                  <option>(UTC+00:00) London</option>
-                  <option>(UTC-05:00) New York</option>
-                  <option>(UTC-08:00) Pacific Time</option>
-                  <option>(UTC+01:00) Paris</option>
-                  <option>(UTC+08:00) Singapore</option>
-                </select>
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Date Format</label>
-                <select
-                  disabled={!editMode}
-                  value={settings.dateFormat}
-                  onChange={(e) => handleInputChange("dateFormat", e.target.value)}
-                  className="w-full p-3 border rounded-md disabled:bg-gray-100"
-                >
-                  <option>MM/DD/YYYY</option>
-                  <option>DD/MM/YYYY</option>
-                  <option>YYYY-MM-DD</option>
-                </select>
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Language</label>
-                <select
-                  disabled={!editMode}
-                  value={settings.language}
-                  onChange={(e) => handleInputChange("language", e.target.value)}
-                  className="w-full p-3 border rounded-md disabled:bg-gray-100"
-                >
-                  <option>English</option>
-                  <option>Spanish</option>
-                  <option>French</option>
-                  <option>German</option>
-                </select>
-              </div>
+              ))}
             </div>
           )}
 
-          {/* Security */}
-          {activeTab === "security" && (
-            <div className="bg-white p-7 rounded-xl shadow mb-7 grid gap-6">
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Password Policy</label>
-                <select
-                  disabled={!editMode}
-                  value={settings.passwordPolicy}
-                  onChange={(e) => handleInputChange("passwordPolicy", e.target.value)}
-                  className="w-full p-3 border rounded-md disabled:bg-gray-100"
-                >
-                  <option>Low (6+ characters)</option>
-                  <option>Medium (8+ characters with letters and numbers)</option>
-                  <option>High (12+ characters mixed case, numbers & symbols)</option>
-                </select>
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Session Timeout</label>
-                <select
-                  disabled={!editMode}
-                  value={settings.sessionTimeout}
-                  onChange={(e) => handleInputChange("sessionTimeout", e.target.value)}
-                  className="w-full p-3 border rounded-md disabled:bg-gray-100"
-                >
-                  <option>15 minutes</option>
-                  <option>30 minutes</option>
-                  <option>1 hour</option>
-                  <option>4 hours</option>
-                  <option>Never</option>
-                </select>
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Two-Factor Authentication</label>
-                <select
-                  disabled={!editMode}
-                  value={settings.twoFactorAuth}
-                  onChange={(e) => handleInputChange("twoFactorAuth", e.target.value)}
-                  className="w-full p-3 border rounded-md disabled:bg-gray-100"
-                >
-                  <option>Disabled</option>
-                  <option>Optional</option>
-                  <option>Required for Admins</option>
-                  <option>Required for All Users</option>
-                </select>
-              </div>
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">Login Attempts</label>
-                <input
-                  type="number"
-                  disabled={!editMode}
-                  value={settings.loginAttempts}
-                  onChange={(e) => handleInputChange("loginAttempts", Number(e.target.value))}
-                  className="w-full p-3 border rounded-md disabled:bg-gray-100"
-                />
-              </div>
-            </div>
-          )}
+          {/* General / Security / Maintenance */}
+          {["general", "security", "maintenance"].includes(activeTab) && (
+            <div className={`grid ${isMobile ? "grid-cols-1 gap-4" : "grid-cols-2 gap-6"} mb-7`}>
+              {activeTab === "general" && (
+                <>
+                  <div className="bg-white p-5 rounded-xl shadow">{renderInput("appName", "Application Name", "text")}</div>
+                  <div className="bg-white p-5 rounded-xl shadow">{renderInput("timeZone", "Time Zone", "select", [
+                    "(UTC+00:00) London",
+                    "(UTC-05:00) New York",
+                    "(UTC-08:00) Pacific Time",
+                    "(UTC+01:00) Paris",
+                    "(UTC+08:00) Singapore",
+                  ])}</div>
+                  <div className="bg-white p-5 rounded-xl shadow">{renderInput("dateFormat", "Date Format", "select", ["MM/DD/YYYY", "DD/MM/YYYY", "YYYY-MM-DD"])}</div>
+                  <div className="bg-white p-5 rounded-xl shadow">{renderInput("language", "Language", "select", ["English", "Spanish", "French", "German"])}</div>
+                </>
+              )}
 
-          {/* Maintenance */}
-          {activeTab === "maintenance" && (
-            <div className="bg-white p-7 rounded-xl shadow mb-7 grid gap-6">
-              <div>
-                <label className="block mb-2 text-sm font-medium text-gray-700">System Status</label>
-                <select
-                  disabled={!editMode}
-                  value={settings.systemStatus}
-                  onChange={(e) => handleInputChange("systemStatus", e.target.value)}
-                  className="w-full p-3 border rounded-md disabled:bg-gray-100"
-                >
-                  <option>Online</option>
-                  <option>Maintenance Mode</option>
-                  <option>Offline</option>
-                </select>
-              </div>
+              {activeTab === "security" && (
+                <>
+                  <div className="bg-white p-5 rounded-xl shadow">{renderInput("passwordPolicy", "Password Policy", "select", ["Low (6+ characters)", "Medium (8+ characters with letters and numbers)", "High (12+ characters mixed case, numbers & symbols)"])}</div>
+                  <div className="bg-white p-5 rounded-xl shadow">{renderInput("sessionTimeout", "Session Timeout", "select", ["15 minutes", "30 minutes", "1 hour", "4 hours", "Never"])}</div>
+                  <div className="bg-white p-5 rounded-xl shadow">{renderInput("twoFactorAuth", "Two-Factor Authentication", "select", ["Disabled", "Optional", "Required for Admins", "Required for All Users"])}</div>
+                  <div className="bg-white p-5 rounded-xl shadow">{renderInput("loginAttempts", "Login Attempts", "number")}</div>
+                </>
+              )}
+
+              {activeTab === "maintenance" && (
+                <div className="bg-white p-5 rounded-xl shadow">{renderInput("systemStatus", "System Status", "select", ["Online", "Maintenance Mode", "Offline"])}</div>
+              )}
             </div>
           )}
         </div>

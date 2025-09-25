@@ -142,7 +142,7 @@ export default function DashboardOverview() {
               Dashboard Overview
             </h1>
             <p className="text-gray-600 mt-1 text-sm sm:text-base">
-              Welcome back! Here&apos;s your personal overview
+              Welcome back! Here's your personal overview
             </p>
           </div>
           <div className="text-xs sm:text-sm text-gray-500 bg-white px-3 sm:px-4 py-2 rounded-lg shadow-sm w-fit">
@@ -158,163 +158,133 @@ export default function DashboardOverview() {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {/* Leave Balance */}
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
+          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-green-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+            <div>
               <span className="text-green-600 text-xl sm:text-2xl font-bold">
                 {leaveData.filter((l) => l.email === userEmail).length}
               </span>
-              <div className="p-2 bg-green-100 rounded-lg">
-                <FiCalendar className="text-green-600 text-lg sm:text-xl" />
-              </div>
+              <p className="text-gray-500 mt-1 text-sm">Leave Balance</p>
+              <p className="text-xs text-gray-400 mt-0.5">Days remaining</p>
             </div>
-            <p className="text-gray-500 mt-2 text-sm">Leave Balance</p>
-            <p className="text-xs text-gray-400 mt-1">Days remaining</p>
+            <div className="p-2 bg-green-100 rounded-lg self-end sm:self-auto">
+              <FiCalendar className="text-green-600 text-lg sm:text-xl" />
+            </div>
           </div>
 
           {/* Hours Worked */}
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-purple-500">
-            <div className="flex items-center justify-between">
+          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-purple-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+            <div>
               <span className="text-purple-600 text-xl sm:text-2xl font-bold">
                 {hoursThisWeek.toFixed(2)} hrs
               </span>
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <FiClock className="text-purple-600 text-lg sm:text-xl" />
-              </div>
+              <p className="text-gray-500 mt-1 text-sm">Hours Worked</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {((hoursThisWeek / totalPossibleHours) * 100).toFixed(2)}% of {totalPossibleHours} hrs
+              </p>
             </div>
-            <p className="text-gray-500 mt-2 text-sm">Hours Worked</p>
-            <p className="text-xs text-gray-400 mt-1">
-              {((hoursThisWeek / totalPossibleHours) * 100).toFixed(2)}% of {totalPossibleHours} hrs
-            </p>
+            <div className="p-2 bg-purple-100 rounded-lg self-end sm:self-auto">
+              <FiClock className="text-purple-600 text-lg sm:text-xl" />
+            </div>
           </div>
 
           {/* Attendance Rate */}
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
+          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-blue-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+            <div>
               <span className="text-blue-600 text-xl sm:text-2xl font-bold">{attendanceRate}%</span>
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <FiTrendingUp className="text-blue-600 text-lg sm:text-xl" />
-              </div>
+              <p className="text-gray-500 mt-1 text-sm">Attendance Rate</p>
+              <p className="text-xs text-gray-400 mt-0.5">Based on days attended</p>
             </div>
-            <p className="text-gray-500 mt-2 text-sm">Attendance Rate</p>
-            <p className="text-xs text-gray-400 mt-1">Based on days attended</p>
+            <div className="p-2 bg-blue-100 rounded-lg self-end sm:self-auto">
+              <FiTrendingUp className="text-blue-600 text-lg sm:text-xl" />
+            </div>
           </div>
 
           {/* Pending Requests */}
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-yellow-500">
-            <div className="flex items-center justify-between">
+          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-yellow-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+            <div>
               <span className="text-yellow-600 text-xl sm:text-2xl font-bold">{pendingRequests}</span>
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <FiAlertCircle className="text-yellow-600 text-lg sm:text-xl" />
-              </div>
+              <p className="text-gray-500 mt-1 text-sm">Pending Requests</p>
+              <p className="text-xs text-gray-400 mt-0.5">Awaiting approval</p>
             </div>
-            <p className="text-gray-500 mt-2 text-sm">Pending Requests</p>
-            <p className="text-xs text-gray-400 mt-1">Awaiting approval</p>
+            <div className="p-2 bg-yellow-100 rounded-lg self-end sm:self-auto">
+              <FiAlertCircle className="text-yellow-600 text-lg sm:text-xl" />
+            </div>
           </div>
         </div>
 
         {/* Daily Hours Table */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm mt-6">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">
-            Daily Hours Worked
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm text-gray-600">
-              <thead>
-                <tr className="text-left border-b">
-                  <th className="py-2 px-4">Date</th>
-                  <th className="py-2 px-4">Check-In</th>
-                  <th className="py-2 px-4">Check-Out</th>
-                  <th className="py-2 px-4">Hours Worked</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attendanceRecords.map((rec) => {
-                  const hours =
-                    rec.checkIn && rec.checkOut
-                      ? ((new Date(`${rec.date}T${rec.checkOut}`).getTime() -
-                          new Date(`${rec.date}T${rec.checkIn}`).getTime()) /
-                          1000 /
-                          3600
-                        ).toFixed(2)
-                      : "0.00";
-                  return (
-                    <tr key={rec.date} className="border-b">
-                      <td className="py-2 px-4">{rec.date}</td>
-                      <td className="py-2 px-4">{rec.checkIn ?? "-"}</td>
-                      <td className="py-2 px-4">{rec.checkOut ?? "-"}</td>
-                      <td className="py-2 px-4">{hours} hrs</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm mt-6 overflow-x-auto">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">Daily Hours Worked</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-4">
+            {attendanceRecords.map((rec) => {
+              const hours =
+                rec.checkIn && rec.checkOut
+                  ? ((new Date(`${rec.date}T${rec.checkOut}`).getTime() -
+                      new Date(`${rec.date}T${rec.checkIn}`).getTime()) /
+                      1000 /
+                      3600
+                    ).toFixed(2)
+                  : "0.00";
+              return (
+                <div key={rec.date} className="bg-gray-50 p-3 rounded-lg shadow-sm flex justify-between items-center">
+                  <div>
+                    <p className="text-gray-700 font-medium">{rec.date}</p>
+                    <p className="text-gray-500 text-sm">
+                      {rec.checkIn ?? "-"} - {rec.checkOut ?? "-"}
+                    </p>
+                  </div>
+                  <span className="text-gray-700 font-bold">{hours} hrs</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
         {/* Leaves Table */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm mt-6">
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm mt-6 overflow-x-auto">
           <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">Your Leaves</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm text-gray-600">
-              <thead>
-                <tr className="text-left border-b">
-                  <th className="py-2 px-4">Start Date</th>
-                  <th className="py-2 px-4">End Date</th>
-                  <th className="py-2 px-4">Type</th>
-                  <th className="py-2 px-4">Reason</th>
-                  <th className="py-2 px-4">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leaveData
-                  .filter((l) => l.email === userEmail)
-                  .map((l, idx) => (
-                    <tr key={idx} className="border-b">
-                      <td className="py-2 px-4">{l.start_date}</td>
-                      <td className="py-2 px-4">{l.end_date}</td>
-                      <td className="py-2 px-4">{l.leave_type ?? "-"}</td>
-                      <td className="py-2 px-4">{l.reason}</td>
-                      <td className="py-2 px-4">{l.status}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 gap-3">
+            {leaveData
+              .filter((l) => l.email === userEmail)
+              .map((l, idx) => (
+                <div key={idx} className="bg-gray-50 p-3 rounded-lg shadow-sm flex flex-col sm:flex-row sm:justify-between gap-1">
+                  <div className="text-gray-700 font-medium">{l.start_date} - {l.end_date}</div>
+                  <div className="text-gray-500 text-sm">{l.leave_type ?? "-"}</div>
+                  <div className="text-gray-500 text-sm">{l.reason}</div>
+                  <div className="text-yellow-600 font-semibold">{l.status}</div>
+                </div>
+              ))}
           </div>
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-xl shadow-sm">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-              <Link href="/employee/leaves" className="w-full">
-                <button className="flex flex-col items-center justify-center p-3 sm:p-4 border border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 w-full">
-                  <div className="p-2 sm:p-3 bg-blue-100 rounded-full mb-2">
-                    <FiCalendar className="text-blue-600 text-lg sm:text-xl" />
-                  </div>
-                  <span className="text-xs sm:text-sm font-medium text-gray-700">Request Leave</span>
-                </button>
-              </Link>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-6">
+          <Link href="/employee/leaves">
+            <button className="flex flex-col items-center justify-center p-3 sm:p-4 border border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 w-full">
+              <div className="p-2 sm:p-3 bg-blue-100 rounded-full mb-2">
+                <FiCalendar className="text-blue-600 text-lg sm:text-xl" />
+              </div>
+              <span className="text-xs sm:text-sm font-medium text-gray-700">Request Leave</span>
+            </button>
+          </Link>
 
-              <Link href="/employee/attendance" className="w-full">
-                <button className="flex flex-col items-center justify-center p-3 sm:p-4 border border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all duration-200 w-full">
-                  <div className="p-2 sm:p-3 bg-green-100 rounded-full mb-2">
-                    <FiClock className="text-green-600 text-lg sm:text-xl" />
-                  </div>
-                  <span className="text-xs sm:text-sm font-medium text-gray-700">View Attendance</span>
-                </button>
-              </Link>
+          <Link href="/employee/attendance">
+            <button className="flex flex-col items-center justify-center p-3 sm:p-4 border border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all duration-200 w-full">
+              <div className="p-2 sm:p-3 bg-green-100 rounded-full mb-2">
+                <FiClock className="text-green-600 text-lg sm:text-xl" />
+              </div>
+              <span className="text-xs sm:text-sm font-medium text-gray-700">View Attendance</span>
+            </button>
+          </Link>
 
-              <Link href="/employee/payroll" className="w-full">
-                <button className="flex flex-col items-center justify-center p-3 sm:p-4 border border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 w-full">
-                  <div className="p-2 sm:p-3 bg-purple-100 rounded-full mb-2">
-                    <FiDollarSign className="text-purple-600 text-lg sm:text-xl" />
-                  </div>
-                  <span className="text-xs sm:text-sm font-medium text-gray-700">View Payslips</span>
-                </button>
-              </Link>
-            </div>
-          </div>
+          <Link href="/employee/payroll">
+            <button className="flex flex-col items-center justify-center p-3 sm:p-4 border border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 w-full">
+              <div className="p-2 sm:p-3 bg-purple-100 rounded-full mb-2">
+                <FiDollarSign className="text-purple-600 text-lg sm:text-xl" />
+              </div>
+              <span className="text-xs sm:text-sm font-medium text-gray-700">View Payslips</span>
+            </button>
+          </Link>
         </div>
       </div>
     </DashboardLayout>

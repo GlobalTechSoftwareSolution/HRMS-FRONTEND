@@ -3,25 +3,33 @@
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 
+interface Employee {
+  name: string;
+  profileImage?: string;
+}
+
 interface Task {
   task_id: number;
+  email: string;
   title: string;
   description: string;
   department: string;
   priority: string;
   status: string;
   due_date?: string;
-  assigned_to?: string;
+  assigned_to?: Employee;
 }
 
 interface Report {
-  task_id: number;
+  task_id: number; 
+  email: string;
   title: string;
   description: string;
   content?: string;
   date?: string;
   created_at?: string;
   updated_at?: string;
+  assigned_to?: Employee;
 }
 
 export default function ReportsAndTasksPage() {
@@ -38,14 +46,12 @@ export default function ReportsAndTasksPage() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Fetch tasks
         const tasksRes = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_tasks/`
         );
         if (!tasksRes.ok) throw new Error("Failed to fetch tasks");
         const tasksJson = await tasksRes.json();
 
-        // Fetch reports
         const reportsRes = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_reports/`
         );
@@ -62,7 +68,6 @@ export default function ReportsAndTasksPage() {
         setIsLoading(false);
       }
     };
-
     fetchData();
   }, []);
 
@@ -152,7 +157,7 @@ export default function ReportsAndTasksPage() {
           </div>
         </div>
 
-        {/* Tasks Table */}
+        {/* Tasks Table / Cards */}
         {activeTab === "tasks" && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             {isLoading ? (
@@ -164,74 +169,133 @@ export default function ReportsAndTasksPage() {
                 No tasks available
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {[
-                        "ID",
-                        "Title",
-                        "Department",
-                        "Priority",
-                        "Status",
-                        "Actions",
-                      ].map((h) => (
-                        <th
-                          key={h}
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {tasks.map((task) => (
-                      <tr
-                        key={task.task_id}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 font-mono text-sm">
-                          {task.task_id}
-                        </td>
-                        <td className="px-6 py-4">{task.title}</td>
-                        <td className="px-6 py-4">{task.department}</td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-                              task.priority
-                            )}`}
+              <>
+                {/* Table for md+ */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {[
+                          "Employee",
+                          "Email",
+                          "Title",
+                          "Department",
+                          "Priority",
+                          "Status",
+                          "Actions",
+                        ].map((h) => (
+                          <th
+                            key={h}
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                           >
-                            {task.priority}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                              task.status
-                            )}`}
-                          >
-                            {task.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <button
-                            onClick={() => openTaskModal(task)}
-                            className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                          >
-                            View
-                          </button>
-                        </td>
+                            {h}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {tasks.map((task) => (
+                        <tr
+                          key={task.task_id}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-6 py-4">
+                            <img
+                              src={
+                                task.assigned_to?.profileImage ||
+                                "/placeholder-profile.png"
+                              }
+                              alt={task.assigned_to?.name || "No profile"}
+                              className="h-10 w-10 rounded-full object-cover"
+                            />
+                          </td>
+                          <td className="px-6 py-4">{task.email}</td>
+                          <td className="px-6 py-4">{task.title}</td>
+                          <td className="px-6 py-4">{task.department}</td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+                                task.priority
+                              )}`}
+                            >
+                              {task.priority}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                task.status
+                              )}`}
+                            >
+                              {task.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => openTaskModal(task)}
+                              className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Card view for small devices */}
+                <div className="md:hidden grid gap-4">
+                  {tasks.map((task) => (
+                    <div
+                      key={task.task_id}
+                      className="bg-gray-50 p-4 rounded-lg shadow flex flex-col gap-2"
+                    >
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={
+                            task.assigned_to?.profileImage ||
+                            "/placeholder-profile.png"
+                          }
+                          alt={task.assigned_to?.name || "No profile"}
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                        <div className="font-medium">{task.email}</div>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Department: {task.department}
+                      </div>
+                      <div className="flex gap-2">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+                            task.priority
+                          )}`}
+                        >
+                          {task.priority}
+                        </span>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                            task.status
+                          )}`}
+                        >
+                          {task.status}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => openTaskModal(task)}
+                        className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 self-start"
+                      >
+                        View
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
 
-        {/* Reports Table */}
+        {/* Reports Table / Cards */}
         {activeTab === "reports" && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             {isLoading ? (
@@ -243,46 +307,94 @@ export default function ReportsAndTasksPage() {
                 No reports available
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {["ID", "Title", "Description", "Date", "Actions"].map(
-                        (h) => (
-                          <th
-                            key={h}
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                          >
-                            {h}
-                          </th>
-                        )
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-  {reports.map((report, index) => (
-    <tr
-      key={`${report.task_id}-${index}`} // ensures unique key
-      className="hover:bg-gray-50 transition-colors"
-    >
-      <td className="px-6 py-4 font-mono text-sm">{report.task_id}</td>
-      <td className="px-6 py-4 font-medium">{report.title}</td>
-      <td className="px-6 py-4 text-gray-600 max-w-xs truncate">{report.description}</td>
-      <td className="px-6 py-4 text-gray-600 text-sm">{formatDate(report.date)}</td>
-      <td className="px-6 py-4">
-        <button
-          onClick={() => openReportModal(report)}
-          className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-        >
-          View
-        </button>
-      </td>
-    </tr>
-  ))}
-</tbody>
+              <>
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {["Employee", "Title", "Description", "Date", "Actions"].map(
+                          (h) => (
+                            <th
+                              key={h}
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            >
+                              {h}
+                            </th>
+                          )
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {reports.map((report, index) => (
+                        <tr
+                          key={`${report.task_id}-${index}`}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-6 py-4">
+                            <img
+                              src={
+                                report.assigned_to?.profileImage ||
+                                "/placeholder-profile.png"
+                              }
+                              alt={report.assigned_to?.name || "No profile"}
+                              className="h-10 w-10 rounded-full object-cover"
+                            />
+                          </td>
+                          <td className="px-6 py-4 font-medium">{report.title}</td>
+                          <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
+                            {report.description}
+                          </td>
+                          <td className="px-6 py-4 text-gray-600 text-sm">
+                            {formatDate(report.date)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => openReportModal(report)}
+                              className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-                </table>
-              </div>
+                {/* Card view for small devices */}
+                <div className="md:hidden grid gap-4">
+                  {reports.map((report) => (
+                    <div
+                      key={report.task_id}
+                      className="bg-gray-50 p-4 rounded-lg shadow flex flex-col gap-2"
+                    >
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={
+                            report.assigned_to?.profileImage ||
+                            "/placeholder-profile.png"
+                          }
+                          alt={report.assigned_to?.name || "No profile"}
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                        <div className="font-medium">{report.title}</div>
+                      </div>
+                      <div className="text-sm text-gray-600 truncate">
+                        {report.description}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        Date: {formatDate(report.date)}
+                      </div>
+                      <button
+                        onClick={() => openReportModal(report)}
+                        className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 self-start"
+                      >
+                        View
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}

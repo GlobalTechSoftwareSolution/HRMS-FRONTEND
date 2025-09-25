@@ -23,6 +23,7 @@ type LeaveApiResponse = {
   status: string;
   applied_on: string;
   department?: string;
+  email?: string;
 };
 
 export default function LeaveSection() {
@@ -77,7 +78,7 @@ export default function LeaveSection() {
       const data = await res.json();
 
       const leavesArray: LeaveApiResponse[] = Array.isArray(data.leaves)
-        ? data.leaves
+        ? data.leaves.filter(leave => leave.email === email)
         : [];
 
       const mappedLeaves: Leave[] = leavesArray.map((leave) => ({
@@ -119,42 +120,70 @@ export default function LeaveSection() {
       alert("End date cannot be before start date");
       return;
     }
-    if (!email) {
+
+    // Retrieve user info from localStorage here for submission
+    const userInfo = localStorage.getItem("userInfo");
+    if (!userInfo) {
       alert("User info not found. Please login again.");
+      return;
+    }
+    const parsedUserInfo = JSON.parse(userInfo);
+    const userEmail = parsedUserInfo.email;
+    const userDepartment = parsedUserInfo.department || "";
+
+    if (!userEmail) {
+      alert("User email not found. Please login again.");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
+      const appliedOnDate = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+      const payload = {
+        email: userEmail,
+        department: userDepartment,
+        leave_type: leaveType,
+        start_date: startDate,
+        end_date: endDate,
+        reason,
+        status: "Pending",
+        applied_on: appliedOnDate,
+      };
+
+      console.log("Submitting leave request payload:", payload);
+
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/apply_leave/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email,
-            department,
-            reason,
-            start_date: startDate,
-            end_date: endDate,
-            leave_type: leaveType,
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
       if (!res.ok) {
-        let errMsg = `Failed to submit leave request (status: ${res.status})`;
-        try {
-          const errData = await res.json();
-          errMsg = errData.message || errMsg;
-        } catch {
-          // ignore JSON parse errors
+        if (res.status === 400) {
+          // Try to parse JSON response for detailed error
+          let errorBody: any = null;
+          try {
+            errorBody = await res.json();
+            console.error("Backend 400 error response JSON:", errorBody);
+          } catch (jsonErr) {
+            const text = await res.text();
+            console.error("Backend 400 error response text:", text);
+            errorBody = text;
+          }
+          const errorMessage = typeof errorBody === "string" ? errorBody : JSON.stringify(errorBody);
+          throw new Error(`Failed to submit leave request (400): ${errorMessage}`);
+        } else {
+          let errMsg = `Failed to submit leave request (status: ${res.status})`;
+          throw new Error(errMsg);
         }
-        throw new Error(errMsg);
       }
 
-      // Reset form
+      // Reset form only on successful submission
       setReason("");
       setLeaveType("");
       setStartDate("");

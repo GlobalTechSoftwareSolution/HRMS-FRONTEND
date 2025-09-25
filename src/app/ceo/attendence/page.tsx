@@ -91,34 +91,16 @@ export default function ManagerDashboard() {
       format: "A4",
     });
 
-    // Title
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
-    doc.text(
-      "Today&apos;s Attendance Report",
-      doc.internal.pageSize.getWidth() / 2,
-      40,
-      { align: "center" }
-    );
+    doc.text("Today's Attendance Report", doc.internal.pageSize.getWidth() / 2, 40, { align: "center" });
 
-    // Date
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
     const todayStr = new Date().toLocaleDateString();
-    doc.text(`Date: ${todayStr}`, doc.internal.pageSize.getWidth() / 2, 60, {
-      align: "center",
-    });
+    doc.text(`Date: ${todayStr}`, doc.internal.pageSize.getWidth() / 2, 60, { align: "center" });
 
-    // Table Data (with Department)
-    const tableColumn = [
-      "ID",
-      "Employee Name",
-      "Email",
-      "Department",
-      "Check-in",
-      "Check-out",
-      "Hours",
-    ];
+    const tableColumn = ["ID", "Employee Name", "Email", "Department", "Check-in", "Check-out", "Hours"];
     const tableRows: (string | number)[][] = [];
 
     todaysAttendance.forEach((rec, idx) => {
@@ -161,66 +143,47 @@ export default function ManagerDashboard() {
 
   return (
     <DashboardLayout role="ceo">
-      <div className="min-h-screen bg-gray-50 p-6 max-w-7xl mx-auto">
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
         <motion.h1
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-3xl md:text-4xl font-bold mb-6 text-gray-800"
+          className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 text-gray-800"
         >
           CEO Dashboard 📋
         </motion.h1>
 
         {/* KPI Cards */}
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
           {[
-            {
-              title: "Total Employees",
-              value: totalEmployees,
-              color: "bg-gradient-to-r from-blue-400 to-blue-600",
-            },
-            {
-              title: "Checked In",
-              value: checkedIn,
-              color: "bg-gradient-to-r from-green-400 to-green-600",
-            },
-            {
-              title: "Absent",
-              value: absent,
-              color: "bg-gradient-to-r from-red-400 to-red-600",
-            },
-            {
-              title: "Avg Hours",
-              value: avgHours,
-              color: "bg-gradient-to-r from-purple-400 to-purple-600",
-            },
+            { title: "Total Employees", value: totalEmployees, color: "bg-gradient-to-r from-blue-400 to-blue-600" },
+            { title: "Checked In", value: checkedIn, color: "bg-gradient-to-r from-green-400 to-green-600" },
+            { title: "Absent", value: absent, color: "bg-gradient-to-r from-red-400 to-red-600" },
+            { title: "Avg Hours", value: avgHours, color: "bg-gradient-to-r from-purple-400 to-purple-600" },
           ].map((kpi) => (
             <motion.div
               key={kpi.title}
-              className={`rounded-2xl p-6 text-white shadow-lg flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color}`}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              whileHover={{ scale: 1.05 }}
+              className={`rounded-2xl p-4 sm:p-6 text-white shadow-lg flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color}`}
             >
-              <p className="text-sm font-medium opacity-90">{kpi.title}</p>
-              <p className="text-2xl md:text-3xl font-bold">{kpi.value}</p>
+              <p className="text-sm sm:text-base font-medium opacity-90">{kpi.title}</p>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold">{kpi.value}</p>
             </motion.div>
           ))}
         </motion.div>
 
-        {/* Today Attendance + Download PDF */}
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-700">
-            Today&apos;s Attendance
+        {/* Today's Attendance + Download PDF */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-700">
+            Today's Attendance
           </h2>
           <button
             onClick={downloadPDF}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg sm:mt-5 sm:mb-5 hover:bg-blue-700"
           >
             Download PDF
           </button>
@@ -228,7 +191,7 @@ export default function ManagerDashboard() {
 
         {/* Today Attendance Cards */}
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mb-8"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
@@ -237,7 +200,7 @@ export default function ManagerDashboard() {
             Array.from({ length: 4 }).map((_, idx) => (
               <div
                 key={idx}
-                className="animate-pulse bg-white shadow-lg rounded-xl p-6 flex flex-col gap-4"
+                className="animate-pulse bg-white shadow-lg rounded-xl p-4 sm:p-6 flex flex-col gap-3"
               >
                 <div className="h-5 bg-gray-200 rounded w-3/4"></div>
                 <div className="h-4 bg-gray-200 rounded w-1/2"></div>
@@ -253,73 +216,57 @@ export default function ManagerDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.3, delay: idx * 0.05 }}
-                  className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
+                  className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
                 >
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      {rec.name}
-                    </h3>
-                    <p className="text-sm text-gray-500">{rec.email}</p>
+                  <div className="mb-3 sm:mb-4">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.name}</h3>
+                    <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
                   </div>
-                  <div className="mb-3">
+                  <div className="mb-2 sm:mb-3">
                     <p className="text-xs text-gray-400">Check-in / Check-out</p>
-                    <div className="flex gap-2 mt-1">
+                    <div className="flex gap-2 mt-1 flex-wrap">
                       <span
-                        className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          rec.check_in
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
+                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                          rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                         }`}
                       >
-                        {rec.check_in
-                          ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
-                          : "Pending"}
+                        {rec.check_in ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString() : "Pending"}
                       </span>
                       <span
-                        className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          rec.check_out
-                            ? "bg-green-100 text-green-700"
-                            : "bg-orange-100 text-orange-700"
+                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                          rec.check_out ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
                         }`}
                       >
-                        {rec.check_out
-                          ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
-                          : "Pending"}
+                        {rec.check_out ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString() : "Pending"}
                       </span>
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">Worked Hours</p>
+                    <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
-                        animate={{
-                          width: `${Math.min((rec.hours / 8) * 100, 100)}%`,
-                        }}
+                        animate={{ width: `${Math.min((rec.hours / 8) * 100, 100)}%` }}
                         transition={{ duration: 1 }}
                         className="h-2 bg-blue-500 rounded-full"
                       />
                     </div>
-                    <p className="text-xs text-center text-gray-600 mt-1">
-                      {rec.hours} hrs
-                    </p>
+                    <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">{rec.hours} hrs</p>
                   </div>
                 </motion.div>
               ))}
             </AnimatePresence>
           ) : (
-            <div className="col-span-full text-center text-gray-500 p-8 bg-white rounded-xl shadow-lg">
+            <div className="col-span-full text-center text-gray-500 p-6 sm:p-8 bg-white rounded-xl shadow-lg">
               No attendance records for today.
             </div>
           )}
         </motion.div>
 
         {/* Full Attendance List */}
-        <h2 className="text-xl font-semibold text-gray-700 mb-4">
-          Full Attendance Records
-        </h2>
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-700 mb-4">Full Attendance Records</h2>
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}
@@ -333,62 +280,46 @@ export default function ManagerDashboard() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.3, delay: idx * 0.02 }}
-                  className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
+                  className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
                 >
-                  <div className="mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      {rec.name}
-                    </h3>
-                    <p className="text-sm text-gray-500">{rec.email}</p>
+                  <div className="mb-3 sm:mb-4">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.name}</h3>
+                    <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
                   </div>
-                  <div className="mb-3">
+                  <div className="mb-2 sm:mb-3">
                     <p className="text-xs text-gray-400">Date</p>
-                    <p className="text-sm text-gray-700 font-medium">
-                      {new Date(rec.date).toLocaleDateString()}
-                    </p>
+                    <p className="text-sm sm:text-base text-gray-700 font-medium">{new Date(rec.date).toLocaleDateString()}</p>
                   </div>
-                  <div className="mb-3">
+                  <div className="mb-2 sm:mb-3">
                     <p className="text-xs text-gray-400">Check-in / Check-out</p>
-                    <div className="flex gap-2 mt-1">
+                    <div className="flex gap-2 mt-1 flex-wrap">
                       <span
-                        className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          rec.check_in
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
+                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                          rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                         }`}
                       >
-                        {rec.check_in
-                          ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
-                          : "Pending"}
+                        {rec.check_in ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString() : "Pending"}
                       </span>
                       <span
-                        className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          rec.check_out
-                            ? "bg-green-100 text-green-700"
-                            : "bg-orange-100 text-orange-700"
+                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                          rec.check_out ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
                         }`}
                       >
-                        {rec.check_out
-                          ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
-                          : "Pending"}
+                        {rec.check_out ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString() : "Pending"}
                       </span>
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">Worked Hours</p>
+                    <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
-                        animate={{
-                          width: `${Math.min((rec.hours / 8) * 100, 100)}%`,
-                        }}
+                        animate={{ width: `${Math.min((rec.hours / 8) * 100, 100)}%` }}
                         transition={{ duration: 1 }}
                         className="h-2 bg-purple-500 rounded-full"
                       />
                     </div>
-                    <p className="text-xs text-center text-gray-600 mt-1">
-                      {rec.hours} hrs
-                    </p>
+                    <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">{rec.hours} hrs</p>
                   </div>
                 </motion.div>
               ))}

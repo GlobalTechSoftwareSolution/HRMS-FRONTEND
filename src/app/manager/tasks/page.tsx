@@ -86,44 +86,47 @@ export default function ManagerTasks() {
   }, [scrollToForm]);
 
   // Assign Task
-  const handleSendTask = async () => {
-    if (!assignedTo) return toast.error("Please select an employee to assign the task.");
-    if (!title.trim()) return toast.error("Please enter a task title.");
+const handleSendTask = async () => {
+  if (!assignedTo) return toast.error("Please select an employee to assign the task.");
+  if (!title.trim()) return toast.error("Please enter a task title.");
 
-    setSending(true);
+  setSending(true);
 
-    try {
-      const res = await fetch(`${API_BASE}/api/accounts/create_task/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: assignedTo,
-          title,
-          description,
-          due_date: dueDate || null,
-          priority,
-        }),
-      });
+  try {
+    const loggedInEmail = localStorage.getItem("user_email"); // <-- get logged-in email
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(`Failed: ${res.status} → ${JSON.stringify(data)}`);
+    const res = await fetch(`${API_BASE}/api/accounts/create_task/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: assignedTo,          // employee who will do the task
+        title,
+        description,
+        due_date: dueDate || null,
+        priority,
+        assigned_by: loggedInEmail  // <-- pass logged-in email
+      }),
+    });
 
-      toast.success("Task assigned successfully!");
-      setTitle("");
-      setDescription("");
-      setDueDate("");
-      setAssignedTo("");
-      setPriority("MEDIUM");
+    const data = await res.json();
+    if (!res.ok) throw new Error(`Failed: ${res.status} → ${JSON.stringify(data)}`);
 
-      fetchTasks(); // refresh tasks
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to assign task";
-      console.error(err);
-      toast.error(message);
-    } finally {
-      setSending(false);
-    }
-  };
+    toast.success("Task assigned successfully!");
+    setTitle("");
+    setDescription("");
+    setDueDate("");
+    setAssignedTo("");
+    setPriority("MEDIUM");
+
+    fetchTasks(); // refresh tasks
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to assign task";
+    console.error(err);
+    toast.error(message);
+  } finally {
+    setSending(false);
+  }
+};
 
   const getPriorityClass = (priority: Task["priority"]) => {
     switch (priority) {
