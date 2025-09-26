@@ -16,6 +16,7 @@ type Leave = {
 };
 
 type LeaveApiResponse = {
+  email?: string;
   reason: string;
   leave_type: string;
   start_date: string;
@@ -23,13 +24,11 @@ type LeaveApiResponse = {
   status: string;
   applied_on: string;
   department?: string;
-  email?: string;
 };
 
 export default function LeaveSection() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [email, setEmail] = useState("");
-  const [department, setDepartment] = useState("");
   const [reason, setReason] = useState("");
   const [leaveType, setLeaveType] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -43,7 +42,6 @@ export default function LeaveSection() {
     if (userInfo) {
       const parsed = JSON.parse(userInfo);
       if (parsed.email) setEmail(parsed.email);
-      if (parsed.department) setDepartment(parsed.department);
     }
   }, []);
 
@@ -78,11 +76,13 @@ export default function LeaveSection() {
       const data = await res.json();
 
       const leavesArray: LeaveApiResponse[] = Array.isArray(data.leaves)
-        ? data.leaves.filter(leave => leave.email === email)
+        ? (data.leaves as LeaveApiResponse[]).filter(
+            (leave: LeaveApiResponse) => leave.email === email
+          )
         : [];
 
-      const mappedLeaves: Leave[] = leavesArray.map((leave) => ({
-        id: Math.random(), // fallback id if backend doesn't provide one
+      const mappedLeaves: Leave[] = leavesArray.map((leave: LeaveApiResponse, idx: number) => ({
+        id: idx + 1, // fallback id if backend doesn't provide one
         reason: leave.reason,
         leaveType: leave.leave_type,
         startDate: leave.start_date,
@@ -106,7 +106,6 @@ export default function LeaveSection() {
     }
   }, [email]);
 
-  // Fetch leaves whenever email is set
   useEffect(() => {
     fetchLeaves();
   }, [fetchLeaves]);
@@ -121,12 +120,12 @@ export default function LeaveSection() {
       return;
     }
 
-    // Retrieve user info from localStorage here for submission
     const userInfo = localStorage.getItem("userInfo");
     if (!userInfo) {
       alert("User info not found. Please login again.");
       return;
     }
+
     const parsedUserInfo = JSON.parse(userInfo);
     const userEmail = parsedUserInfo.email;
     const userDepartment = parsedUserInfo.department || "";
@@ -152,8 +151,6 @@ export default function LeaveSection() {
         applied_on: appliedOnDate,
       };
 
-      console.log("Submitting leave request payload:", payload);
-
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/apply_leave/`,
         {
@@ -164,32 +161,23 @@ export default function LeaveSection() {
       );
 
       if (!res.ok) {
-        if (res.status === 400) {
-          // Try to parse JSON response for detailed error
-          let errorBody: any = null;
-          try {
-            errorBody = await res.json();
-            console.error("Backend 400 error response JSON:", errorBody);
-          } catch (jsonErr) {
-            const text = await res.text();
-            console.error("Backend 400 error response text:", text);
-            errorBody = text;
-          }
-          const errorMessage = typeof errorBody === "string" ? errorBody : JSON.stringify(errorBody);
-          throw new Error(`Failed to submit leave request (400): ${errorMessage}`);
-        } else {
-          let errMsg = `Failed to submit leave request (status: ${res.status})`;
-          throw new Error(errMsg);
+        let errorBody: unknown;
+        try {
+          errorBody = await res.json();
+        } catch {
+          const text = await res.text();
+          errorBody = text;
         }
+        throw new Error(
+          typeof errorBody === "string" ? errorBody : JSON.stringify(errorBody)
+        );
       }
 
-      // Reset form only on successful submission
       setReason("");
       setLeaveType("");
       setStartDate("");
       setEndDate("");
 
-      // Refresh leaves for the user
       fetchLeaves();
     } catch (err) {
       console.error("Leave submission error:", err);
@@ -268,7 +256,8 @@ export default function LeaveSection() {
               {startDate && endDate && (
                 <span>
                   {Math.ceil(
-                    (new Date(endDate).getTime() - new Date(startDate).getTime()) /
+                    (new Date(endDate).getTime() -
+                      new Date(startDate).getTime()) /
                       (1000 * 60 * 60 * 24)
                   ) + 1}{" "}
                   day(s)

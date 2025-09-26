@@ -158,22 +158,37 @@ export default function SystemSettingsPage() {
         <div>
           {/* Overview */}
           {activeTab === "overview" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-7">
-              {[
-                { title: "Database Size", value: "2.5 GB", icon: "fas fa-database", bg: "bg-indigo-100", text: "text-indigo-600" },
-                { title: "Active Users", value: "154", icon: "fas fa-users", bg: "bg-green-100", text: "text-green-600" },
-                { title: "Uptime", value: "99.8%", icon: "fas fa-clock", bg: "bg-yellow-100", text: "text-yellow-500" },
-                { title: "CPU Temp", value: "42°C", icon: "fas fa-server", bg: "bg-blue-100", text: "text-blue-600" },
-              ].map((card) => (
-                <div key={card.title} className="bg-white p-5 rounded-lg shadow flex flex-col">
-                  <div className={`w-12 h-12 mb-3 flex items-center justify-center rounded-lg ${card.bg} ${card.text}`}>
-                    <i className={card.icon}></i>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-7">
+                {[
+                  { title: "Database Size", value: "2.5 GB", icon: "fas fa-database", bg: "bg-indigo-100", text: "text-indigo-600" },
+                  { title: "Active Users", value: "154", icon: "fas fa-users", bg: "bg-green-100", text: "text-green-600" },
+                  { title: "Uptime", value: "99.8%", icon: "fas fa-clock", bg: "bg-yellow-100", text: "text-yellow-500" },
+                  { title: "CPU Temp", value: "42°C", icon: "fas fa-server", bg: "bg-blue-100", text: "text-blue-600" },
+                ].map((card) => (
+                  <div key={card.title} className="bg-white p-5 rounded-lg shadow flex flex-col">
+                    <div className={`w-12 h-12 mb-3 flex items-center justify-center rounded-lg ${card.bg} ${card.text}`}>
+                      <i className={card.icon}></i>
+                    </div>
+                    <div className="text-2xl font-bold">{card.value}</div>
+                    <div className="text-gray-500">{card.title}</div>
                   </div>
-                  <div className="text-2xl font-bold">{card.value}</div>
-                  <div className="text-gray-500">{card.title}</div>
+                ))}
+              </div>
+
+              {/* Added System Info section */}
+              {systemInfo && (
+                <div className="bg-white p-5 rounded-lg shadow mb-7">
+                  <h2 className="text-lg font-semibold mb-3">System Information</h2>
+                  <ul className="text-sm text-gray-600 space-y-1">
+                    <li><strong>App Name:</strong> {systemInfo.appName}</li>
+                    <li><strong>Version:</strong> {systemInfo.version}</li>
+                    <li><strong>Environment:</strong> {systemInfo.environment}</li>
+                    <li><strong>Last Updated:</strong> {systemInfo.lastUpdated}</li>
+                  </ul>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
 
           {/* General / Security / Maintenance */}

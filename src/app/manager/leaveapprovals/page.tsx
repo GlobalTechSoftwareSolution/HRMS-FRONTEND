@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -20,7 +21,7 @@ type Employee = {
 };
 
 type LeaveRequest = {
-  id: number; // still comes from backend, but we won’t use for updates
+  id: number;
   email: string;
   applied_on: string;
   start_date: string;
@@ -46,19 +47,13 @@ const StatusBadge = ({ status }: { status?: string }) => {
         icon: <FiXCircle className="mr-1" />,
       },
     };
+
   const config = status
-    ? statusConfig[status] || {
-        color: "bg-gray-100 text-gray-800",
-        icon: <FiClock className="mr-1" />,
-      }
-    : {
-        color: "bg-gray-100 text-gray-800",
-        icon: <FiClock className="mr-1" />,
-      };
+    ? statusConfig[status] || { color: "bg-gray-100 text-gray-800", icon: <FiClock className="mr-1" /> }
+    : { color: "bg-gray-100 text-gray-800", icon: <FiClock className="mr-1" /> };
+
   return (
-    <span
-      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${config.color}`}
-    >
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${config.color}`}>
       {config.icon}
       {status || "Unknown"}
     </span>
@@ -70,14 +65,10 @@ export default function ManagerDashboard() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
-  const [filter, setFilter] = useState<
-    "Pending" | "Approved" | "Rejected" | "All"
-  >("All");
-
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+  const [filter, setFilter] = useState<"Pending" | "Approved" | "Rejected" | "All">("All");
 
 
-  // fetch employees + leaves
+  // Fetch employees + leaves
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -93,76 +84,55 @@ export default function ManagerDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [API_BASE]);
-
+  }, []); 
+  
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // update leave status by leaveId and status
-// Update leave status by leaveKey (never undefined) and status
-const updateLeaveStatus = async (
-  leaveKey: number | string,
-  status: "Approved" | "Rejected"
-) => {
-  setUpdatingKey(String(leaveKey));
-  try {
-    // If leaveKey is a number, use as id in API path, else fallback to composite key (should not happen if backend always provides id)
-    const idPart = typeof leaveKey === "number" || !isNaN(Number(leaveKey))
-      ? leaveKey
-      : encodeURIComponent(String(leaveKey));
-    const res = await fetch(
-      `${API_BASE}/api/accounts/update_leave/${idPart}/`,
-      {
+  // Update leave status
+  const updateLeaveStatus = async (leaveKey: number | string, status: "Approved" | "Rejected") => {
+    setUpdatingKey(String(leaveKey));
+    try {
+      const idPart = typeof leaveKey === "number" || !isNaN(Number(leaveKey))
+        ? leaveKey
+        : encodeURIComponent(String(leaveKey));
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_leave/${idPart}/`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("Backend error:", errText);
+        alert("Failed to update leave status. Check console for details.");
+        return;
       }
-    );
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Backend error:", errText);
-      alert("Failed to update leave status. Check console for details.");
-      return;
+      // Update local state
+      setLeaveRequests((prev) =>
+        prev.map((lr, idx) => {
+          const lrKey = lr.id ?? `${lr.email}-${lr.applied_on}-${idx}`;
+          return String(lrKey) === String(leaveKey) ? { ...lr, status } : lr;
+        })
+      );
+    } catch (err) {
+      console.error("Update error:", err);
+      alert("Network error. Could not update leave status.");
+    } finally {
+      setUpdatingKey(null);
     }
+  };
 
-    // update local state
-    setLeaveRequests((prev) =>
-      prev.map((lr, idx) => {
-        // Use same leaveKey logic as below for matching
-        const lrKey =
-          typeof lr.id !== "undefined" && lr.id !== null
-            ? lr.id
-            : `${lr.email || "unknown"}-${lr.applied_on}-${idx}`;
-        return String(lrKey) === String(leaveKey) ? { ...lr, status } : lr;
-      })
-    );
-  } catch (err) {
-    console.error("Update error:", err);
-    alert("Network error. Could not update leave status.");
-  } finally {
-    setUpdatingKey(null);
-  }
-};
-  // Map leave's email to employee's email_id, case-insensitive
+  // Map leave's email to employee's email_id
   const getEmployee = (email: string | undefined) =>
     employees.find(
-      (e) =>
-        typeof e.email_id === "string" &&
-        typeof email === "string" &&
-        e.email_id.toLowerCase() === email.toLowerCase()
-    ) || {
-      fullname: email || "Unknown Email",
-      designation: "-",
-      department: "-",
-    };
+      (e) => typeof e.email_id === "string" && typeof email === "string" && e.email_id.toLowerCase() === email.toLowerCase()
+    ) || { fullname: email || "Unknown Email", designation: "-", department: "-" };
 
-  const filteredLeaves = leaveRequests.filter(
-    (lr) => filter === "All" || lr.status === filter
-  );
+  const filteredLeaves = leaveRequests.filter((lr) => filter === "All" || lr.status === filter);
 
   const stats = {
     total: leaveRequests.length,
@@ -181,89 +151,43 @@ const updateLeaveStatus = async (
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <motion.div
-              whileHover={{ scale: 1.03 }}
-              className="bg-white rounded-xl shadow p-4 border border-gray-100 flex items-center gap-4"
-            >
-              <div className="rounded-full bg-blue-100 p-3">
-                <FiCalendar className="text-blue-600 text-xl" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">
-                  Total Requests
-                </p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {stats.total}
-                </p>
-              </div>
-            </motion.div>
-            <motion.div
-              whileHover={{ scale: 1.03 }}
-              className="bg-white rounded-xl shadow p-4 border border-gray-100 flex items-center gap-4"
-            >
-              <div className="rounded-full bg-yellow-100 p-3">
-                <FiClock className="text-yellow-600 text-xl" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {stats.pending}
-                </p>
-              </div>
-            </motion.div>
-            <motion.div
-              whileHover={{ scale: 1.03 }}
-              className="bg-white rounded-xl shadow p-4 border border-gray-100 flex items-center gap-4"
-            >
-              <div className="rounded-full bg-green-100 p-3">
-                <FiCheckCircle className="text-green-600 text-xl" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Approved</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {stats.approved}
-                </p>
-              </div>
-            </motion.div>
-            <motion.div
-              whileHover={{ scale: 1.03 }}
-              className="bg-white rounded-xl shadow p-4 border border-gray-100 flex items-center gap-4"
-            >
-              <div className="rounded-full bg-red-100 p-3">
-                <FiXCircle className="text-red-600 text-xl" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Rejected</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {stats.rejected}
-                </p>
-              </div>
-            </motion.div>
+            {[
+              { label: "Total Requests", value: stats.total, icon: <FiCalendar />, color: "blue" },
+              { label: "Pending", value: stats.pending, icon: <FiClock />, color: "yellow" },
+              { label: "Approved", value: stats.approved, icon: <FiCheckCircle />, color: "green" },
+              { label: "Rejected", value: stats.rejected, icon: <FiXCircle />, color: "red" },
+            ].map((stat, idx) => (
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                key={idx}
+                className={`bg-white rounded-xl shadow p-4 border border-gray-100 flex items-center gap-4`}
+              >
+                <div className={`rounded-full bg-${stat.color}-100 p-3`}>
+                  {React.cloneElement(stat.icon, { className: `text-${stat.color}-600 text-xl` })}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">{stat.label}</p>
+                  <p className="text-2xl font-bold text-gray-800">{stat.value}</p>
+                </div>
+              </motion.div>
+            ))}
           </div>
 
           {/* Filter buttons */}
           <div className="flex flex-wrap gap-2 mb-6 mt-2">
-            {(["All", "Pending", "Approved", "Rejected"] as const).map(
-              (status) => (
-                <button
-                  key={status}
-                  onClick={() => setFilter(status)}
-                  className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center ${
-                    filter === status
-                      ? "bg-blue-600 text-white shadow"
-                      : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-                  }`}
-                >
-                  {status}{" "}
-                  {status !== "All" &&
-                    `(${
-                      stats[
-                        status.toLowerCase() as keyof Omit<typeof stats, "total">
-                      ]
-                    })`}
-                </button>
-              )
-            )}
+            {(["All", "Pending", "Approved", "Rejected"] as const).map((status) => (
+              <button
+                key={status}
+                onClick={() => setFilter(status)}
+                className={`px-4 py-2 rounded-xl font-medium transition-all flex items-center ${
+                  filter === status
+                    ? "bg-blue-600 text-white shadow"
+                    : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                {status} {status !== "All" ? `(${stats[status.toLowerCase() as keyof Omit<typeof stats, "total">]})` : ""}
+              </button>
+            ))}
           </div>
 
           {/* Leave requests */}
@@ -274,13 +198,9 @@ const updateLeaveStatus = async (
           ) : filteredLeaves.length === 0 ? (
             <div className="bg-white rounded-xl shadow p-8 text-center">
               <FiCalendar className="mx-auto text-gray-400 text-4xl mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-1">
-                No leave requests found
-              </h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">No leave requests found</h3>
               <p className="text-gray-500">
-                {filter !== "All"
-                  ? `No ${filter.toLowerCase()} leave requests.`
-                  : "No leave requests submitted yet."}
+                {filter !== "All" ? `No ${filter.toLowerCase()} leave requests.` : "No leave requests submitted yet."}
               </p>
             </div>
           ) : (
@@ -288,11 +208,8 @@ const updateLeaveStatus = async (
               <AnimatePresence>
                 {filteredLeaves.map((lr, index) => {
                   const emp = getEmployee(lr.email);
-                  // Use lr.id if available, else fallback to email-applied_on-index (handles possible undefined email)
-                  const leaveKey =
-                    typeof lr.id !== "undefined" && lr.id !== null
-                      ? lr.id
-                      : `${lr.email || "unknown"}-${lr.applied_on}-${index}`;
+                  const leaveKey = lr.id ?? `${lr.email}-${lr.applied_on}-${index}`;
+
                   return (
                     <motion.div
                       key={leaveKey}
@@ -305,62 +222,45 @@ const updateLeaveStatus = async (
                       <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
                         <div className="flex-1">
                           <div className="flex items-start justify-between mb-2">
-                            <h3 className="font-bold text-gray-800 text-lg">
-                              {emp.fullname}
-                            </h3>
+                            <h3 className="font-bold text-gray-800 text-lg">{emp.fullname}</h3>
                             <StatusBadge status={lr.status} />
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
                             <div className="flex items-center">
-                              <FiMail className="mr-2 text-gray-400" />
-                              {lr.email}
+                              <FiMail className="mr-2 text-gray-400" /> {lr.email}
                             </div>
                             <div className="flex items-center">
-                              <FiBriefcase className="mr-2 text-gray-400" />
-                              {emp.designation || "N/A"}
+                              <FiBriefcase className="mr-2 text-gray-400" /> {emp.designation || "N/A"}
                             </div>
                             <div className="flex items-center">
-                              <FiUser className="mr-2 text-gray-400" />
-                              {emp.department || "N/A"}
+                              <FiUser className="mr-2 text-gray-400" /> {emp.department || "N/A"}
                             </div>
                             <div className="flex items-center">
-                              <FiCalendar className="mr-2 text-gray-400" />
-                              Applied on:{" "}
+                              <FiCalendar className="mr-2 text-gray-400" /> Applied on:{" "}
                               {new Date(lr.applied_on).toLocaleDateString()}
                             </div>
                           </div>
                           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <p className="text-sm font-medium text-gray-700">
-                                Leave Details
-                              </p>
+                              <p className="text-sm font-medium text-gray-700">Leave Details</p>
                               <p className="text-sm text-gray-600">
-                                {lr.leave_type} leave from{" "}
-                                {new Date(lr.start_date).toLocaleDateString()} to{" "}
+                                {lr.leave_type} leave from {new Date(lr.start_date).toLocaleDateString()} to{" "}
                                 {new Date(lr.end_date).toLocaleDateString()}
                               </p>
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-gray-700">
-                                Reason
-                              </p>
-                              <p className="text-sm text-gray-600">
-                                {lr.reason}
-                              </p>
+                              <p className="text-sm font-medium text-gray-700">Reason</p>
+                              <p className="text-sm text-gray-600">{lr.reason}</p>
                             </div>
                           </div>
                         </div>
+
                         {lr.status === "Pending" && (
                           <div className="flex flex-col gap-2 md:items-end mt-2 md:mt-0">
                             <div className="flex gap-2">
                               <motion.button
                                 whileTap={{ scale: 0.95 }}
-                                onClick={() =>
-                                  updateLeaveStatus(
-                                    leaveKey,
-                                    "Approved"
-                                  )
-                                }
+                                onClick={() => updateLeaveStatus(leaveKey, "Approved")}
                                 disabled={updatingKey === String(leaveKey)}
                                 className={`flex items-center px-4 py-2 rounded-lg text-white text-sm font-medium ${
                                   updatingKey === String(leaveKey)
@@ -372,12 +272,7 @@ const updateLeaveStatus = async (
                               </motion.button>
                               <motion.button
                                 whileTap={{ scale: 0.95 }}
-                                onClick={() =>
-                                  updateLeaveStatus(
-                                    leaveKey,
-                                    "Rejected"
-                                  )
-                                }
+                                onClick={() => updateLeaveStatus(leaveKey, "Rejected")}
                                 disabled={updatingKey === String(leaveKey)}
                                 className={`flex items-center px-4 py-2 rounded-lg text-white text-sm font-medium ${
                                   updatingKey === String(leaveKey)
@@ -389,9 +284,7 @@ const updateLeaveStatus = async (
                               </motion.button>
                             </div>
                             {updatingKey === String(leaveKey) && (
-                              <p className="text-xs text-gray-500">
-                                Updating...
-                              </p>
+                              <p className="text-xs text-gray-500">Updating...</p>
                             )}
                           </div>
                         )}
@@ -407,4 +300,3 @@ const updateLeaveStatus = async (
     </DashboardLayout>
   );
 }
-

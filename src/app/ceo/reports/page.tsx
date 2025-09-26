@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import Image from "next/image";
 
 interface Employee {
   name: string;
@@ -200,14 +201,15 @@ export default function ReportsAndTasksPage() {
                           className="hover:bg-gray-50 transition-colors"
                         >
                           <td className="px-6 py-4">
-                            <img
-                              src={
-                                task.assigned_to?.profileImage ||
-                                "/placeholder-profile.png"
-                              }
-                              alt={task.assigned_to?.name || "No profile"}
-                              className="h-10 w-10 rounded-full object-cover"
-                            />
+                           <Image
+  src={
+    task.assigned_to?.profileImage || "/placeholder-profile.png"
+  }
+  alt={task.assigned_to?.name || "No profile"}
+  width={40}       // match h-10
+  height={40}      // match w-10
+  className="rounded-full object-cover"
+/>
                           </td>
                           <td className="px-6 py-4">{task.email}</td>
                           <td className="px-6 py-4">{task.title}</td>
@@ -252,14 +254,14 @@ export default function ReportsAndTasksPage() {
                       className="bg-gray-50 p-4 rounded-lg shadow flex flex-col gap-2"
                     >
                       <div className="flex items-center gap-3">
-                        <img
-                          src={
-                            task.assigned_to?.profileImage ||
-                            "/placeholder-profile.png"
-                          }
-                          alt={task.assigned_to?.name || "No profile"}
-                          className="h-10 w-10 rounded-full object-cover"
-                        />
+                        <Image
+  src={task.assigned_to?.profileImage || "/placeholder-profile.png"}
+  alt={task.assigned_to?.name || "No profile"}
+  width={40}      // corresponds to h-10
+  height={40}     // corresponds to w-10
+  className="rounded-full object-cover"
+/>
+
                         <div className="font-medium">{task.email}</div>
                       </div>
                       <div className="text-sm text-gray-600">
@@ -331,14 +333,13 @@ export default function ReportsAndTasksPage() {
                           className="hover:bg-gray-50 transition-colors"
                         >
                           <td className="px-6 py-4">
-                            <img
-                              src={
-                                report.assigned_to?.profileImage ||
-                                "/placeholder-profile.png"
-                              }
-                              alt={report.assigned_to?.name || "No profile"}
-                              className="h-10 w-10 rounded-full object-cover"
-                            />
+                           <Image
+  src={report.assigned_to?.profileImage || "/placeholder-profile.png"}
+  alt={report.assigned_to?.name || "No profile"}
+  width={40}          // match the original h-10
+  height={40}         // match the original w-10
+  className="rounded-full object-cover"
+/>
                           </td>
                           <td className="px-6 py-4 font-medium">{report.title}</td>
                           <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
@@ -369,14 +370,14 @@ export default function ReportsAndTasksPage() {
                       className="bg-gray-50 p-4 rounded-lg shadow flex flex-col gap-2"
                     >
                       <div className="flex items-center gap-3">
-                        <img
-                          src={
-                            report.assigned_to?.profileImage ||
-                            "/placeholder-profile.png"
-                          }
-                          alt={report.assigned_to?.name || "No profile"}
-                          className="h-10 w-10 rounded-full object-cover"
-                        />
+                       <Image
+  src={report.assigned_to?.profileImage || "/placeholder-profile.png"}
+  alt={report.assigned_to?.name || "No profile"}
+  width={40}       // Tailwind h-10
+  height={40}      // Tailwind w-10
+  className="rounded-full object-cover"
+/>
+
                         <div className="font-medium">{report.title}</div>
                       </div>
                       <div className="text-sm text-gray-600 truncate">

@@ -142,7 +142,7 @@ export default function DashboardOverview() {
               Dashboard Overview
             </h1>
             <p className="text-gray-600 mt-1 text-sm sm:text-base">
-              Welcome back! Here's your personal overview
+              Welcome back! Here&apos;s your personal overview
             </p>
           </div>
           <div className="text-xs sm:text-sm text-gray-500 bg-white px-3 sm:px-4 py-2 rounded-lg shadow-sm w-fit">

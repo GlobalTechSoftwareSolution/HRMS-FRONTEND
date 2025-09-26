@@ -179,7 +179,7 @@ export default function ManagerDashboard() {
         {/* Today's Attendance + Download PDF */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-700">
-            Today's Attendance
+            Today&apos;s Attendance
           </h2>
           <button
             onClick={downloadPDF}

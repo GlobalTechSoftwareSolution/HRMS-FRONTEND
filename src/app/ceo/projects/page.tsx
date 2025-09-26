@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import {
   FiPlus,
   FiCheckCircle,
@@ -31,7 +30,6 @@ interface Project {
 type NewProject = Omit<Project, "id">;
 
 const ProjectsDashboard: React.FC = () => {
-  const { data: session } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

@@ -35,14 +35,8 @@ export default function PayrollDashboard() {
       setError(null);
 
       try {
-        const userEmail =
-          typeof window !== "undefined" ? localStorage.getItem("user_email") : null;
-
-        if (!userEmail) {
-          setError("No employee logged in.");
-          setLoading(false);
-          return;
-        }
+        const userEmail = typeof window !== "undefined" ? localStorage.getItem("user_email") : null;
+        if (!userEmail) throw new Error("No employee logged in.");
 
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_payroll/${encodeURIComponent(userEmail)}/`
@@ -50,37 +44,39 @@ export default function PayrollDashboard() {
 
         if (!response.ok) throw new Error(`Failed to fetch payrolls: ${response.status}`);
 
-        const data = await response.json();
+        const data: { payroll?: PayrollAPIItem; payrolls?: PayrollAPIItem[] } = await response.json();
 
         const normalizeStatus = (status: string) => {
           switch (status.toLowerCase()) {
-            case "done": return "paid";
-            case "pending": return "pending";
-            case "processing": return "processing";
-            default: return "pending";
+            case "done":
+              return "paid";
+            case "pending":
+              return "pending";
+            case "processing":
+              return "processing";
+            default:
+              return "pending";
           }
         };
 
-        // Handle single object or array
-        const payrollArray: PayrollAPIItem[] = data.payroll
-          ? [data.payroll]
-          : data.payrolls || [];
+        // Convert single object or array to array
+        const payrollArray: PayrollAPIItem[] = data.payroll ? [data.payroll] : data.payrolls || [];
 
         const mappedData: PayrollRecord[] = payrollArray.map((item, index) => ({
           id: index + 1,
           month: `${item.month} ${item.year}`,
-          basicSalary: parseFloat(item.basic_salary as string) || 0,
+          basicSalary: Number(item.basic_salary) || 0,
           status: normalizeStatus(item.status) as "paid" | "pending" | "processing",
           paymentDate: item.pay_date,
           email: item.email,
         }));
 
-        const userData = mappedData.filter(item => item.email === userEmail);
-
-        setPayrollData(userData);
-      } catch (err: any) {
-        console.error("Error fetching payroll data:", err);
-        setError(err.message || "Failed to fetch payroll data");
+        // Filter for logged-in user
+        setPayrollData(mappedData.filter((item) => item.email === userEmail));
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        console.error("Error fetching payroll data:", message);
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -104,7 +100,7 @@ export default function PayrollDashboard() {
     );
   };
 
-  const filteredData = payrollData.filter(record => {
+  const filteredData = payrollData.filter((record) => {
     const matchesYear = record.month.includes(filterYear);
     const matchesStatus = filterStatus === "all" || record.status === filterStatus;
     return matchesYear && matchesStatus;
@@ -113,17 +109,19 @@ export default function PayrollDashboard() {
   const totalNetPay = filteredData.reduce((acc, rec) => acc + calculateNetPay(rec), 0);
   const averageNetPay = filteredData.length > 0 ? totalNetPay / filteredData.length : 0;
 
-  if (loading) return (
-    <DashboardLayout role="employee">
-      <p className="text-blue-500 font-semibold">⏳ Loading payroll data...</p>
-    </DashboardLayout>
-  );
+  if (loading)
+    return (
+      <DashboardLayout role="employee">
+        <p className="text-blue-500 font-semibold">⏳ Loading payroll data...</p>
+      </DashboardLayout>
+    );
 
-  if (error) return (
-    <DashboardLayout role="employee">
-      <p className="text-red-500 font-semibold">❌ {error}</p>
-    </DashboardLayout>
-  );
+  if (error)
+    return (
+      <DashboardLayout role="employee">
+        <p className="text-red-500 font-semibold">❌ {error}</p>
+      </DashboardLayout>
+    );
 
   return (
     <DashboardLayout role="employee">
@@ -137,8 +135,11 @@ export default function PayrollDashboard() {
 
           <div className="flex flex-wrap gap-3">
             <div className="relative">
-              <select value={filterYear} onChange={e => setFilterYear(e.target.value)}
-                className="pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
+              <select
+                value={filterYear}
+                onChange={(e) => setFilterYear(e.target.value)}
+                className="pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+              >
                 <option value="2025">2025</option>
                 <option value="2024">2024</option>
                 <option value="2023">2023</option>
@@ -147,8 +148,11 @@ export default function PayrollDashboard() {
             </div>
 
             <div className="relative">
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                className="pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+              >
                 <option value="all">All Status</option>
                 <option value="paid">Paid</option>
                 <option value="processing">Processing</option>
@@ -198,48 +202,69 @@ export default function PayrollDashboard() {
           </div>
         </div>
 
-        {/* Payroll Table or Cards */}
+        {/* Payroll Table for desktop */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="hidden md:block overflow-x-auto">
             <table className="min-w-[700px] w-full divide-y divide-gray-200 text-xs sm:text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {["Month", "Basic Salary", "Net Pay", "Status", "Payment Date"].map(head => (
-                    <th key={head} className="px-4 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {["Month", "Basic Salary", "Net Pay", "Status", "Payment Date"].map((head) => (
+                    <th
+                      key={head}
+                      className="px-4 sm:px-6 py-3 text-left text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
                       {head}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredData.length > 0 ? filteredData.map(record => (
-                  <tr key={record.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-700 font-medium">{record.month}</td>
-                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-700">₹{record.basicSalary.toLocaleString()}</td>
-                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-blue-700 font-semibold">₹{calculateNetPay(record).toLocaleString()}</td>
-                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">{getStatusBadge(record.status)}</td>
-                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-500 text-xs sm:text-sm">{record.paymentDate}</td>
-                  </tr>
-                )) : (
+                {filteredData.length > 0 ? (
+                  filteredData.map((record) => (
+                    <tr key={record.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-700 font-medium">{record.month}</td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-700">₹{record.basicSalary.toLocaleString()}</td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-blue-700 font-semibold">
+                        ₹{calculateNetPay(record).toLocaleString()}
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">{getStatusBadge(record.status)}</td>
+                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-gray-500 text-xs sm:text-sm">{record.paymentDate}</td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-sm">No payroll records found for the selected filters.</td>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-sm">
+                      No payroll records found for the selected filters.
+                    </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
 
-          {/* Cards for small devices */}
+          {/* Cards for mobile */}
           <div className="md:hidden flex flex-col gap-4 p-4">
-            {filteredData.length > 0 ? filteredData.map(record => (
-              <div key={record.id} className="bg-gray-50 rounded-xl p-4 shadow-sm">
-                <p><b>Month:</b> {record.month}</p>
-                <p><b>Basic Salary:</b> ₹{record.basicSalary.toLocaleString()}</p>
-                <p><b>Net Pay:</b> ₹{calculateNetPay(record).toLocaleString()}</p>
-                <p><b>Status:</b> {getStatusBadge(record.status)}</p>
-                <p><b>Payment Date:</b> {record.paymentDate}</p>
-              </div>
-            )) : (
+            {filteredData.length > 0 ? (
+              filteredData.map((record) => (
+                <div key={record.id} className="bg-gray-50 rounded-xl p-4 shadow-sm">
+                  <p>
+                    <b>Month:</b> {record.month}
+                  </p>
+                  <p>
+                    <b>Basic Salary:</b> ₹{record.basicSalary.toLocaleString()}
+                  </p>
+                  <p>
+                    <b>Net Pay:</b> ₹{calculateNetPay(record).toLocaleString()}
+                  </p>
+                  <p>
+                    <b>Status:</b> {getStatusBadge(record.status)}
+                  </p>
+                  <p>
+                    <b>Payment Date:</b> {record.paymentDate}
+                  </p>
+                </div>
+              ))
+            ) : (
               <p className="text-gray-500 text-center">No payroll records found for the selected filters.</p>
             )}
           </div>
