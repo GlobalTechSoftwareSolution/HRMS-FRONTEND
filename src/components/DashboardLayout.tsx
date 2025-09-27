@@ -28,6 +28,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Finance", path: "/ceo/finance" },
     { name: "Projects", path: "/ceo/projects" },
     { name: "Notice", path: "/ceo/notice" },
+    { name: "Calender", path: "/ceo/calender" },
     { name: "Profile", path: "/ceo/profile" },
   ],
   manager: [
@@ -36,6 +37,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Team", path: "/manager/team" },
     { name: "LeaveApprovals", path: "/manager/leaveapprovals" },
     { name: "Attendence", path: "/manager/attendence" },
+    { name: "Calender", path: "/manager/calender" },
     { name: "Profile", path: "/manager/profile" },
   ],
   hr: [
@@ -45,6 +47,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Payroll", path: "/hr/payroll" },
     { name: "Onboarding", path: "/hr/onboardinng" },
     { name: "Offboarding", path: "/hr/offboardinng" },
+    { name: "Calender", path: "/hr/calender" },
     { name: "Profile", path: "/hr/profile" },
   ],
   employee: [
@@ -53,11 +56,13 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Attendance", path: "/employee/attendance" },
     { name: "Leaves", path: "/employee/leaves" },
     { name: "Payroll", path: "/employee/payroll" },
+    { name: "Calender", path: "/employee/calender" },
     { name: "Profile", path: "/employee/profile" },
   ],
   admin: [
     { name: "Approvals", path: "/admin/approvals" },
     { name: "System Settings", path: "/admin/system-settings" },
+    { name: "Calender", path: "/admin/calender" },
     { name: "Profile", path: "/admin/profile" },
   ],
 };

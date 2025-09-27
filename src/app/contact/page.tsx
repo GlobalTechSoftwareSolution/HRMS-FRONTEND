@@ -40,8 +40,7 @@ export default function ContactPage() {
       );
 
       setPopupMessage(
-        "Thank you for your message! We&apos;ll get back to you soon."
-      );
+"Thank you for your message! We&apos;ll get back to you soon."      );
       setFormData({ name: "", email: "", phone: "", message: "" });
     } catch (error) {
       console.error(error);

@@ -41,6 +41,15 @@ export default function HRLeavePage() {
   const [filter, setFilter] = useState<"All" | LeaveStatus>("All");
   const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
 
+  // Helper function to calculate days between start and end date
+  const calculateDays = (start: string, end: string) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const diffTime = endDate.getTime() - startDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // include start & end
+    return diffDays > 0 ? diffDays : 1; // fallback to 1 if dates are same or invalid
+  };
+
   useEffect(() => {
     const fetchLeaves = async () => {
       try {
@@ -50,19 +59,23 @@ export default function HRLeavePage() {
         const data = await res.json();
 
         const mappedLeaves: Leave[] = (data.leaves ?? []).map(
-          (item: LeaveApiResponseItem, index: number) => ({
-            id: item.id ?? index + 1,
-            employeeId: item.employeeId ?? item.email ?? "",
-            name: item.name ?? (item.email ? item.email.split("@")[0] : ""),
-            email: item.email ?? "",
-            reason: item.reason ?? "",
-            startDate: item.startDate ?? item.start_date ?? "",
-            endDate: item.endDate ?? item.end_date ?? "",
-            status: item.status ?? "Pending",
-            daysRequested: item.daysRequested ?? 1,
-            submittedDate:
-              item.submittedDate ?? item.submitted_date ?? item.start_date ?? "",
-          })
+          (item: LeaveApiResponseItem, index: number) => {
+            const start = item.startDate ?? item.start_date ?? "";
+            const end = item.endDate ?? item.end_date ?? "";
+            return {
+              id: item.id ?? index + 1,
+              employeeId: item.employeeId ?? item.email ?? "",
+              name: item.name ?? (item.email ? item.email.split("@")[0] : ""),
+              email: item.email ?? "",
+              reason: item.reason ?? "",
+              startDate: start,
+              endDate: end,
+              status: item.status ?? "Pending",
+              daysRequested: calculateDays(start, end), // calculate days dynamically
+              submittedDate:
+                item.submittedDate ?? item.submitted_date ?? start ?? "",
+            };
+          }
         );
 
         setLeaves(mappedLeaves);
@@ -159,7 +172,9 @@ export default function HRLeavePage() {
                       <td className="p-4">
                         {leave.startDate} → {leave.endDate}
                       </td>
-                      <td className="p-4 text-center">{leave.daysRequested}</td>
+                      <td className="p-4 text-center">
+                        {calculateDays(leave.startDate, leave.endDate)}
+                      </td>
                       <td className="p-4">{leave.submittedDate}</td>
                       <td className="p-4">
                         <span
@@ -209,7 +224,7 @@ export default function HRLeavePage() {
                     <span>
                       {leave.startDate} → {leave.endDate}
                     </span>
-                    <span>{leave.daysRequested} day(s)</span>
+                    <span>{calculateDays(leave.startDate, leave.endDate)} day(s)</span>
                   </div>
                 </div>
               ))}
@@ -281,7 +296,9 @@ export default function HRLeavePage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Days Requested</p>
-                    <p className="font-medium">{selectedLeave.daysRequested}</p>
+                    <p className="font-medium">
+                      {calculateDays(selectedLeave.startDate, selectedLeave.endDate)}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Submitted On</p>

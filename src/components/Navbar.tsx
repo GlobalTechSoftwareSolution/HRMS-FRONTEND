@@ -5,19 +5,22 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, Home, User, Mail, LogIn, FileText, Users } from "lucide-react";
+import FaceScan from "@/components/facescan";
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [showFaceScan, setShowFaceScan] = useState(false);
   const pathname = usePathname(); // get current route
 
   const toggleMenu = () => setIsOpen(!isOpen);
+  const toggleFaceScan = () => setShowFaceScan(!showFaceScan);
 
   const navLinks = [
     { id: "home", label: "Home", href: "/", icon: <Home size={18} /> },
     { id: "about", label: "About", href: "/about", icon: <User size={18} /> },
     { id: "contact", label: "Contact", href: "/contact", icon: <Mail size={18} /> },
     { id: "blogs", label: "Blogs", href: "/blogs", icon: <FileText size={18} /> },
-    { id: "attendance", label: "Attendance", href: "/employee/attendance", icon: <Users size={18} /> },
+    { id: "attendance", label: "Attendance", icon: <Users size={18} />, onClick: toggleFaceScan },
   ];
 
   return (
@@ -65,29 +68,47 @@ export const Navbar: React.FC = () => {
               const isActive = pathname === link.href;
               return (
                 <motion.li key={link.id} className="relative" whileHover={{ y: -2 }}>
-                  <Link
-                    href={link.href}
-                    className={`relative flex items-center space-x-2 text-white px-5 py-2.5 font-medium transition-colors duration-300 rounded-lg`}
-                  >
-                    <motion.span
-                      animate={{
-                        scale: isActive ? 1.1 : 1,
-                        color: isActive ? "#e0e7ff" : "white",
-                      }}
-                      transition={{ duration: 0.2 }}
+                  {link.href ? (
+                    <Link
+                      href={link.href}
+                      className={`relative flex items-center space-x-2 text-white px-5 py-2.5 font-medium transition-colors duration-300 rounded-lg`}
                     >
-                      {link.icon}
-                    </motion.span>
-                    <span>{link.label}</span>
+                      <motion.span
+                        animate={{
+                          scale: isActive ? 1.1 : 1,
+                          color: isActive ? "#e0e7ff" : "white",
+                        }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {link.icon}
+                      </motion.span>
+                      <span>{link.label}</span>
 
-                    {isActive && (
-                      <motion.div
-                        className="absolute inset-0 bg-white/10 rounded-lg -z-10"
-                        layoutId="activeNavLink"
-                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                      />
-                    )}
-                  </Link>
+                      {isActive && (
+                        <motion.div
+                          className="absolute inset-0 bg-white/10 rounded-lg -z-10"
+                          layoutId="activeNavLink"
+                          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                        />
+                      )}
+                    </Link>
+                  ) : (
+                    <button
+                      onClick={link.onClick}
+                      className="relative flex items-center space-x-2 text-white px-5 py-2.5 font-medium transition-colors duration-300 rounded-lg hover:bg-white/10"
+                    >
+                      <motion.span
+                        animate={{
+                          scale: showFaceScan ? 1.1 : 1,
+                          color: showFaceScan ? "#e0e7ff" : "white",
+                        }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {link.icon}
+                      </motion.span>
+                      <span>{link.label}</span>
+                    </button>
+                  )}
                 </motion.li>
               );
             })}
@@ -151,44 +172,87 @@ export const Navbar: React.FC = () => {
             <ul className="flex flex-col p-2">
               {navLinks.map((link, index) => {
                 const isActive = pathname === link.href;
-                return (
-                  <motion.li
-                    key={link.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{
-                      delay: index * 0.1,
-                      type: "spring",
-                      stiffness: 100,
-                    }}
-                    className="border-b border-gray-100 last:border-b-0"
-                  >
-                    <Link
-                      href={link.href}
-                      className={`flex items-center space-x-3 text-gray-800 px-6 py-4 font-medium transition-all duration-300 rounded-lg hover:bg-indigo-50`}
-                      onClick={() => setIsOpen(false)}
+                if (link.href) {
+                  return (
+                    <motion.li
+                      key={link.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{
+                        delay: index * 0.1,
+                        type: "spring",
+                        stiffness: 100,
+                      }}
+                      className="border-b border-gray-100 last:border-b-0"
                     >
-                      <motion.span
-                        animate={{
-                          scale: isActive ? 1.2 : 1,
-                          color: isActive ? "#4f46e5" : "#4b5563",
-                        }}
+                      <Link
+                        href={link.href}
+                        className={`flex items-center space-x-3 text-gray-800 px-6 py-4 font-medium transition-all duration-300 rounded-lg hover:bg-indigo-50`}
+                        onClick={() => setIsOpen(false)}
                       >
-                        {link.icon}
-                      </motion.span>
-                      <span>{link.label}</span>
+                        <motion.span
+                          animate={{
+                            scale: isActive ? 1.2 : 1,
+                            color: isActive ? "#4f46e5" : "#4b5563",
+                          }}
+                        >
+                          {link.icon}
+                        </motion.span>
+                        <span>{link.label}</span>
 
-                      {isActive && (
-                        <motion.div
-                          className="ml-auto w-2 h-2 bg-indigo-500 rounded-full"
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: "spring", stiffness: 400 }}
-                        />
-                      )}
-                    </Link>
-                  </motion.li>
-                );
+                        {isActive && (
+                          <motion.div
+                            className="ml-auto w-2 h-2 bg-indigo-500 rounded-full"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 400 }}
+                          />
+                        )}
+                      </Link>
+                    </motion.li>
+                  );
+                } else {
+                  return (
+                    <motion.li
+                      key={link.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{
+                        delay: index * 0.1,
+                        type: "spring",
+                        stiffness: 100,
+                      }}
+                      className="border-b border-gray-100 last:border-b-0"
+                    >
+                      <button
+                        onClick={() => {
+                          link.onClick?.();
+                          setIsOpen(false);
+                        }}
+                        className="flex items-center space-x-3 text-gray-800 px-6 py-4 font-medium transition-all duration-300 rounded-lg hover:bg-indigo-50 w-full text-left"
+                      >
+                        <motion.span
+                          animate={{
+                            scale: showFaceScan ? 1.2 : 1,
+                            color: showFaceScan ? "#4f46e5" : "#4b5563",
+                          }}
+                        >
+                          {link.icon}
+                        </motion.span>
+                        <span>{link.label}</span>
+
+                        {showFaceScan && (
+                          <motion.div
+                            className="ml-auto w-2 h-2 bg-indigo-500 rounded-full"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 400 }}
+                          />
+                        )}
+                      </button>
+                    </motion.li>
+                  );
+                }
               })}
 
               {/* Mobile Login Button */}
@@ -211,6 +275,18 @@ export const Navbar: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+    {showFaceScan && (
+  <FaceScan
+    show={showFaceScan}
+    onClose={() => setShowFaceScan(false)}
+    onRecognized={(data) => {
+      console.log("Face recognized:", data);
+      // Trigger attendance marking API or other actions here
+    }}
+    backendUrl="http://127.0.0.1:8000/face/recognize_face/"
+  />
+)}
     </motion.nav>
   );
 };

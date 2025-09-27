@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
-import { FiSearch, FiChevronDown, FiChevronUp, FiEye, FiUser, FiX } from "react-icons/fi";
+import { FiSearch, FiChevronDown, FiChevronUp, FiEye, FiUser, FiX, FiAward, FiPlus, FiTrash2, FiFileText } from "react-icons/fi";
 import { ToastContainer, toast } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -20,6 +20,26 @@ type Employee = {
   skills: string | null;
   profile_picture: string | null;
   reports_to: string | null;
+  document_status?: "Submitted" | "Pending" | "Hold" | "Approved" | "Rejected" | "N/A";
+};
+
+type Award = {
+  id?: number;
+  employee_id: number;
+  title: string;
+  description: string;
+  award_date: string;
+  image_url: string | null;
+  created_at?: string;
+};
+
+type Document = {
+  id?: number;
+  employee_id: number;
+  title: string;
+  file_url: string;
+  status: "Submitted" | "Pending" | "Approved" | "Rejected";
+  created_at?: string;
 };
 
 type SortConfig = {
@@ -36,12 +56,34 @@ export default function HREmployeePage() {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  
+  const [showAwards, setShowAwards] = useState(false);
+  const [awards, setAwards] = useState<Award[]>([]);
+  const [showAddAwardForm, setShowAddAwardForm] = useState(false);
+  const [newAward, setNewAward] = useState<Omit<Award, 'id' | 'employee_id' | 'created_at'>>({
+    title: "",
+    description: "",
+    award_date: new Date().toISOString().split('T')[0],
+    image_url: null
+  });
+  
+  const [showDocuments, setShowDocuments] = useState(false);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [newDocument, setNewDocument] = useState<Omit<Document, 'id' | 'employee_id' | 'created_at'>>({
+    title: "",
+    file_url: "",
+    status: "Pending"
+  });
+  const [isUploading, setIsUploading] = useState(false);
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+  // Fetch Employees
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         setIsLoading(true);
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`);
+        const res = await fetch(`${API_URL}/api/accounts/employees/`);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const data: Employee[] = await res.json();
         if (!Array.isArray(data)) throw new Error("Unexpected data format: expected an array");
@@ -58,6 +100,7 @@ export default function HREmployeePage() {
     fetchEmployees();
   }, []);
 
+  // Check mobile view
   useEffect(() => {
     const checkScreenSize = () => setIsMobileView(window.innerWidth < 768);
     checkScreenSize();
@@ -65,12 +108,170 @@ export default function HREmployeePage() {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  const handleOnboardEmployee = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/signup`;
+  // Fetch document statuses for each employee
+  const fetchDocumentStatuses = async () => {
+    try {
+      const updatedEmployees = await Promise.all(
+        employees.map(async (emp) => {
+          const res = await fetch(`${API_URL}/api/employees/${emp.id}/documents/latest/`);
+          if (!res.ok) return { ...emp, document_status: "N/A" };
+          const data = await res.json();
+          return { ...emp, document_status: data?.status || "N/A" };
+        })
+      );
+      setEmployees(updatedEmployees);
+    } catch (err) {
+      console.error("Failed to fetch document statuses:", err);
+      toast.error("Failed to fetch document statuses");
+    }
   };
 
-  const handleViewDetails = (employee: Employee) => setSelectedEmployee(employee);
-  const closeModal = () => setSelectedEmployee(null);
+  useEffect(() => {
+    if (employees.length > 0) fetchDocumentStatuses();
+  }, [employees]);
+
+  // Optional refresh every 15s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (employees.length > 0) fetchDocumentStatuses();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [employees]);
+
+  // Awards
+  const fetchAwards = async (email: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/accounts/list_awards/`);
+      if (res.ok) {
+        const data: Award[] = await res.json();
+        const filtered = data.filter(a => a.email === email);
+        setAwards(filtered);
+      } else {
+        setAwards([]);
+      } 
+    } catch (err) {
+      console.error("Failed to fetch awards:", err);
+      toast.error("Failed to fetch awards");
+      setAwards([]);
+    }
+  };
+
+  const handleViewAwards = async (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setShowAwards(true);
+    setShowDocuments(false);
+    await fetchAwards(employee.email);
+  };
+
+  // Add award
+  const handleAddAward = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEmployee) return;
+
+    try {
+      setIsUploading(true);
+      const formData = new FormData();
+      formData.append("email", selectedEmployee.email);
+      formData.append("title", newAward.title);
+      formData.append("description", newAward.description);
+      formData.append("date", newAward.award_date); // FIXED
+
+      const imageInput = document.getElementById("award-image") as HTMLInputElement;
+      if (imageInput?.files?.[0]) formData.append("photo", imageInput.files[0]);
+
+      const res = await fetch(`${API_URL}/api/accounts/create_award/`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Failed to create award");
+
+      const createdAward = await res.json();
+      setAwards(prev => [...prev, createdAward]);
+      setNewAward({ title: "", description: "", award_date: new Date().toISOString().split("T")[0], image_url: null }); // FIXED
+      setShowAddAwardForm(false);
+      toast.success("Award added successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to add award");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Delete award
+  const handleDeleteAward = async (id: number) => {
+    try {
+      const res = await fetch(`${API_URL}/api/accounts/delete_award/${id}/`, { method: "DELETE" }); // FIXED
+      if (!res.ok) throw new Error("Delete failed");
+      setAwards(prev => prev.filter(a => a.id !== id));
+      toast.success("Award deleted successfully");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete award");
+    }
+  };
+
+  // Documents
+  const fetchDocuments = async (employeeId: number) => {
+    try {
+      const res = await fetch(`${API_URL}/api/list_documents/?employee_id=${employeeId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDocuments(Array.isArray(data) ? data : []);
+      } else {
+        setDocuments([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch documents:", err);
+      toast.error("Failed to fetch documents");
+      setDocuments([]);
+    }
+  };
+
+  const handleViewDocuments = async (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setShowDocuments(true);
+    setShowAwards(false);
+    await fetchDocuments(employee.id);
+  };
+
+  const handleAddDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEmployee) return;
+    try {
+      const payload = { ...newDocument, employee_id: selectedEmployee.id };
+      const res = await fetch(`${API_URL}/api/create_document/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to create document");
+      const createdDoc = await res.json();
+      setDocuments(prev => [...prev, createdDoc]);
+      setNewDocument({ title: "", file_url: "", status: "Pending" });
+      toast.success("Document added successfully");
+    } catch (err) {
+      console.error("Add document error:", err);
+      toast.error("Failed to add document");
+    }
+  };
+
+  const handleDeleteDocument = async (docId: number) => {
+    if (!confirm("Delete this document?")) return;
+    try {
+      const res = await fetch(`${API_URL}/api/delete_document/${docId}/`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      setDocuments(prev => prev.filter(d => d.id !== docId));
+      toast.success("Document deleted successfully");
+    } catch (err) {
+      console.error("Delete document error:", err);
+      toast.error("Failed to delete document");
+    }
+  };
+
+  const handleOnboardEmployee = () => window.location.href = `${API_URL}/api/accounts/signup`;
+
   const formatDate = (dateString: string | null) => !dateString ? "N/A" : new Date(dateString).toLocaleDateString();
 
   const requestSort = (key: keyof Employee) => {
@@ -82,12 +283,12 @@ export default function HREmployeePage() {
   const departments = Array.from(new Set(employees.map(emp => emp.department).filter(Boolean))) as string[];
 
   const filteredAndSortedEmployees = React.useMemo(() => {
-    const filtered = employees.filter(employee => {
+    const filtered = employees.filter(emp => {
       const matchesSearch =
-        employee.fullname.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (employee.designation?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
-      const matchesDepartment = filterDepartment === "all" || employee.department === filterDepartment;
+        emp.fullname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (emp.designation?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+      const matchesDepartment = filterDepartment === "all" || emp.department === filterDepartment;
       return matchesSearch && matchesDepartment;
     });
 
@@ -119,7 +320,9 @@ export default function HREmployeePage() {
           </div>
         </div>
         <div className="flex space-x-2">
-          <button onClick={() => handleViewDetails(employee)} className="text-blue-600 hover:text-blue-800 p-1"><FiEye size={16} /></button>
+          <button onClick={() => handleViewAwards(employee)} className="text-green-600 hover:text-green-800 p-1 flex items-center"><FiAward className="mr-1"/> Awards</button>
+          <button onClick={() => handleViewDocuments(employee)} className="text-purple-600 hover:text-purple-800 p-1 flex items-center"><FiFileText className="mr-1"/> Documents</button>
+          <button onClick={() => handleViewAwards(employee)} className="text-blue-600 hover:text-blue-800 p-1"><FiEye size={16} /></button>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 text-sm">
@@ -131,6 +334,10 @@ export default function HREmployeePage() {
           <p className="text-xs text-gray-500">Department</p>
           <p className="font-medium truncate">{employee.department || "N/A"}</p>
         </div>
+        <div>
+          <p className="text-xs text-gray-500">Document Status</p>
+          <p className="font-medium">{employee.document_status || "N/A"}</p>
+        </div>
         <div className="col-span-2">
           <p className="text-xs text-gray-500">Joined</p>
           <p className="font-medium">{formatDate(employee.date_joined)}</p>
@@ -140,16 +347,14 @@ export default function HREmployeePage() {
   );
 
   return (
-    <DashboardLayout role="hr">
+   <DashboardLayout role="hr">
       <ToastContainer position="top-right" autoClose={3000} />
       <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-4 md:p-6">
-        {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-3 md:gap-0">
           <h2 className="text-xl md:text-2xl font-bold text-gray-800">Employee Management</h2>
           <button onClick={handleOnboardEmployee} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 md:px-4 md:py-2 rounded-md text-sm md:text-base transition">Onboard New Employee</button>
         </div>
 
-        {/* Search & Filter */}
         <div className="bg-gray-50 p-4 rounded-md border mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="relative">
@@ -165,7 +370,6 @@ export default function HREmployeePage() {
           </div>
         </div>
 
-        {/* Employee List */}
         {!isLoading && !error && (
           <>
             {isMobileView ? (
@@ -182,7 +386,7 @@ export default function HREmployeePage() {
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      {["fullname", "designation", "department", "date_joined"].map((col) => (
+                      {["fullname", "designation", "department", "document_status", "date_joined"].map((col) => (
                         <th key={col} onClick={() => requestSort(col as keyof Employee)}
                           className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer">
                           <div className="flex items-center">
@@ -210,68 +414,108 @@ export default function HREmployeePage() {
                         </td>
                         <td className="p-3 text-sm text-gray-700">{emp.designation || "N/A"}</td>
                         <td className="p-3 text-sm text-gray-700">{emp.department || "N/A"}</td>
+                        <td className="p-3 text-sm text-gray-700">{emp.document_status || "N/A"}</td>
                         <td className="p-3 text-sm text-gray-700">{formatDate(emp.date_joined)}</td>
-                        <td className="p-3 text-sm font-medium">
-                          <button onClick={() => handleViewDetails(emp)} className="text-blue-600 hover:text-blue-900 flex items-center">
-                            <FiEye className="mr-1"/> View
+                        <td className="p-3 text-sm font-medium space-x-2">
+                          <button onClick={() => handleViewAwards(emp)} className="text-green-600 hover:text-green-900 flex items-center">
+                            <FiAward className="mr-1"/> Awards
+                          </button>
+                          <button onClick={() => handleViewDocuments(emp)} className="text-purple-600 hover:text-purple-900 flex items-center">
+                            <FiFileText className="mr-1"/> Documents
                           </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {filteredAndSortedEmployees.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    <FiUser className="mx-auto h-12 w-12 text-gray-400"/>
-                    <p className="mt-4">No employees found</p>
-                  </div>
-                )}
               </div>
             )}
-            <div className="mt-4 text-sm text-gray-500">
-              Showing {filteredAndSortedEmployees.length} of {employees.length} employees
-            </div>
           </>
         )}
 
-        {/* Loading & Error */}
-        {isLoading && (
-          <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-gray-600">Loading employees...</p>
-          </div>
-        )}
-        {error && !isLoading && (
-          <div className="bg-red-50 p-4 rounded-md border border-red-200 mb-6">
-            <p className="text-red-700">{error}</p>
-          </div>
-        )}
+        {isLoading && <p className="text-center py-6 text-gray-500">Loading employees...</p>}
+        {error && <p className="text-center py-6 text-red-500">{error}</p>}
       </div>
 
-      {/* Employee Details Modal */}
+      {/* Modal / Detail view */}
       {selectedEmployee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-lg w-11/12 max-w-md p-6 relative">
-            <button onClick={closeModal} className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"><FiX size={20} /></button>
-            <div className="flex flex-col items-center">
-              {selectedEmployee.profile_picture ? (
-                <Image src={selectedEmployee.profile_picture} alt={selectedEmployee.fullname} width={80} height={80} className="rounded-full object-cover"/>
-              ) : (
-                <div className="h-20 w-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl font-bold">{selectedEmployee.fullname.charAt(0)}</div>
-              )}
-              <h3 className="text-lg font-semibold mt-2">{selectedEmployee.fullname}</h3>
-              <p className="text-sm text-gray-500">{selectedEmployee.email}</p>
+        <div className="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex justify-center items-start pt-20 px-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 relative shadow-lg">
+            <button onClick={() => { setSelectedEmployee(null); setShowAwards(false); setShowDocuments(false); }} className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><FiX size={20}/></button>
+            <h3 className="text-xl font-bold mb-4">{selectedEmployee.fullname} - Details</h3>
+
+            <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+              <div><p className="text-gray-500">Email</p><p>{selectedEmployee.email}</p></div>
+              <div><p className="text-gray-500">Phone</p><p>{selectedEmployee.phone || "N/A"}</p></div>
+              <div><p className="text-gray-500">Department</p><p>{selectedEmployee.department || "N/A"}</p></div>
+              <div><p className="text-gray-500">Designation</p><p>{selectedEmployee.designation || "N/A"}</p></div>
+              <div><p className="text-gray-500">Date of Birth</p><p>{formatDate(selectedEmployee.date_of_birth)}</p></div>
+              <div><p className="text-gray-500">Date Joined</p><p>{formatDate(selectedEmployee.date_joined)}</p></div>
+              <div><p className="text-gray-500">Document Status</p><p>{selectedEmployee.document_status || "N/A"}</p></div>
             </div>
-            <div className="mt-4 space-y-2 text-sm">
-              <p><strong>Designation:</strong> {selectedEmployee.designation || "N/A"}</p>
-              <p><strong>Department:</strong> {selectedEmployee.department || "N/A"}</p>
-              <p><strong>Age:</strong> {selectedEmployee.age || "N/A"}</p>
-              <p><strong>Phone:</strong> {selectedEmployee.phone || "N/A"}</p>
-              <p><strong>Date of Birth:</strong> {formatDate(selectedEmployee.date_of_birth)}</p>
-              <p><strong>Date Joined:</strong> {formatDate(selectedEmployee.date_joined)}</p>
-              <p><strong>Skills:</strong> {selectedEmployee.skills || "N/A"}</p>
-              <p><strong>Reports To:</strong> {selectedEmployee.reports_to || "N/A"}</p>
-            </div>
+
+            {/* Awards Section */}
+            {showAwards && (
+              <div>
+                <h4 className="text-lg font-semibold mb-2">Awards</h4>
+                {awards.length ? (
+                  <div className="space-y-2">
+                    {awards.map(a => (
+                      <div key={a.id} className="flex justify-between items-center bg-gray-50 p-2 rounded-md">
+                        <div>
+                          <p className="font-medium">{a.title}</p>
+                          <p className="text-xs text-gray-500">{formatDate(a.award_date)}</p>
+                        </div>
+                        <button onClick={() => handleDeleteAward(a.id!)} className="text-red-600 hover:text-red-800"><FiTrash2/></button>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p>No awards found</p>}
+                <button onClick={() => setShowAddAwardForm(prev => !prev)} className="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm flex items-center"><FiPlus className="mr-1"/> Add Award</button>
+
+                {showAddAwardForm && (
+                  <form onSubmit={handleAddAward} className="mt-3 space-y-2">
+                    <input type="text" placeholder="Title" value={newAward.title} onChange={e => setNewAward({...newAward, title: e.target.value})} className="w-full border px-2 py-1 rounded-md" required/>
+                    <textarea placeholder="Description" value={newAward.description} onChange={e => setNewAward({...newAward, description: e.target.value})} className="w-full border px-2 py-1 rounded-md" required/>
+                    <input type="date" value={newAward.award_date} onChange={e => setNewAward({...newAward, award_date: e.target.value})} className="w-full border px-2 py-1 rounded-md" required/>
+                    <input type="file" id="award-image" accept="image/*" className="w-full border px-2 py-1 rounded-md"/>
+                    <button type="submit" disabled={isUploading} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md">{isUploading ? "Uploading..." : "Add Award"}</button>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {/* Documents Section */}
+            {showDocuments && (
+              <div className="mt-4">
+                <h4 className="text-lg font-semibold mb-2">Documents</h4>
+                {documents.length ? (
+                  <div className="space-y-2">
+                    {documents.map(d => (
+                      <div key={d.id} className="flex justify-between items-center bg-gray-50 p-2 rounded-md">
+                        <div>
+                          <p className="font-medium">{d.title}</p>
+                          <p className="text-xs text-gray-500">{d.status}</p>
+                        </div>
+                        <button onClick={() => handleDeleteDocument(d.id!)} className="text-red-600 hover:text-red-800"><FiTrash2/></button>
+                      </div>
+                    ))}
+                  </div>
+                ) : <p>No documents found</p>}
+                <form onSubmit={handleAddDocument} className="mt-2 space-y-2">
+                  <input type="text" placeholder="Document Title" value={newDocument.title} onChange={e => setNewDocument({...newDocument, title: e.target.value})} className="w-full border px-2 py-1 rounded-md" required/>
+                  <input type="text" placeholder="File URL" value={newDocument.file_url} onChange={e => setNewDocument({...newDocument, file_url: e.target.value})} className="w-full border px-2 py-1 rounded-md" required/>
+                  <select value={newDocument.status} onChange={e => setNewDocument({...newDocument, status: e.target.value as Document['status']})} className="w-full border px-2 py-1 rounded-md">
+                    <option value="Pending">Pending</option>
+                    <option value="Submitted">Submitted</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Rejected">Rejected</option>
+                  </select>
+                  <button type="submit" className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md">Add Document</button>
+                </form>
+              </div>
+            )}
+
           </div>
         </div>
       )}
