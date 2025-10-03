@@ -216,11 +216,6 @@ export default function EmployeesPage() {
                     <p className="mt-2 text-gray-400 text-xs">
                       Joined: {new Date(emp.joinDate).toLocaleDateString()}
                     </p>
-
-                    {/* Salary */}
-                    <p className="mt-2 font-semibold text-gray-900 text-sm">
-                      ${emp.salary.toLocaleString()}
-                    </p>
                   </div>
                 ))
               )}

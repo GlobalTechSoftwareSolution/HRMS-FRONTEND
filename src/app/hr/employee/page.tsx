@@ -337,7 +337,6 @@ const fetchDocumentStatuses = useCallback(async () => {
       <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-4 md:p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-3 md:gap-0">
           <h2 className="text-xl md:text-2xl font-bold text-gray-800">Employee Management</h2>
-          <button onClick={handleOnboardEmployee} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 md:px-4 md:py-2 rounded-md text-sm md:text-base transition">Onboard New Employee</button>
         </div>
 
         <div className="bg-gray-50 p-4 rounded-md border mb-6">

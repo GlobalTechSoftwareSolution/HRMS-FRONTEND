@@ -77,7 +77,7 @@ const FaceScanPage = () => {
       formData.append("device_info", navigator.userAgent);
 
       const response = await fetch(
-        "https://globaltechsoftwaresolutions.cloud/api/accounts/mark_attendance/",
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/mark_attendance/`,
         {
           method: "POST",
           body: formData,

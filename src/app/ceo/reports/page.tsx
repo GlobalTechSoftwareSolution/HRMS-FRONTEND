@@ -3,6 +3,9 @@
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import Image from "next/image";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 
 interface Employee {
   name: string;
@@ -122,6 +125,67 @@ export default function ReportsAndTasksPage() {
     }
   };
 
+  
+const downloadCombinedPDF = () => {
+  const doc = new jsPDF();
+  let y = 20; // initial Y position
+
+  doc.setFontSize(18);
+  doc.text("Organization Report", 14, y);
+
+  // -------------------- Tasks Section --------------------
+  y += 10;
+  doc.setFontSize(14);
+  doc.text("Tasks", 14, y);
+
+  y += 6;
+  const taskColumns = ["Employee", "Email", "Title", "Department", "Priority", "Status", "Due Date"];
+  const taskRows = tasks.map(task => [
+    task.assigned_to?.name || "-",
+    task.email,
+    task.title,
+    task.department || "-",
+    task.priority || "-",
+    task.status || "-",
+    task.due_date ? formatDate(task.due_date) : "-"
+  ]);
+
+  autoTable(doc, {
+    head: [taskColumns],
+    body: taskRows,
+    startY: y,
+    theme: "grid",
+    headStyles: { fillColor: [37, 99, 235] },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 10; // move below tasks table
+
+  // -------------------- Reports Section --------------------
+  doc.setFontSize(14);
+  doc.text("Reports", 14, y);
+
+  y += 6;
+  const reportColumns = ["Employee", "Title", "Description", "Date", "Created At", "Updated At"];
+  const reportRows = reports.map(report => [
+    report.assigned_to?.name || "-",
+    report.title,
+    report.description,
+    report.date ? formatDate(report.date) : "-",
+    report.created_at ? formatDate(report.created_at) : "-",
+    report.updated_at ? formatDate(report.updated_at) : "-"
+  ]);
+
+  autoTable(doc, {
+    head: [reportColumns],
+    body: reportRows,
+    startY: y,
+    theme: "grid",
+    headStyles: { fillColor: [37, 99, 235] },
+  });
+
+  doc.save("organization-report.pdf");
+};
+
   return (
     <DashboardLayout role="ceo">
       <div className="p-4 md:p-6 max-w-7xl mx-auto">
@@ -156,6 +220,15 @@ export default function ReportsAndTasksPage() {
               Reports ({reports.length})
             </button>
           </div>
+          
+         <button
+  onClick={downloadCombinedPDF} // use the exact function name
+  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+>
+  Download PDF
+</button>
+
+
         </div>
 
         {/* Tasks Table / Cards */}
