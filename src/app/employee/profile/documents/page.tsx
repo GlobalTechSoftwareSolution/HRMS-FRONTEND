@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
+import Link from "next/link";
 import { 
   FiUpload, 
   FiFile, 
@@ -12,7 +13,15 @@ import {
   FiTrash2
 } from "react-icons/fi";
 
-const documentConfig = {
+interface DocumentConfigItem {
+  label: string;
+  description: string;
+  acceptedTypes: string;
+  maxSize: number;
+  required: boolean;
+}
+
+const documentConfig: Record<string, DocumentConfigItem> = {
   tenth: { label: "10th Marksheet", description: "Upload your 10th standard marksheet", acceptedTypes: ".pdf,.jpg,.jpeg,.png", maxSize: 5 * 1024 * 1024, required: true },
   twelth: { label: "12th Marksheet", description: "Upload your 12th standard marksheet", acceptedTypes: ".pdf,.jpg,.jpeg,.png", maxSize: 5 * 1024 * 1024, required: true },
   resume: { label: "Resume", description: "Upload your latest resume", acceptedTypes: ".pdf,.doc,.docx", maxSize: 2 * 1024 * 1024, required: true },
@@ -22,21 +31,33 @@ const documentConfig = {
   award: { label: "Awards & Certifications", description: "Upload any awards or certifications", acceptedTypes: ".pdf,.jpg,.jpeg,.png", maxSize: 5 * 1024 * 1024, required: false },
 };
 
+interface UploadStatus {
+  status: "idle" | "selected" | "uploading" | "error";
+  message?: string;
+}
+
+interface UploadedDoc {
+  id: number;
+  document: string;
+  [key: string]: string | number | null | undefined; // safer instead of any
+}
+
 const DocumentsPage = () => {
-  const email = "mani@gmail.com"; // define email
+  const email = "mani@gmail.com";
   const [files, setFiles] = useState<Record<string, File>>({});
-  const [uploadStatus, setUploadStatus] = useState<Record<string, any>>({});
+  const [uploadStatus, setUploadStatus] = useState<Record<string, UploadStatus>>({});
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
-  const [uploadedDocs, setUploadedDocs] = useState<any[]>([]);
+  const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
 
-  // Fetch already uploaded documents
+  // Fetch documents
   useEffect(() => {
     const fetchDocs = async () => {
       try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_documents/?email=${encodeURIComponent(email)}`
+        const res = await axios.get<UploadedDoc[]>(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_documents/`,
+          { params: { email } }
         );
         setUploadedDocs(res.data || []);
       } catch (err) {
@@ -46,7 +67,7 @@ const DocumentsPage = () => {
     fetchDocs();
   }, []);
 
-  const handleFileChange = (key: string, file: File) => {
+  const handleFileChange = (key: string, file: File | undefined) => {
     if (!file) {
       setFiles(prev => {
         const newFiles = { ...prev };
@@ -112,9 +133,7 @@ const DocumentsPage = () => {
       const formData = new FormData();
       formData.append("email", email);
       Object.keys(files).forEach((key) => {
-        if (files[key]) {
-          formData.append(key, files[key]);
-        }
+        if (files[key]) formData.append(key, files[key]);
       });
 
       await axios.post(
@@ -124,7 +143,8 @@ const DocumentsPage = () => {
       );
 
       setSuccess(true);
-      const res = await axios.get(
+
+      const res = await axios.get<UploadedDoc[]>(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_documents/?email=${encodeURIComponent(email)}`
       );
       setUploadedDocs(res.data || []);
@@ -135,11 +155,10 @@ const DocumentsPage = () => {
         setSuccess(false);
       }, 3000);
 
-    } catch (err: any) {
-      console.error("Upload error:", err);
-      const errorMessage = err.response?.data?.message 
-        || err.response?.data 
-        || err.message 
+    } catch (err) {
+      const axiosErr = err as AxiosError<{ message?: string }>;
+      const errorMessage = axiosErr.response?.data?.message
+        || axiosErr.message
         || "Upload failed. Please try again.";
       setError(errorMessage);
     } finally {
@@ -158,7 +177,7 @@ const DocumentsPage = () => {
 
   const deleteUploadedDoc = async (id: number) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/delete_document/${email}/`);
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/delete_document/${id}/`);
       setUploadedDocs(prev => prev.filter(doc => doc.id !== id));
     } catch (err) {
       console.error("Delete error:", err);
@@ -166,7 +185,7 @@ const DocumentsPage = () => {
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: UploadStatus["status"]) => {
     switch (status) {
       case "selected": return <FiCheck className="text-green-500" />;
       case "uploading": return <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500" />;
@@ -175,7 +194,7 @@ const DocumentsPage = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: UploadStatus["status"]) => {
     switch (status) {
       case "selected": return "border-green-200 bg-green-50";
       case "error": return "border-red-200 bg-red-50";
@@ -187,6 +206,13 @@ const DocumentsPage = () => {
   return (
     <div className="max-w-5xl mx-auto p-6 text-black">
       {/* Header */}
+      <Link
+        href="/employee/profile"
+        className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+      >
+        ← Back
+      </Link>
+
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Document Upload</h1>
         <p className="text-gray-600">Upload your required documents. Required documents are marked with an asterisk (*).</p>
@@ -223,7 +249,7 @@ const DocumentsPage = () => {
                     <span className="font-medium text-blue-600">Click to upload</span><br />or drag and drop
                   </p>
                 </div>
-                <input type="file" className="hidden" accept={config.acceptedTypes} onChange={(e) => handleFileChange(key, e.target.files?.[0] as File)} />
+                <input type="file" className="hidden" accept={config.acceptedTypes} onChange={(e) => handleFileChange(key, e.target.files?.[0])} />
               </label>
             </div>
           ))}
@@ -253,9 +279,11 @@ const DocumentsPage = () => {
           <div className="space-y-3">
             {uploadedDocs.map((doc) => (
               <div key={doc.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-                <span className="text-gray-700 font-medium">{doc.doc_type || doc.file_name}</span>
+                <span className="text-gray-700 font-medium">
+                  {doc.document ? doc.document.split("/").pop() : "Unnamed Document"}
+                </span>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => window.open(doc.file, "_blank")} className="text-blue-600 hover:text-blue-800"><FiEye size={18} /></button>
+                  <button onClick={() => window.open(doc.document, "_blank")} className="text-blue-600 hover:text-blue-800"><FiEye size={18} /></button>
                   <button onClick={() => deleteUploadedDoc(doc.id)} className="text-red-600 hover:text-red-800"><FiTrash2 size={18} /></button>
                 </div>
               </div>

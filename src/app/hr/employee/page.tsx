@@ -56,7 +56,7 @@ export default function HREmployeePage() {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  
+
   const [showAwards, setShowAwards] = useState(false);
   const [awards, setAwards] = useState<Award[]>([]);
   const [showAddAwardForm, setShowAddAwardForm] = useState(false);
@@ -66,7 +66,7 @@ export default function HREmployeePage() {
     award_date: new Date().toISOString().split('T')[0],
     image_url: null
   });
-  
+
   const [showDocuments, setShowDocuments] = useState(false);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [newDocument, setNewDocument] = useState<Omit<Document, 'id' | 'employee_id' | 'created_at'>>({
@@ -76,7 +76,7 @@ export default function HREmployeePage() {
   });
   const [isUploading, setIsUploading] = useState(false);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
   // Fetch Employees
   useEffect(() => {
@@ -86,10 +86,9 @@ export default function HREmployeePage() {
         const res = await fetch(`${API_URL}/api/accounts/employees/`);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const data: Employee[] = await res.json();
-        if (!Array.isArray(data)) throw new Error("Unexpected data format: expected an array");
         setEmployees(data);
         setError("");
-      } catch (err: unknown) {
+      } catch (err) {
         console.error("Failed to fetch employees:", err);
         setError("Failed to fetch employees. Please check console for details.");
         toast.error("Failed to fetch employees");
@@ -108,45 +107,55 @@ export default function HREmployeePage() {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  // Fetch document statuses for each employee
-  const fetchDocumentStatuses = useCallback(async () => {
-    try {
-      const updatedEmployees = await Promise.all(
-        employees.map(async (emp) => {
-          const res = await fetch(`${API_URL}/api/accounts/list_documents/?employee_id=${emp.id}`);
-          if (!res.ok) return { ...emp, document_status: "N/A" };
-          const data: Document[] = await res.json();
-          const latestDoc = data.sort((a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime())[0];
-          return { ...emp, document_status: latestDoc?.status || "N/A" };
-        })
-      );
-      setEmployees(updatedEmployees);
-    } catch (err) {
-      console.error("Failed to fetch document statuses:", err);
-      toast.error("Failed to fetch document statuses");
-    }
-  }, [employees, API_URL]);
+// Fetch document statuses
+const fetchDocumentStatuses = useCallback(async () => {
+  try {
+    const allowedStatuses: Employee["document_status"][] = [
+      "Submitted",
+      "Pending",
+      "Hold",
+      "Approved",
+      "Rejected",
+    ];
+
+    const updatedEmployees = await Promise.all(
+      employees.map(async (emp) => {
+        const res = await fetch(`${API_URL}/api/accounts/list_documents/?employee_id=${emp.id}`);
+        if (!res.ok) return { ...emp, document_status: "N/A" as Employee["document_status"] };
+
+        const data: Document[] = await res.json();
+        const latestDoc = data.sort(
+          (a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime()
+        )[0];
+
+        // Ensure the status is one of the allowed values
+        const status: Employee["document_status"] = latestDoc?.status && allowedStatuses.includes(latestDoc.status as Employee["document_status"])
+          ? (latestDoc.status as Employee["document_status"])
+          : "N/A";
+
+        return { ...emp, document_status: status };
+      })
+    );
+
+    setEmployees(updatedEmployees);
+  } catch (err) {
+    console.error("Failed to fetch document statuses:", err);
+    toast.error("Failed to fetch document statuses");
+  }
+}, [employees, API_URL]);
+
 
   useEffect(() => {
     if (employees.length > 0) fetchDocumentStatuses();
   }, [employees, fetchDocumentStatuses]);
 
-  // Optional refresh every 15s
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (employees.length > 0) fetchDocumentStatuses();
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [employees, fetchDocumentStatuses]);
-
   // Awards
-  const fetchAwards = async (email: string) => {
+  const fetchAwards = async (employeeId: number) => {
     try {
-      const res = await fetch(`${API_URL}/api/accounts/list_awards/`);
+      const res = await fetch(`${API_URL}/api/accounts/list_awards/?employee_id=${employeeId}`);
       if (res.ok) {
         const data: Award[] = await res.json();
-        const filtered = data.filter(a => a.employee_id === selectedEmployee?.id);
-        setAwards(filtered);
+        setAwards(Array.isArray(data) ? data : []);
       } else {
         setAwards([]);
       } 
@@ -161,7 +170,7 @@ export default function HREmployeePage() {
     setSelectedEmployee(employee);
     setShowAwards(true);
     setShowDocuments(false);
-    await fetchAwards(employee.email);
+    await fetchAwards(employee.id);
   };
 
   const handleAddAward = async (e: React.FormEvent) => {
@@ -301,9 +310,29 @@ export default function HREmployeePage() {
     return filtered;
   }, [employees, searchTerm, filterDepartment, sortConfig]);
 
-  // ... rest of your component (EmployeeCard, JSX) remains unchanged
+  // Mobile Employee Card
+  const EmployeeCard = ({ employee }: { employee: Employee }) => (
+    <div className="bg-white shadow rounded-lg p-4 mb-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600">
+            {employee.profile_picture ? <Image src={employee.profile_picture} alt={employee.fullname} width={40} height={40} className="rounded-full object-cover"/> : employee.fullname.charAt(0)}
+          </div>
+          <div className="ml-3">
+            <p className="text-sm font-medium">{employee.fullname}</p>
+            <p className="text-xs text-gray-500">{employee.email}</p>
+          </div>
+        </div>
+        <div className="flex space-x-2">
+          <button onClick={() => handleViewAwards(employee)} className="text-green-600 text-xs flex items-center"><FiAward className="mr-1"/> Awards</button>
+          <button onClick={() => handleViewDocuments(employee)} className="text-purple-600 text-xs flex items-center"><FiFileText className="mr-1"/> Docs</button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <DashboardLayout role="hr">
+<DashboardLayout role="hr">
       <ToastContainer position="top-right" autoClose={3000} />
       <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-4 md:p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-3 md:gap-0">

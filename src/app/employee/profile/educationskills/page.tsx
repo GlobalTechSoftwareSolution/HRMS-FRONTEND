@@ -1,11 +1,9 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
-import { FiBook, FiTrendingUp, FiGlobe, FiPlus, FiX, FiSave, FiEdit3 } from "react-icons/fi";
+import React, { useState, useEffect } from "react";
+import { FiBook, FiTrendingUp, FiGlobe, FiEdit2, FiSave, FiPlus, FiX } from "react-icons/fi";
 import axios from "axios";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-import Link from "next/link";
 import DashboardLayout from "@/components/DashboardLayout";
+import Link from "next/link";
 
 type Education = {
   degree: string;
@@ -24,7 +22,7 @@ interface User {
 
 const EducationSkillsPage: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -37,144 +35,94 @@ const EducationSkillsPage: React.FC = () => {
     grade: "",
   });
 
-  // Enhanced user data fetching with error handling
-  const fetchUserData = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  // Fetch user data from backend
+  useEffect(() => {
+    const fetchUserData = async () => {
       const storedUser = localStorage.getItem("userInfo");
       if (!storedUser) {
-        toast.error("No user data found. Please log in again.");
+        setIsLoading(false);
         return;
       }
 
       const parsed = JSON.parse(storedUser) as { email?: string };
       if (!parsed.email) {
-        toast.error("Invalid user data. Please log in again.");
+        setIsLoading(false);
         return;
       }
 
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(
-          parsed.email
-        )}/`
-      );
+      try {
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(
+            parsed.email
+          )}/`
+        );
+        
+        const fetchedUser: User = {
+          email: res.data.email,
+          fullname: res.data.fullname,
+          skills: res.data.skills ? JSON.parse(res.data.skills) : [],
+          languages: res.data.languages ? JSON.parse(res.data.languages) : [],
+          education: res.data.degree
+            ? [
+                {
+                  degree: res.data.degree,
+                  institution: res.data.institution,
+                  degree_passout_year: res.data.degree_passout_year
+                    ? res.data.degree_passout_year.toString()
+                    : "",
+                  grade: res.data.grade || "",
+                },
+              ]
+            : [],
+        };
+        setUser(fetchedUser);
+      } catch (err) {
+        console.error("Error fetching user:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-      const fetchedUser: User = {
-        email: response.data.email,
-        fullname: response.data.fullname,
-        skills: response.data.skills ? JSON.parse(response.data.skills) : [],
-        languages: response.data.languages ? JSON.parse(response.data.languages) : [],
-        education: response.data.degree
-          ? [
-              {
-                degree: response.data.degree,
-                institution: response.data.institution,
-                degree_passout_year: response.data.degree_passout_year
-                  ? response.data.degree_passout_year.toString()
-                  : "",
-                grade: response.data.grade || "",
-              },
-            ]
-          : [],
-      };
-      
-      setUser(fetchedUser);
-      toast.success("Profile loaded successfully!");
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      toast.error("Failed to load profile data.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
     fetchUserData();
-  }, [fetchUserData]);
+  }, []);
 
   const handleEducationChange = (field: keyof Education, value: string) => {
     setNewEducation((prev) => ({ ...prev, [field]: value }));
   };
 
-  const validateEducation = (education: Education): boolean => {
-    if (!education.degree.trim()) {
-      toast.error("Degree field is required");
-      return false;
-    }
-    if (!education.institution.trim()) {
-      toast.error("Institution field is required");
-      return false;
-    }
-    if (!education.degree_passout_year.trim()) {
-      toast.error("Year field is required");
-      return false;
-    }
-    const year = parseInt(education.degree_passout_year);
-    if (isNaN(year) || year < 1900 || year > new Date().getFullYear() + 5) {
-      toast.error("Please enter a valid year");
-      return false;
-    }
-    return true;
-  };
-
   const addEducation = () => {
-    if (!validateEducation(newEducation)) return;
-
-    setUser((prev) =>
-      prev
-        ? { 
-            ...prev, 
-            education: [...(prev.education || []), { ...newEducation }] 
-          }
-        : prev
-    );
-    setNewEducation({ 
-      degree: "", 
-      institution: "", 
-      degree_passout_year: "", 
-      grade: "" 
-    });
-    toast.success("Education added successfully!");
+    if (
+      newEducation.degree &&
+      newEducation.institution &&
+      newEducation.degree_passout_year
+    ) {
+      setUser((prev) =>
+        prev
+          ? { ...prev, education: [...(prev.education || []), { ...newEducation }] }
+          : prev
+      );
+      setNewEducation({ degree: "", institution: "", degree_passout_year: "", grade: "" });
+    }
   };
 
   const addSkill = () => {
-    const trimmedSkill = newSkill.trim();
-    if (!trimmedSkill) {
-      toast.error("Please enter a skill");
-      return;
+    if (newSkill && !user?.skills?.includes(newSkill)) {
+      setUser((prev) =>
+        prev ? { ...prev, skills: [...(prev.skills || []), newSkill] } : prev
+      );
+      setNewSkill("");
     }
-
-    if (user?.skills?.includes(trimmedSkill)) {
-      toast.warning("Skill already exists");
-      return;
-    }
-
-    setUser((prev) =>
-      prev ? { ...prev, skills: [...(prev.skills || []), trimmedSkill] } : prev
-    );
-    setNewSkill("");
-    toast.success("Skill added successfully!");
   };
 
   const addLanguage = () => {
-    const trimmedLanguage = newLanguage.trim();
-    if (!trimmedLanguage) {
-      toast.error("Please enter a language");
-      return;
+    if (newLanguage && !user?.languages?.includes(newLanguage)) {
+      setUser((prev) =>
+        prev
+          ? { ...prev, languages: [...(prev.languages || []), newLanguage] }
+          : prev
+      );
+      setNewLanguage("");
     }
-
-    if (user?.languages?.includes(trimmedLanguage)) {
-      toast.warning("Language already exists");
-      return;
-    }
-
-    setUser((prev) =>
-      prev
-        ? { ...prev, languages: [...(prev.languages || []), trimmedLanguage] }
-        : prev
-    );
-    setNewLanguage("");
-    toast.success("Language added successfully!");
   };
 
   const removeItem = (
@@ -182,41 +130,24 @@ const EducationSkillsPage: React.FC = () => {
     index: number
   ) => {
     if (!user) return;
-    
     const updated = { ...user };
-    if (type === "skills") {
+    if (type === "skills")
       updated.skills = user.skills?.filter((_, i) => i !== index);
-      toast.info("Skill removed");
-    }
-    if (type === "languages") {
+    if (type === "languages")
       updated.languages = user.languages?.filter((_, i) => i !== index);
-      toast.info("Language removed");
-    }
-    if (type === "education") {
+    if (type === "education")
       updated.education = user.education?.filter((_, i) => i !== index);
-      toast.info("Education entry removed");
-    }
     setUser(updated);
   };
 
   const handleSave = async () => {
-    if (!user?.email) {
-      toast.error("No user email found");
-      return;
-    }
-
+    if (!user?.email) return;
+    
+    setIsSaving(true);
     try {
-      setIsSaving(true);
-      
-      // Validate required fields
-      if (!user.fullname?.trim()) {
-        toast.error("Full name is required");
-        return;
-      }
-
       const payload = {
         email: user.email,
-        fullname: user.fullname.trim(),
+        fullname: user.fullname || "",
         skills: JSON.stringify(user.skills || []),
         languages: JSON.stringify(user.languages || []),
         degree: user.education?.[0]?.degree || "",
@@ -225,8 +156,8 @@ const EducationSkillsPage: React.FC = () => {
           ? parseInt(user.education[0].degree_passout_year)
           : null,
         grade: user.education?.[0]?.grade || "",
-        phone: "", // Add actual phone data if available
-        department: "", // Add actual department data if available
+        phone: "",
+        department: "",
       };
 
       await axios.put(
@@ -234,111 +165,105 @@ const EducationSkillsPage: React.FC = () => {
           user.email
         )}/`,
         payload,
-        { 
-          headers: { 
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${localStorage.getItem("token")}` // Add auth header if needed
-          } 
-        }
+        { headers: { "Content-Type": "application/json" } }
       );
       
-      localStorage.setItem("userInfo", JSON.stringify(user));
+      // Show success feedback
+      const successMessage = document.createElement("div");
+      successMessage.className = "fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in";
+      successMessage.textContent = "Profile updated successfully!";
+      document.body.appendChild(successMessage);
+      
+      setTimeout(() => {
+        successMessage.remove();
+      }, 3000);
+      
       setIsEditing(false);
-      toast.success("Profile updated successfully!");
-    } catch (error: any) {
-      console.error("Error updating profile:", error);
-      const errorMessage = error.response?.data?.message || "Error updating profile";
-      toast.error(errorMessage);
+      localStorage.setItem("userInfo", JSON.stringify(user));
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      
+      // Show error feedback
+      const errorMessage = document.createElement("div");
+      errorMessage.className = "fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in";
+      errorMessage.textContent = "Error updating profile. Please try again.";
+      document.body.appendChild(errorMessage);
+      
+      setTimeout(() => {
+        errorMessage.remove();
+      }, 3000);
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent, action: () => void) => {
-    if (e.key === "Enter") {
-      action();
     }
   };
 
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  if (!user) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-red-600 text-lg">Failed to load user data</p>
-        <button
-          onClick={fetchUserData}
-          className="mt-4 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
+  if (!user) return <p className="text-center text-gray-500 py-8">No user data found.</p>;
 
   return (
    <DashboardLayout role='employee'>
-     <div className="max-w-4xl mx-auto space-y-8 p-6">
+     <div className="max-w-4xl mx-auto space-y-8 p-6 text-black">
       {/* Header */}
       <div className="flex justify-between items-center border-b border-gray-200 pb-4">
          <Link
-      href="/employee/profile"
-      className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-    >
-      ← Back
-    </Link>
-        <h2 className="text-2xl font-bold text-gray-800">Education & Skills</h2>
-        <div className="flex gap-3">
-          {!isEditing ? (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <FiEdit3 size={16} />
-              Edit Education
-            </button>
-          ) : (
-            <button
-              onClick={() => setIsEditing(false)}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-          )}
+        href="/employee/profile"
+        className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+      >
+        ← Back
+      </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Education & Skills</h1>
+          <p className="text-gray-600 mt-1">Manage your professional qualifications and capabilities</p>
         </div>
+        <button
+          onClick={() => setIsEditing(!isEditing)}
+          className="flex items-center gap-2 px-4 py-2 text-white bg-blue-600 border border-gray-300 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <FiEdit2 size={16} />
+          {isEditing ? "Cancel Editing" : "Edit Profile"}
+        </button>
       </div>
 
       {/* Education Section */}
-      <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-xl font-semibold mb-6 flex items-center gap-3 text-gray-800">
-          <FiBook className="text-purple-600" size={24} /> 
-          Education
-        </h3>
-        
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-blue-50 rounded-lg">
+            <FiBook className="text-blue-600" size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">Education</h3>
+            <p className="text-gray-600 text-sm">Your academic qualifications and background</p>
+          </div>
+        </div>
+
         <div className="space-y-4">
           {(user.education || []).map((edu, index) => (
-            <div key={index} className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
+            <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
               <div className="flex justify-between items-start">
-                <div className="flex-1">
+                <div className="space-y-2">
                   <h4 className="font-semibold text-gray-900 text-lg">{edu.degree}</h4>
-                  <p className="text-gray-600 mt-1">
-                    {edu.institution} • {edu.degree_passout_year}
-                  </p>
-                  {edu.grade && (
-                    <p className="text-gray-500 mt-1">Grade: {edu.grade}</p>
-                  )}
+                  <p className="text-gray-700 font-medium">{edu.institution}</p>
+                  <div className="flex gap-4 text-sm text-gray-600">
+                    <span>Graduated: {edu.degree_passout_year}</span>
+                    {edu.grade && (
+                      <span className="flex items-center gap-1">
+                        <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+                        Grade: {edu.grade}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {isEditing && (
                   <button
                     onClick={() => removeItem("education", index)}
-                    className="text-red-500 hover:text-red-700 transition-colors p-1 rounded-full hover:bg-red-50"
-                    title="Remove education"
+                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                   >
                     <FiX size={18} />
                   </button>
@@ -348,173 +273,182 @@ const EducationSkillsPage: React.FC = () => {
           ))}
 
           {isEditing && (
-            <div className="p-6 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
-              <h4 className="font-medium text-gray-700 mb-4">Add New Education</h4>
+            <div className="p-6 border-2 border-dashed border-gray-300 rounded-xl bg-white">
+              <h4 className="font-medium text-gray-900 mb-4">Add New Education</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Degree *
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g., Bachelor of Science in Computer Science"
+                    placeholder="e.g., Bachelor of Science"
                     value={newEducation.degree}
                     onChange={(e) => handleEducationChange("degree", e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Institution *
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g., University of Technology"
+                    placeholder="e.g., University Name"
                     value={newEducation.institution}
                     onChange={(e) => handleEducationChange("institution", e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Graduation Year *
                   </label>
                   <input
-                    type="number"
-                    min="1900"
-                    max={new Date().getFullYear() + 5}
-                    placeholder="e.g., 2023"
+                    type="text"
+                    placeholder="e.g., 2020"
                     value={newEducation.degree_passout_year}
                     onChange={(e) => handleEducationChange("degree_passout_year", e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Grade (Optional)
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g., 3.8 GPA, First Class"
+                    placeholder="e.g., 3.8 GPA"
                     value={newEducation.grade}
                     onChange={(e) => handleEducationChange("grade", e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                   />
                 </div>
               </div>
               <button
                 onClick={addEducation}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                disabled={!newEducation.degree || !newEducation.institution || !newEducation.degree_passout_year}
+                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
               >
-                <FiPlus size={16} />
+                <FiPlus size={18} />
                 Add Education
               </button>
             </div>
           )}
         </div>
-      </section>
+      </div>
 
       {/* Skills Section */}
-      <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-xl font-semibold mb-6 flex items-center gap-3 text-gray-800">
-          <FiTrendingUp className="text-blue-600" size={24} /> 
-          Skills
-        </h3>
-        
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-green-50 rounded-lg">
+            <FiTrendingUp className="text-green-600" size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">Skills</h3>
+            <p className="text-gray-600 text-sm">Your professional skills and expertise</p>
+          </div>
+        </div>
+
         <div className="flex flex-wrap gap-3 mb-6">
           {(user.skills || []).map((skill, index) => (
             <span
               key={index}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border border-blue-200"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-200"
             >
               {skill}
               {isEditing && (
                 <button
                   onClick={() => removeItem("skills", index)}
-                  className="text-blue-600 hover:text-blue-800 transition-colors rounded-full hover:bg-blue-100 p-1"
-                  title="Remove skill"
+                  className="text-green-600 hover:text-green-800 transition-colors"
                 >
                   <FiX size={14} />
                 </button>
               )}
             </span>
           ))}
-          {(user.skills?.length === 0) && (
-            <p className="text-gray-500 italic">No skills added yet</p>
+          {(user.skills || []).length === 0 && !isEditing && (
+            <p className="text-gray-500 italic">No skills added yet.</p>
           )}
         </div>
-        
+
         {isEditing && (
           <div className="flex gap-3">
             <input
               type="text"
-              placeholder="Add a new skill (e.g., React, Python, Project Management)"
+              placeholder="Add a new skill (e.g., JavaScript, Project Management)"
               value={newSkill}
               onChange={(e) => setNewSkill(e.target.value)}
-              onKeyPress={(e) => handleKeyPress(e, addSkill)}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+              onKeyPress={(e) => e.key === "Enter" && addSkill()}
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
             />
             <button
               onClick={addSkill}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              disabled={!newSkill}
+              className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
-              <FiPlus size={16} />
+              <FiPlus size={18} />
               Add
             </button>
           </div>
         )}
-      </section>
+      </div>
 
       {/* Languages Section */}
-      <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-xl font-semibold mb-6 flex items-center gap-3 text-gray-800">
-          <FiGlobe className="text-green-600" size={24} /> 
-          Languages
-        </h3>
-        
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-purple-50 rounded-lg">
+            <FiGlobe className="text-purple-600" size={24} />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">Languages</h3>
+            <p className="text-gray-600 text-sm">Languages you speak and write</p>
+          </div>
+        </div>
+
         <div className="flex flex-wrap gap-3 mb-6">
           {(user.languages || []).map((language, index) => (
             <span
               key={index}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-200"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-full text-sm font-medium border border-purple-200"
             >
               {language}
               {isEditing && (
                 <button
                   onClick={() => removeItem("languages", index)}
-                  className="text-green-600 hover:text-green-800 transition-colors rounded-full hover:bg-green-100 p-1"
-                  title="Remove language"
+                  className="text-purple-600 hover:text-purple-800 transition-colors"
                 >
                   <FiX size={14} />
                 </button>
               )}
             </span>
           ))}
-          {(user.languages?.length === 0) && (
-            <p className="text-gray-500 italic">No languages added yet</p>
+          {(user.languages || []).length === 0 && !isEditing && (
+            <p className="text-gray-500 italic">No languages added yet.</p>
           )}
         </div>
-        
+
         {isEditing && (
           <div className="flex gap-3">
             <input
               type="text"
-              placeholder="Add a language (e.g., English, Spanish, French)"
+              placeholder="Add a language (e.g., English, Spanish)"
               value={newLanguage}
               onChange={(e) => setNewLanguage(e.target.value)}
-              onKeyPress={(e) => handleKeyPress(e, addLanguage)}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-600 focus:border-transparent"
+              onKeyPress={(e) => e.key === "Enter" && addLanguage()}
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
             />
             <button
               onClick={addLanguage}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+              disabled={!newLanguage}
+              className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
             >
-              <FiPlus size={16} />
+              <FiPlus size={18} />
               Add
             </button>
           </div>
         )}
-      </section>
+      </div>
 
       {/* Save Button */}
       {isEditing && (
@@ -522,26 +456,22 @@ const EducationSkillsPage: React.FC = () => {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-2 px-8 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl"
           >
-            <FiSave size={18} />
-            {isSaving ? "Saving..." : "Save Changes"}
+            {isSaving ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <FiSave size={18} />
+                Save All Changes
+              </>
+            )}
           </button>
         </div>
       )}
-
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="light"
-      />
     </div>
    </DashboardLayout>
   );

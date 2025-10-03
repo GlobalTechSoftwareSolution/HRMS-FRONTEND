@@ -4,7 +4,7 @@ import DashboardLayout from '@/components/DashboardLayout';
 
 export default function CalendarPage() {
   return (
-    <DashboardLayout role='hr'>
+    <DashboardLayout role='admin'>
       <div>
       <GoogleCalendar />
     </div>

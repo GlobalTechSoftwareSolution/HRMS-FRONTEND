@@ -174,7 +174,7 @@ export default function Profile() {
               { href: "/employee/profile/documents", label: "Documents" },
               { href: "/employee/profile/educationskills", label: "Education & Skills" },
               { href: "/employee/profile/emergencycontact", label: "Emergency Contact" },
-              { href: "/employee/profile/employment", label: "Employment" },
+              // { href: "/employee/profile/employment", label: "Employment" },
             ].map((link) => (
               <Link
                 key={link.href}

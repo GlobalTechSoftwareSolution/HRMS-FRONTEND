@@ -40,8 +40,8 @@ const HolidayCalendar: React.FC = () => {
           "en.indian#holiday@group.v.calendar.google.com"
         );
 
-        const startYear = 2023;
-        const endYear = 2030;
+        const startYear = 2020;
+        const endYear = 3000;
         const allHolidays: Holiday[] = [];
 
         for (let year = startYear; year <= endYear; year++) {
@@ -112,7 +112,7 @@ const HolidayCalendar: React.FC = () => {
     return holidays.filter((h) => h.date === formatted);
   };
 
-  const handleDateChange = (value: Date) => setSelectedDate(value);
+  // const handleDateChange = (value: Date) => setSelectedDate(value);
 
   const tileClassName = ({ date, view }: { date: Date; view: string }) => {
     if (view !== "month") return "";
@@ -215,10 +215,10 @@ const HolidayCalendar: React.FC = () => {
                     </div>
                   )}
                   <Calendar
-                    onChange={handleDateChange}
+                    // onChange={handleDateChange}
                     value={selectedDate}
                     view={activeView}
-                    onViewChange={(v) => setActiveView(v as CalendarView)}
+                    // onViewChange={(v) => setActiveView(v as CalendarView)}
                     tileClassName={tileClassName}
                     tileContent={tileContent}
                     className="rounded-xl border-0 shadow-inner bg-gray-50/50 p-4 mt-5 mb-5 gap-5"

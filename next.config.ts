@@ -7,8 +7,9 @@ const nextConfig: NextConfig = {
       "ejanftgxxtlbadbqzdib.supabase.co",
       "images.unsplash.com",
       "hrms-6qja.onrender.com",
-      "127.0.0.1",       // <-- ADD THIS
-      "localhost",       // <-- OPTIONAL: if you access via localhost
+      "127.0.0.1",       
+      "localhost",       
+      "globaltechsoftwaresolutions.cloud", // <-- ADD THIS
     ],
   },
   async rewrites() {
