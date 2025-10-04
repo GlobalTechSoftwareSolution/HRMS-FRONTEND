@@ -21,7 +21,6 @@ type Employee = {
 };
 
 type LeaveRequest = {
-  id: number;
   email: string;
   applied_on: string;
   start_date: string;
@@ -32,26 +31,12 @@ type LeaveRequest = {
 };
 
 const StatusBadge = ({ status }: { status?: string }) => {
-  const statusConfig: Record<string, { color: string; icon: React.ReactNode }> =
-    {
-      Pending: {
-        color: "bg-yellow-100 text-yellow-800",
-        icon: <FiClock className="mr-1" />,
-      },
-      Approved: {
-        color: "bg-green-100 text-green-800",
-        icon: <FiCheckCircle className="mr-1" />,
-      },
-      Rejected: {
-        color: "bg-red-100 text-red-800",
-        icon: <FiXCircle className="mr-1" />,
-      },
-    };
-
-  const config = status
-    ? statusConfig[status] || { color: "bg-gray-100 text-gray-800", icon: <FiClock className="mr-1" /> }
-    : { color: "bg-gray-100 text-gray-800", icon: <FiClock className="mr-1" /> };
-
+  const statusConfig: Record<string, { color: string; icon: React.ReactNode }> = {
+    Pending: { color: "bg-yellow-100 text-yellow-800", icon: <FiClock className="mr-1" /> },
+    Approved: { color: "bg-green-100 text-green-800", icon: <FiCheckCircle className="mr-1" /> },
+    Rejected: { color: "bg-red-100 text-red-800", icon: <FiXCircle className="mr-1" /> },
+  };
+  const config = status ? statusConfig[status] : { color: "bg-gray-100 text-gray-800", icon: <FiClock className="mr-1" /> };
   return (
     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${config.color}`}>
       {config.icon}
@@ -67,8 +52,10 @@ export default function ManagerDashboard() {
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [filter, setFilter] = useState<"Pending" | "Approved" | "Rejected" | "All">("All");
 
+  // Unique key for each leave (no id)
+  const getLeaveKey = (leave: LeaveRequest) =>
+    `${leave.email}-${leave.start_date}-${leave.end_date}-${leave.leave_type}`;
 
-  // Fetch employees + leaves
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -84,53 +71,57 @@ export default function ManagerDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []); 
-  
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Update leave status
-  const updateLeaveStatus = async (leaveKey: number | string, status: "Approved" | "Rejected") => {
-    setUpdatingKey(String(leaveKey));
+  const updateLeaveStatus = async (leave: LeaveRequest, status: "Approved" | "Rejected") => {
+    setUpdatingKey(getLeaveKey(leave));
     try {
-      const idPart = typeof leaveKey === "number" || !isNaN(Number(leaveKey))
-        ? leaveKey
-        : encodeURIComponent(String(leaveKey));
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_leave/${idPart}/`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_leave/`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({
+          email: leave.email,
+          start_date: leave.start_date,
+          end_date: leave.end_date,
+          leave_type: leave.leave_type,
+          status,
+        }),
       });
 
       if (!res.ok) {
-        const errText = await res.text();
-        console.error("Backend error:", errText);
-        alert("Failed to update leave status. Check console for details.");
+        const errData = await res.json();
+        console.error("Backend error:", errData);
+        alert(errData.error || "Failed to update leave status.");
         return;
       }
 
-      // Update local state
+      const updatedLeave = await res.json();
+
       setLeaveRequests((prev) =>
-        prev.map((lr, idx) => {
-          const lrKey = lr.id ?? `${lr.email}-${lr.applied_on}-${idx}`;
-          return String(lrKey) === String(leaveKey) ? { ...lr, status } : lr;
-        })
+        prev.map((lr) =>
+          getLeaveKey(lr) === getLeaveKey(leave) ? { ...lr, status: updatedLeave.leave.status } : lr
+        )
       );
+
+      alert(`Leave ${status} successfully!`);
     } catch (err) {
-      console.error("Update error:", err);
+      console.error("Network error:", err);
       alert("Network error. Could not update leave status.");
     } finally {
       setUpdatingKey(null);
     }
   };
 
-  // Map leave's email to employee's email_id
   const getEmployee = (email: string | undefined) =>
-    employees.find(
-      (e) => typeof e.email_id === "string" && typeof email === "string" && e.email_id.toLowerCase() === email.toLowerCase()
-    ) || { fullname: email || "Unknown Email", designation: "-", department: "-" };
+    employees.find((e) => e.email_id.toLowerCase() === email?.toLowerCase()) || {
+      fullname: email || "Unknown Email",
+      designation: "-",
+      department: "-",
+    };
 
   const filteredLeaves = leaveRequests.filter((lr) => filter === "All" || lr.status === filter);
 
@@ -145,9 +136,7 @@ export default function ManagerDashboard() {
     <DashboardLayout role="manager">
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">
-            Leave Management Dashboard
-          </h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Leave Management Dashboard</h1>
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -160,7 +149,7 @@ export default function ManagerDashboard() {
               <motion.div
                 whileHover={{ scale: 1.03 }}
                 key={idx}
-                className={`bg-white rounded-xl shadow p-4 border border-gray-100 flex items-center gap-4`}
+                className="bg-white rounded-xl shadow p-4 border border-gray-100 flex items-center gap-4"
               >
                 <div className={`rounded-full bg-${stat.color}-100 p-3`}>
                   {React.cloneElement(stat.icon, { className: `text-${stat.color}-600 text-xl` })}
@@ -199,16 +188,14 @@ export default function ManagerDashboard() {
             <div className="bg-white rounded-xl shadow p-8 text-center">
               <FiCalendar className="mx-auto text-gray-400 text-4xl mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-1">No leave requests found</h3>
-              <p className="text-gray-500">
-                {filter !== "All" ? `No ${filter.toLowerCase()} leave requests.` : "No leave requests submitted yet."}
-              </p>
+              <p className="text-gray-500">{filter !== "All" ? `No ${filter.toLowerCase()} leave requests.` : "No leave requests submitted yet."}</p>
             </div>
           ) : (
             <div className="flex flex-col gap-4 mb-6">
               <AnimatePresence>
-                {filteredLeaves.map((lr, index) => {
+                {filteredLeaves.map((lr) => {
                   const emp = getEmployee(lr.email);
-                  const leaveKey = lr.id ?? `${lr.email}-${lr.applied_on}-${index}`;
+                  const leaveKey = getLeaveKey(lr);
 
                   return (
                     <motion.div
@@ -236,16 +223,14 @@ export default function ManagerDashboard() {
                               <FiUser className="mr-2 text-gray-400" /> {emp.department || "N/A"}
                             </div>
                             <div className="flex items-center">
-                              <FiCalendar className="mr-2 text-gray-400" /> Applied on:{" "}
-                              {new Date(lr.applied_on).toLocaleDateString()}
+                              <FiCalendar className="mr-2 text-gray-400" /> Applied on: {new Date(lr.applied_on).toLocaleDateString()}
                             </div>
                           </div>
                           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <p className="text-sm font-medium text-gray-700">Leave Details</p>
                               <p className="text-sm text-gray-600">
-                                {lr.leave_type} leave from {new Date(lr.start_date).toLocaleDateString()} to{" "}
-                                {new Date(lr.end_date).toLocaleDateString()}
+                                {lr.leave_type} leave from {new Date(lr.start_date).toLocaleDateString()} to {new Date(lr.end_date).toLocaleDateString()}
                               </p>
                             </div>
                             <div>
@@ -258,34 +243,26 @@ export default function ManagerDashboard() {
                         {lr.status === "Pending" && (
                           <div className="flex flex-col gap-2 md:items-end mt-2 md:mt-0">
                             <div className="flex gap-2">
-                              <motion.button
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => updateLeaveStatus(leaveKey, "Approved")}
-                                disabled={updatingKey === String(leaveKey)}
-                                className={`flex items-center px-4 py-2 rounded-lg text-white text-sm font-medium ${
-                                  updatingKey === String(leaveKey)
-                                    ? "bg-green-400 cursor-not-allowed"
-                                    : "bg-green-600 hover:bg-green-700"
+                              <button
+                                onClick={() => updateLeaveStatus(lr, "Approved")}
+                                disabled={updatingKey === leaveKey}
+                                className={`px-4 py-2 rounded-lg text-white ${
+                                  updatingKey === leaveKey ? "bg-green-400" : "bg-green-600 hover:bg-green-700"
                                 }`}
                               >
-                                <FiCheckCircle className="mr-1" /> Approve
-                              </motion.button>
-                              <motion.button
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => updateLeaveStatus(leaveKey, "Rejected")}
-                                disabled={updatingKey === String(leaveKey)}
-                                className={`flex items-center px-4 py-2 rounded-lg text-white text-sm font-medium ${
-                                  updatingKey === String(leaveKey)
-                                    ? "bg-red-400 cursor-not-allowed"
-                                    : "bg-red-600 hover:bg-red-700"
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => updateLeaveStatus(lr, "Rejected")}
+                                disabled={updatingKey === leaveKey}
+                                className={`px-4 py-2 rounded-lg text-white ${
+                                  updatingKey === leaveKey ? "bg-red-400" : "bg-red-600 hover:bg-red-700"
                                 }`}
                               >
-                                <FiXCircle className="mr-1" /> Reject
-                              </motion.button>
+                                Reject
+                              </button>
                             </div>
-                            {updatingKey === String(leaveKey) && (
-                              <p className="text-xs text-gray-500">Updating...</p>
-                            )}
+                            {updatingKey === leaveKey && <p className="text-xs text-gray-500">Updating...</p>}
                           </div>
                         )}
                       </div>

@@ -41,7 +41,7 @@ export default function DashboardOverview() {
   const [attendanceRate, setAttendanceRate] = useState<number>(0);
   const [pendingRequests, setPendingRequests] = useState<number>(0);
   const [hoursThisWeek, setHoursThisWeek] = useState<number>(0);
-  const [, setDailyHours] = useState<Record<string, number>>({});
+  const [dailyHours, setDailyHours] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [leaveData, setLeaveData] = useState<LeaveRecord[]>([]);
@@ -190,7 +190,7 @@ export default function DashboardOverview() {
           <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-blue-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
             <div>
               <span className="text-blue-600 text-xl sm:text-2xl font-bold">
-                {((hoursThisWeek / totalPossibleHours) * 100).toFixed(2)}%
+                {attendanceRate}%
               </span>
               <p className="text-gray-500 mt-1 text-sm">Attendance Rate</p>
               <p className="text-xs text-gray-400 mt-0.5">Based on days attended</p>
@@ -243,32 +243,30 @@ export default function DashboardOverview() {
         </div>
 
         {/* Leaves Table */}
-       <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm mt-6 overflow-x-auto">
-  <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">Your Leaves</h2>
-  <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 gap-3">
-    {leaveData
-      .filter((l) => l.email === userEmail)
-      .map((l, idx) => {
-        // Determine color based on status
-        let statusColor = "text-orange-500"; // default
-        if (l.status.toLowerCase() === "approved") statusColor = "text-green-600";
-        else if (l.status.toLowerCase() === "rejected") statusColor = "text-red-600";
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm mt-6 overflow-x-auto">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">Your Leaves</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 gap-3">
+            {leaveData
+              .filter((l) => l.email === userEmail)
+              .map((l, idx) => {
+                let statusColor = "text-orange-500";
+                if (l.status.toLowerCase() === "approved") statusColor = "text-green-600";
+                else if (l.status.toLowerCase() === "rejected") statusColor = "text-red-600";
 
-        return (
-          <div
-            key={idx}
-            className="bg-gray-50 p-3 rounded-lg shadow-sm flex flex-col sm:flex-row sm:justify-between gap-1"
-          >
-            <div className="text-gray-700 font-medium">{l.start_date} - {l.end_date}</div>
-            <div className="text-gray-500 text-sm">{l.leave_type ?? "-"}</div>
-            <div className="text-gray-500 text-sm">{l.reason}</div>
-            <div className={`${statusColor} font-semibold`}>{l.status}</div>
+                return (
+                  <div
+                    key={idx}
+                    className="bg-gray-50 p-3 rounded-lg shadow-sm flex flex-col sm:flex-row sm:justify-between gap-1"
+                  >
+                    <div className="text-gray-700 font-medium">{l.start_date} - {l.end_date}</div>
+                    <div className="text-gray-500 text-sm">{l.leave_type ?? "-"}</div>
+                    <div className="text-gray-500 text-sm">{l.reason}</div>
+                    <div className={`${statusColor} font-semibold`}>{l.status}</div>
+                  </div>
+                );
+              })}
           </div>
-        );
-      })}
-  </div>
-</div>
-
+        </div>
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-6">
@@ -303,4 +301,3 @@ export default function DashboardOverview() {
     </DashboardLayout>
   );
 }
-

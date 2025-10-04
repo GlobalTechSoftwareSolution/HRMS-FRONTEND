@@ -8,13 +8,16 @@ import Image from "next/image";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 type Employee = {
-  email_id: string;
+  email: string;
   fullname: string;
-  age?: number | null;
   phone?: string | null;
   department?: string | null;
-  date_of_birth?: string | null;
+  designation?: string | null;
   profile_picture?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_relationship?: string | null;
+  emergency_contact_no?: string | null;
+  employment_type?: string | null;
 };
 
 type Hr = Employee;
@@ -67,7 +70,7 @@ export default function TeamReport() {
   const getAvatar = (emp: Employee) =>
     emp.profile_picture ||
     `https://ui-avatars.com/api/?name=${encodeURIComponent(
-      emp.fullname || emp.email_id
+      emp.fullname || emp.email
     )}&background=random`;
 
   return (
@@ -107,7 +110,7 @@ export default function TeamReport() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {list.map((emp, idx) => (
                   <motion.div
-                    key={emp.email_id || idx}
+                    key={emp.email || idx}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
@@ -128,9 +131,13 @@ export default function TeamReport() {
                     </div>
 
                     <div className="text-black text-sm space-y-1">
-                      <p>📧 {emp.email_id}</p>
+                      <p className="flex items-center gap-2 text-gray-800 font-medium">
+                        📧 <span className="truncate">{emp.email}</span>
+                      </p>
                       {emp.phone && <p>📞 {emp.phone}</p>}
                       {emp.department && <p>🏢 {emp.department}</p>}
+                      {emp.designation && <p>💼 {emp.designation}</p>}
+                      {emp.employment_type && <p>🕒 {emp.employment_type}</p>}
                     </div>
 
                     <button
@@ -182,9 +189,7 @@ export default function TeamReport() {
               </div>
 
               <div className="space-y-2 text-gray-700 text-sm sm:text-base">
-                <p>
-                  <strong>Email:</strong> {selectedEmp.email_id}
-                </p>
+                <p className="font-semibold text-gray-800">Email: {selectedEmp.email}</p>
                 {selectedEmp.phone && (
                   <p>
                     <strong>Phone:</strong> {selectedEmp.phone}
@@ -195,14 +200,19 @@ export default function TeamReport() {
                     <strong>Department:</strong> {selectedEmp.department}
                   </p>
                 )}
-                {selectedEmp.age !== undefined && (
+                {selectedEmp.designation && (
                   <p>
-                    <strong>Age:</strong> {selectedEmp.age}
+                    <strong>Designation:</strong> {selectedEmp.designation}
                   </p>
                 )}
-                {selectedEmp.date_of_birth && (
+                {selectedEmp.employment_type && (
                   <p>
-                    <strong>DOB:</strong> {selectedEmp.date_of_birth}
+                    <strong>Employment Type:</strong> {selectedEmp.employment_type}
+                  </p>
+                )}
+                {selectedEmp.emergency_contact_name && (
+                  <p>
+                    <strong>Emergency Contact:</strong> {selectedEmp.emergency_contact_name} ({selectedEmp.emergency_contact_relationship}) - {selectedEmp.emergency_contact_no}
                   </p>
                 )}
               </div>

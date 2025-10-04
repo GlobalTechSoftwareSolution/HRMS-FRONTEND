@@ -275,7 +275,6 @@ const fetchDocumentStatuses = useCallback(async () => {
     }
   };
 
-  const handleOnboardEmployee = () => window.location.href = `${API_URL}/api/accounts/signup`;
 
   const formatDate = (dateString: string | null) => !dateString ? "N/A" : new Date(dateString).toLocaleDateString();
 

@@ -25,8 +25,7 @@ export default function TasksDashboard() {
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [showTaskModal, setShowTaskModal] = useState<boolean>(false);
     const [popupMessage, setPopupMessage] = useState<string | null>(null);
-const [popupType, setPopupType] = useState<"success" | "error">("success");
-
+    const [popupType, setPopupType] = useState<"success" | "error">("success");
 
     // Report modal states
     const [reportContent, setReportContent] = useState<string>("");
@@ -86,6 +85,12 @@ const [popupType, setPopupType] = useState<"success" | "error">("success");
         setCurrentDate(now.toLocaleDateString("en-US", options));
     }, []);
 
+    // Show popup message
+    const showAlert = (message: string, type: "success" | "error") => {
+        setPopupMessage(message);
+        setPopupType(type);
+    };
+
     // Update only the status of a task, sending a PUT request to the backend
     const handleUpdateStatus = async (taskId: number, newStatusValue: Task["status"]) => {
         try {
@@ -112,9 +117,10 @@ const [popupType, setPopupType] = useState<"success" | "error">("success");
             );
             setShowTaskModal(false);
             setSelectedTask(null);
+            showAlert("Task status updated successfully!", "success");
         } catch (error) {
             console.error("Failed to update task status:", error);
-            alert("Failed to update task status. Please try again.");
+            showAlert("Failed to update task status. Please try again.", "error");
         }
     };
 
@@ -285,7 +291,6 @@ const [popupType, setPopupType] = useState<"success" | "error">("success");
                         </div>
                     </div>
 
-
                     {/* Tasks List */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="border-b border-gray-200 hidden sm:block">
@@ -370,7 +375,6 @@ const [popupType, setPopupType] = useState<"success" | "error">("success");
                                                 <span className="sm:hidden">Status: {task.status}</span>
                                             </span>
                                         </div>
-                                        {/* Report badge removed */}
                                     </div>
                                 ))
                             )}
@@ -448,7 +452,7 @@ const [popupType, setPopupType] = useState<"success" | "error">("success");
                                     Close
                                 </button>
                                 <button
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                     onClick={async () => {
                                         if (!selectedTask) return;
 
@@ -456,7 +460,7 @@ const [popupType, setPopupType] = useState<"success" | "error">("success");
                                             // Get logged-in user email
                                             const loggedInEmail = typeof window !== "undefined" ? localStorage.getItem("user_email") : "";
                                             if (!loggedInEmail) {
-                                                alert("User email not found. Please log in again.");
+                                                showAlert("User email not found. Please log in again.", "error");
                                                 return;
                                             }
 
@@ -487,8 +491,7 @@ const [popupType, setPopupType] = useState<"success" | "error">("success");
                                             const data = await response.json();
                                             console.log("Report submitted:", data);
 
-                                            setPopupMessage("Report submitted successfully!");
-                                                setPopupType("success");
+                                            showAlert("Report submitted successfully!", "success");
 
                                             setReportContent("");
                                             setReportStatus(selectedTask.status);
@@ -497,8 +500,7 @@ const [popupType, setPopupType] = useState<"success" | "error">("success");
 
                                         } catch (err) {
                                             console.error("Failed to submit report:", err);
-                                            setPopupMessage("Failed to submit report. Please try again.");
-                                            setPopupType("error");
+                                            showAlert("Failed to submit report. Please try again.", "error");
                                         }
                                     }}
                                     disabled={reportContent.trim().length === 0}
@@ -506,59 +508,60 @@ const [popupType, setPopupType] = useState<"success" | "error">("success");
                                     Submit Report
                                 </button>
                             </div>
-                            {popupMessage && (
-  <div className="fixed inset-0 flex items-center justify-center z-50">
-    <div className="bg-black bg-opacity-40 absolute inset-0"></div>
-    <div className="bg-white rounded-xl p-6 shadow-lg z-10 max-w-sm text-center">
-      <h3 className={`text-lg font-semibold mb-2 ${popupType === "success" ? "text-green-600" : "text-red-600"}`}>
-        {popupType === "success" ? "Success" : "Error"}
-      </h3>
-      <p className="text-gray-700 mb-4">{popupMessage}</p>
-      <button
-        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
-        onClick={() => setPopupMessage(null)}
-      >
-        Close
-      </button>
-    </div>
-  </div>
-)}
-
                         </div>
                     </div>
                 </div>
             )}
 
+            {/* Popup Alert */}
+            {popupMessage && (
+                <div className="fixed inset-0 flex items-center justify-center z-50">
+                    <div className="bg-black bg-opacity-40 absolute inset-0"></div>
+                    <div className="bg-white rounded-xl p-6 shadow-lg z-10 max-w-sm text-center">
+                        <h3 className={`text-lg font-semibold mb-2 ${popupType === "success" ? "text-green-600" : "text-red-600"}`}>
+                            {popupType === "success" ? "Success" : "Error"}
+                        </h3>
+                        <p className="text-gray-700 mb-4">{popupMessage}</p>
+                        <button
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+                            onClick={() => setPopupMessage(null)}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <style jsx>{`
- /* Mobile first */
- @media (max-width: 640px) {
- .task-grid {
- display: flex;
- flex-direction: column;
- gap: 1rem;
- }
- .task-grid > div {
- padding: 12px;
- }
- .task-grid button {
- width: 100%;
- }
- }
- @media (min-width: 641px) and (max-width: 1024px) {
- .task-grid {
- display: grid;
- grid-template-columns: repeat(2, 1fr);
- gap: 1rem;
- }
- }
- @media (min-width: 1025px) {
- .task-grid {
- display: grid;
- grid-template-columns: repeat(3, 1fr);
- gap: 1.25rem;
- }
- }
- `}</style>
+                /* Mobile first */
+                @media (max-width: 640px) {
+                    .task-grid {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 1rem;
+                    }
+                    .task-grid > div {
+                        padding: 12px;
+                    }
+                    .task-grid button {
+                        width: 100%;
+                    }
+                }
+                @media (min-width: 641px) and (max-width: 1024px) {
+                    .task-grid {
+                        display: grid;
+                        grid-template-columns: repeat(2, 1fr);
+                        gap: 1rem;
+                    }
+                }
+                @media (min-width: 1025px) {
+                    .task-grid {
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        gap: 1.25rem;
+                    }
+                }
+            `}</style>
         </DashboardLayout>
     );
 }

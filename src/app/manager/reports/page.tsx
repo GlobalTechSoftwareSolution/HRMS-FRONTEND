@@ -16,6 +16,8 @@ type Report = {
 export default function Reports() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -38,6 +40,16 @@ export default function Reports() {
     fetchReports();
   }, []);
 
+  const openReport = (report: Report) => {
+    setSelectedReport(report);
+    setShowModal(true);
+  };
+
+  const closeReport = () => {
+    setSelectedReport(null);
+    setShowModal(false);
+  };
+
   const todayDate = new Date().toISOString().split("T")[0];
   const todayReports = reports.filter(r => r.date.startsWith(todayDate));
 
@@ -45,7 +57,7 @@ export default function Reports() {
     <DashboardLayout role="manager">
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-2xl md:text-3xl font-bold mb-4">Reports 📊</h1>
+          <h1 className="text-2xl md:text-3xl font-bold mb-4 text-gray-900">Reports 📊</h1>
 
           {loading ? (
             <p className="text-gray-500">Loading reports...</p>
@@ -66,22 +78,23 @@ export default function Reports() {
               </div>
 
               {/* Today's Reports */}
-              <div className="bg-white p-4 md:p-6 rounded-xl shadow border border-gray-100 mb-6">
-                <h2 className="text-lg font-semibold mb-3">Today&apos;s Reports ({todayReports.length})</h2>
+              <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 mb-6">
+                <h2 className="text-xl font-semibold mb-4 text-gray-800">Today&apos;s Reports ({todayReports.length})</h2>
                 {todayReports.length === 0 ? (
                   <p className="text-gray-500">No reports created today.</p>
                 ) : (
-                  <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {todayReports.map(report => (
-                      <div key={report.id} className="p-3 rounded-lg border border-gray-200 bg-white hover:shadow-lg">
-                        <div className="flex justify-between items-center mb-1">
-                          <h3 className="font-semibold text-gray-800">{report.title}</h3>
+                      <div
+                        key={report.id}
+                        className="p-4 rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                        onClick={() => openReport(report)}
+                      >
+                        <div className="flex justify-between items-center mb-2">
+                          <h3 className="font-semibold text-gray-900 text-lg">{report.title}</h3>
                           <span className="text-xs text-gray-500">{report.email}</span>
                         </div>
-                        <p className="text-gray-600">{report.description}</p>
-                        <div className="mt-1 text-sm text-gray-500">
-                          {new Date(report.created_at).toLocaleString()}
-                        </div>
+                        <p className="text-gray-700">{report.description}</p>
                       </div>
                     ))}
                   </div>
@@ -89,18 +102,41 @@ export default function Reports() {
               </div>
 
               {/* All Reports */}
-              <div className="bg-white p-4 md:p-6 rounded-xl shadow border border-gray-100">
-                <h2 className="text-lg font-semibold mb-3">All Reports</h2>
-                <div className="flex flex-col gap-3">
+              <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+                <h2 className="text-xl font-semibold mb-4 text-gray-800">All Reports</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {reports.map(report => (
-                    <div key={report.id} className="p-3 rounded-lg border border-gray-200 bg-gray-50">
-                      <h3 className="font-semibold text-gray-800">{report.title}</h3>
-                      <p className="text-gray-600">{report.description}</p>
-                      <p className="text-xs text-gray-500 mt-1">By {report.email}</p>
+                    <div
+                      key={report.id}
+                      className="p-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-white hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+                      onClick={() => openReport(report)}
+                    >
+                      <h3 className="font-semibold text-gray-900 text-lg">{report.title}</h3>
+                      <p className="text-gray-700 mt-1">{report.description}</p>
+                      <p className="text-xs text-gray-500 mt-2">By {report.email}</p>
                     </div>
                   ))}
                 </div>
               </div>
+
+              {/* Modal */}
+              {showModal && selectedReport && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity duration-300">
+                  <div className="bg-white p-6 rounded-2xl max-w-lg w-full shadow-2xl relative animate-fade-in">
+                    <button
+                      className="absolute top-3 right-3 text-gray-400 hover:text-gray-800 text-lg font-bold"
+                      onClick={closeReport}
+                    >
+                      ✖
+                    </button>
+                    <h2 className="text-2xl font-bold mb-3 text-gray-900">{selectedReport.title}</h2>
+                    <p className="text-gray-700 mb-2">{selectedReport.description}</p>
+                    <p className="text-gray-500 mb-1">By: {selectedReport.email}</p>
+                    <p className="text-gray-500 mb-3">Date: {new Date(selectedReport.date).toLocaleDateString()}</p>
+                    <div className="mt-4 border-t pt-3 text-gray-700 whitespace-pre-wrap">{selectedReport.content}</div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

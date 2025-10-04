@@ -17,6 +17,7 @@ type Task = {
   due_date?: string | null;
   completed_date?: string | null;
   assigned_to?: string;
+  email: string;
 };
 
 type Employee = {
@@ -329,6 +330,7 @@ const handleSendTask = async () => {
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between text-sm text-gray-500">
                       <div className="flex items-center">
                         <FiUser className="mr-1" />
+                        <span className="font-medium">{task.email}</span>
                         <span className="font-medium">{task.department}</span>
                       </div>
 

@@ -6,29 +6,40 @@ import { motion, AnimatePresence } from "framer-motion";
 
 type AttendanceRecord = {
   email: string;
-  name: string;
-  Department: string;
+  fullname: string;
+  department: string;
   date: string;
   check_in: string | null;
   check_out: string | null;
-  hours: number;
+  hours: { hrs: number; mins: number; secs: number };
 };
 
 type ApiAttendanceResponse = {
   attendance: {
     email: string;
-    Department: string;
-    name: string;
+    fullname: string;
+    department: string;
     date: string;
     check_in: string | null;
     check_out: string | null;
   }[];
 };
 
+type Employee = {
+  id: number;
+  email: string;
+  fullname: string;
+  department: string;
+};
+
 export default function ManagerDashboard() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalEmployees, setTotalEmployees] = useState(0);
+  const [_employees, setEmployees] = useState<Employee[]>([]);
+  const [_loadingEmployees, setLoadingEmployees] = useState(true);
 
+  // ---------------- Fetch Attendance ----------------
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -40,27 +51,31 @@ export default function ManagerDashboard() {
         const data: ApiAttendanceResponse = await res.json();
 
         const mapped: AttendanceRecord[] = (data.attendance || []).map((a) => {
-          let hours = 0;
+          let hours = { hrs: 0, mins: 0, secs: 0 };
           if (a.check_in && a.check_out) {
             const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
             const outTime = new Date(`${a.date}T${a.check_out}`).getTime();
-            hours = Math.max(0, (outTime - inTime) / (1000 * 60 * 60));
+            const diffInSeconds = Math.max(0, (outTime - inTime) / 1000);
+            hours = {
+              hrs: Math.floor(diffInSeconds / 3600),
+              mins: Math.floor((diffInSeconds % 3600) / 60),
+              secs: Math.round(diffInSeconds % 60),
+            };
           }
           return {
             email: a.email,
-            Department: a.Department,
-            name: a.name,
+            fullname: a.fullname,
+            department: a.department,
             date: a.date,
             check_in: a.check_in,
             check_out: a.check_out,
-            hours: parseFloat(hours.toFixed(2)),
+            hours,
           };
         });
 
         setAttendance(mapped);
       } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "Unknown error occurred";
+        const message = err instanceof Error ? err.message : "Unknown error occurred";
         console.error("Error fetching data:", message);
       } finally {
         setLoading(false);
@@ -69,18 +84,44 @@ export default function ManagerDashboard() {
     fetchData();
   }, []);
 
+  // ---------------- Fetch Employees ----------------
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setLoadingEmployees(true);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees`
+        );
+        if (!res.ok) throw new Error("Failed to fetch employees");
+        const data: Employee[] = await res.json();
+        setEmployees(data);
+        setTotalEmployees(data.length);
+      } catch (err) {
+        console.error("Error fetching employees:", err);
+      } finally {
+        setLoadingEmployees(false);
+      }
+    };
+    fetchEmployees();
+  }, []);
+
   const today = new Date().toISOString().split("T")[0];
   const todaysAttendance = attendance.filter((a) => a.date === today);
-
-  const totalEmployees = attendance.length;
-  const checkedIn = attendance.filter((a) => a.check_in).length;
+  const checkedIn = todaysAttendance.filter((a) => a.check_in).length;
   const absent = totalEmployees - checkedIn;
-  const avgHours =
-    totalEmployees > 0
-      ? (attendance.reduce((acc, a) => acc + a.hours, 0) / totalEmployees).toFixed(2)
-      : "0.00";
 
-  // ------------------ PDF Generation ------------------
+  const totalHoursToday = todaysAttendance.reduce(
+    (acc, a) => acc + (a.hours.hrs * 3600 + a.hours.mins * 60 + a.hours.secs),
+    0
+  );
+  const totalHoursTodayDisplay = (() => {
+    const hrs = Math.floor(totalHoursToday / 3600);
+    const mins = Math.floor((totalHoursToday % 3600) / 60);
+    const secs = Math.round(totalHoursToday % 60);
+    return `${hrs}h ${mins}m ${secs}s`;
+  })();
+
+  // ---------------- PDF Generation ----------------
   const downloadPDF = async () => {
     const jsPDFModule = (await import("jspdf")).default;
     const autoTableModule = (await import("jspdf-autotable")).default;
@@ -93,25 +134,44 @@ export default function ManagerDashboard() {
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
-    doc.text("Today's Attendance Report", doc.internal.pageSize.getWidth() / 2, 40, { align: "center" });
+    doc.text(
+      "Today's Attendance Report",
+      doc.internal.pageSize.getWidth() / 2,
+      40,
+      { align: "center" }
+    );
 
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
     const todayStr = new Date().toLocaleDateString();
-    doc.text(`Date: ${todayStr}`, doc.internal.pageSize.getWidth() / 2, 60, { align: "center" });
+    doc.text(`Date: ${todayStr}`, doc.internal.pageSize.getWidth() / 2, 60, {
+      align: "center",
+    });
 
-    const tableColumn = ["ID", "Employee Name", "Email", "Department", "Check-in", "Check-out", "Hours"];
+    const tableColumn = [
+      "ID",
+      "Employee Name",
+      "Email",
+      "Department",
+      "Check-in",
+      "Check-out",
+      "Hours",
+    ];
     const tableRows: (string | number)[][] = [];
 
     todaysAttendance.forEach((rec, idx) => {
       tableRows.push([
         idx + 1,
-        rec.name || "Unknown",
+        rec.fullname || "Unknown",
         rec.email || "-",
-        rec.Department || "-",
-        rec.check_in || "Pending",
-        rec.check_out || "Pending",
-        typeof rec.hours === "number" ? rec.hours.toFixed(2) : "0.00",
+        rec.department || "-",
+        rec.check_in
+          ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
+          : "Pending",
+        rec.check_out
+          ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
+          : "Pending",
+        `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`,
       ]);
     });
 
@@ -161,10 +221,18 @@ export default function ManagerDashboard() {
           transition={{ duration: 0.5, delay: 0.2 }}
         >
           {[
-            { title: "Total Employees", value: totalEmployees, color: "bg-gradient-to-r from-blue-400 to-blue-600" },
+            {
+              title: "Total Employees",
+              value: totalEmployees,
+              color: "bg-gradient-to-r from-blue-400 to-blue-600",
+            },
             { title: "Checked In", value: checkedIn, color: "bg-gradient-to-r from-green-400 to-green-600" },
             { title: "Absent", value: absent, color: "bg-gradient-to-r from-red-400 to-red-600" },
-            { title: "Avg Hours", value: avgHours, color: "bg-gradient-to-r from-purple-400 to-purple-600" },
+            {
+              title: "Total Hours",
+              value: totalHoursTodayDisplay,
+              color: "bg-gradient-to-r from-purple-400 to-purple-600",
+            },
           ].map((kpi) => (
             <motion.div
               key={kpi.title}
@@ -219,7 +287,7 @@ export default function ManagerDashboard() {
                   className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
                 >
                   <div className="mb-3 sm:mb-4">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.name}</h3>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.fullname}</h3>
                     <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
                   </div>
                   <div className="mb-2 sm:mb-3">
@@ -246,12 +314,21 @@ export default function ManagerDashboard() {
                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
-                        animate={{ width: `${Math.min((rec.hours / 8) * 100, 100)}%` }}
+                        animate={{
+                          width: `${
+                            Math.min(
+                              ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
+                              100
+                            )
+                          }%`
+                        }}
                         transition={{ duration: 1 }}
                         className="h-2 bg-blue-500 rounded-full"
                       />
                     </div>
-                    <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">{rec.hours} hrs</p>
+                    <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
+                      {rec.hours.hrs}h {rec.hours.mins}m {rec.hours.secs}s
+                    </p>
                   </div>
                 </motion.div>
               ))}
@@ -283,7 +360,7 @@ export default function ManagerDashboard() {
                   className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
                 >
                   <div className="mb-3 sm:mb-4">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.name}</h3>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.fullname}</h3>
                     <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
                   </div>
                   <div className="mb-2 sm:mb-3">
@@ -314,12 +391,21 @@ export default function ManagerDashboard() {
                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
-                        animate={{ width: `${Math.min((rec.hours / 8) * 100, 100)}%` }}
+                        animate={{
+                          width: `${
+                            Math.min(
+                              ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
+                              100
+                            )
+                          }%`
+                        }}
                         transition={{ duration: 1 }}
                         className="h-2 bg-purple-500 rounded-full"
                       />
                     </div>
-                    <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">{rec.hours} hrs</p>
+                    <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
+                      {rec.hours.hrs}h {rec.hours.mins}m {rec.hours.secs}s
+                    </p>
                   </div>
                 </motion.div>
               ))}

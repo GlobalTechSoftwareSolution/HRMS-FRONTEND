@@ -3,6 +3,8 @@
 import React, { useRef, useState, useCallback } from 'react';
 import Webcam from 'react-webcam';
 import { Camera, Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import Image from "next/image";
+
 
 interface ApiResponse {
   success: boolean;
@@ -206,17 +208,20 @@ const FaceScanPage = () => {
 
       {/* Captured Image Preview */}
       {capturedImage && (
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-700 mb-3">Captured Image</h3>
-          <div className="relative bg-gray-100 rounded-lg p-4">
-            <img
-              src={capturedImage}
-              alt="Captured for attendance"
-              className="rounded-lg shadow-md max-w-full mx-auto max-h-64 object-cover"
-            />
-          </div>
-        </div>
-      )}
+  <div className="mb-6">
+    <h3 className="text-lg font-semibold text-gray-700 mb-3">Captured Image</h3>
+    <div className="relative bg-gray-100 rounded-lg p-4">
+      <Image
+        src={capturedImage}
+        alt="Captured for attendance"
+        width={256} // approximate width
+        height={256} // approximate height
+        className="rounded-lg shadow-md object-cover mx-auto"
+      />
+    </div>
+  </div>
+)}
+
 
       {/* Loading State */}
       {isLoading && (
