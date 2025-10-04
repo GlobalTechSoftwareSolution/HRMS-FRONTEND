@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
@@ -49,8 +50,8 @@ const HolidayCalendar: React.FC = () => {
           const timeMax = `${year}-12-31T23:59:59Z`;
 
           const res = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?` +
-              `key=${API_KEY}&timeMin=${timeMin}&timeMax=${timeMax}&maxResults=250&orderBy=startTime&singleEvents=true`
+            `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events? +
+              key=${API_KEY}&timeMin=${timeMin}&timeMax=${timeMax}&maxResults=250&orderBy=startTime&singleEvents=true`
           );
 
           if (!res.ok) {
@@ -112,7 +113,7 @@ const HolidayCalendar: React.FC = () => {
     return holidays.filter((h) => h.date === formatted);
   };
 
-  // const handleDateChange = (value: Date) => setSelectedDate(value);
+  const handleDateChange = (value: Date) => setSelectedDate(value);
 
   const tileClassName = ({ date, view }: { date: Date; view: string }) => {
     if (view !== "month") return "";
@@ -215,10 +216,10 @@ const HolidayCalendar: React.FC = () => {
                     </div>
                   )}
                   <Calendar
-                    // onChange={handleDateChange}
+                    onChange={handleDateChange}
                     value={selectedDate}
                     view={activeView}
-                    // onViewChange={(v) => setActiveView(v as CalendarView)}
+                    onViewChange={(v) => setActiveView(v as CalendarView)}
                     tileClassName={tileClassName}
                     tileContent={tileContent}
                     className="rounded-xl border-0 shadow-inner bg-gray-50/50 p-4 mt-5 mb-5 gap-5"
@@ -356,19 +357,19 @@ const HolidayCalendar: React.FC = () => {
 
         {error && (
           <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 font-medium text-center">
-            ⚠️ {error}
+            ⚠ {error}
           </div>
         )}
       </div>
 
       <style jsx global>{`
         /* Weekday spacing */
-        .react-calendar__month-view__weekdays {
+        .react-calendar_month-view_weekdays {
           display: flex !important;
           justify-content: space-between !important;
           margin-bottom: 8px;
         }
-        .react-calendar__month-view__weekdays__weekday {
+        .react-calendar_month-viewweekdays_weekday {
           text-align: center;
           font-weight: 600;
           color: #4b5563;

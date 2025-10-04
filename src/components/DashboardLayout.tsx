@@ -273,8 +273,8 @@ export default function DashboardLayout({ children, role }: Props) {
               <Image
                 src={profilePic}
                 alt={userInfo?.name || "Profile"}
-                width={40}
-                height={40}
+                width={64}
+                height={64}
                 unoptimized
                 className="rounded-full border border-gray-300 shadow-sm object-cover cursor-pointer"
               />

@@ -46,27 +46,15 @@ export default function PayrollDashboard() {
 
         const data: { payroll?: PayrollAPIItem; payrolls?: PayrollAPIItem[] } = await response.json();
 
-        const normalizeStatus = (status: string) => {
-          switch (status.toLowerCase()) {
-            case "done":
-              return "paid";
-            case "pending":
-              return "pending";
-            case "processing":
-              return "processing";
-            default:
-              return "pending";
-          }
-        };
+        // Remove normalizeStatus function entirely
 
-        // Convert single object or array to array
         const payrollArray: PayrollAPIItem[] = data.payroll ? [data.payroll] : data.payrolls || [];
 
         const mappedData: PayrollRecord[] = payrollArray.map((item, index) => ({
           id: index + 1,
           month: `${item.month} ${item.year}`,
           basicSalary: Number(item.basic_salary) || 0,
-          status: normalizeStatus(item.status) as "paid" | "pending" | "processing",
+          status: item.status.toLowerCase() as "paid" | "pending" | "processing", // directly from DB
           paymentDate: item.pay_date,
           email: item.email,
         }));
@@ -154,9 +142,11 @@ export default function PayrollDashboard() {
                 className="pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
               >
                 <option value="all">All Status</option>
-                <option value="paid">Paid</option>
-                <option value="processing">Processing</option>
-                <option value="pending">Pending</option>
+                {Array.from(new Set(payrollData.map((rec) => rec.status))).map((status) => (
+                  <option key={status} value={status}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </option>
+                ))}
               </select>
               <FiFilter className="absolute right-2 top-3 text-gray-400 pointer-events-none" />
             </div>
