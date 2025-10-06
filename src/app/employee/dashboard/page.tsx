@@ -41,7 +41,6 @@ export default function DashboardOverview() {
   const [attendanceRate, setAttendanceRate] = useState<number>(0);
   const [pendingRequests, setPendingRequests] = useState<number>(0);
   const [hoursThisWeek, setHoursThisWeek] = useState<number>(0);
-  const [dailyHours, setDailyHours] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [leaveData, setLeaveData] = useState<LeaveRecord[]>([]);
@@ -108,7 +107,6 @@ export default function DashboardOverview() {
       });
 
       setHoursThisWeek(weekHours);
-      setDailyHours(dailyHoursCalc);
     } catch (err) {
       console.error("Dashboard fetch error:", err);
     } finally {

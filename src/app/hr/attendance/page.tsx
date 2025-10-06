@@ -36,7 +36,6 @@ export default function ManagerDashboard() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loadingEmployees, setLoadingEmployees] = useState(true);
 
   // ---------------- Fetch Attendance ----------------
   useEffect(() => {
@@ -86,7 +85,6 @@ export default function ManagerDashboard() {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        setLoadingEmployees(true);
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees`
         );
@@ -95,8 +93,6 @@ export default function ManagerDashboard() {
         setEmployees(data);
       } catch (err) {
         console.error("Error fetching employees:", err);
-      } finally {
-        setLoadingEmployees(false);
       }
     };
     fetchEmployees();
@@ -234,9 +230,9 @@ export default function ManagerDashboard() {
           ))}
         </motion.div>
 
-        {/* Today's Attendance + Download PDF */}
+        {/* Today Attendance + Download PDF */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-700">Today's Attendance</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-700">Today Attendance</h2>
           <button
             onClick={downloadPDF}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg sm:mt-5 sm:mb-5 hover:bg-blue-700"

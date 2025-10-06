@@ -244,21 +244,28 @@ const FaceScanPage = () => {
 
       {/* API Response Display */}
       {apiResponse && (
+  <>
+    {(() => {
+      const isSuccess =
+        apiResponse.success === true ||
+        (apiResponse.message && /already marked/i.test(apiResponse.message));
+
+      return (
         <div className={`p-6 rounded-lg border-2 ${
-          apiResponse.success 
-            ? 'bg-green-50 border-green-200' 
-            : 'bg-red-50 border-red-200'
+          isSuccess ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
         }`}>
           <div className="flex items-center gap-3 mb-4">
-            {apiResponse.success ? (
+            {isSuccess ? (
               <CheckCircle className="w-6 h-6 text-green-600" />
             ) : (
               <AlertCircle className="w-6 h-6 text-red-600" />
             )}
             <h3 className={`text-lg font-semibold ${
-              apiResponse.success ? 'text-green-800' : 'text-red-800'
+              isSuccess ? 'text-green-800' : 'text-red-800'
             }`}>
-              {apiResponse.success ? 'Attendance Marked Successfully!' : 'Attendance Failed'}
+              {isSuccess
+                ? apiResponse.message || 'Attendance Marked Successfully!'
+                : apiResponse.message || 'Attendance Failed'}
             </h3>
           </div>
 
@@ -282,21 +289,12 @@ const FaceScanPage = () => {
                 <span className="font-medium">{formatTimestamp(apiResponse.timestamp)}</span>
               </div>
             )}
-            
-            {apiResponse.message && (
-              <div className="mt-3 p-3 bg-white rounded border">
-                <span className="text-gray-700">{apiResponse.message}</span>
-              </div>
-            )}
-            
-            {apiResponse.error && (
-              <div className="mt-3 p-3 bg-red-100 rounded border border-red-200">
-                <span className="text-red-700">{apiResponse.error}</span>
-              </div>
-            )}
           </div>
         </div>
-      )}
+      );
+    })()}
+  </>
+)}
 
       {/* Footer Info */}
       <div className="mt-8 pt-6 border-t border-gray-200">

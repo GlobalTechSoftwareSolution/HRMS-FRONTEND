@@ -3,6 +3,14 @@ import React, { useState, useEffect, useRef } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import Image from "next/image";
 
+// API response type for mark_attendance endpoint
+type APIResponse = {
+    status?: string;
+    message?: string;
+    username?: string;
+    email?: string;
+};
+
 type AttendanceRecord = {
     id: string;
     date: string;
@@ -37,7 +45,7 @@ export default function AttendancePortal() {
     const [loadingFetchedAttendance, setLoadingFetchedAttendance] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
     // New state to store last API response
-    const [apiResponse, setApiResponse] = useState<any>(null);
+    const [apiResponse, setApiResponse] = useState<APIResponse | null>(null);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -162,7 +170,7 @@ export default function AttendancePortal() {
                     );
 
                     // Accept any shape of response
-                    const data: any = await res.json();
+                    const data: APIResponse = await res.json();
                     setApiResponse(data); // Save the API response
 
                     if (res.ok && data.username && data.email) {
@@ -177,18 +185,15 @@ export default function AttendancePortal() {
                         }
 
                         // Only show attendance info if API recognized correct user
-                        let userTodayRecord = attendance.find(
+                        const userTodayRecord = attendance.find(
+                            (record) =>
+                                new Date(record.date).toDateString() === today.toDateString() &&
+                                record.email === data.email
+                        ) || fetchedAttendance.find(
                             (record) =>
                                 new Date(record.date).toDateString() === today.toDateString() &&
                                 record.email === data.email
                         );
-                        if (!userTodayRecord) {
-                            userTodayRecord = fetchedAttendance.find(
-                                (record) =>
-                                    new Date(record.date).toDateString() === today.toDateString() &&
-                                    record.email === data.email
-                            );
-                        }
 
                         if (!userTodayRecord) {
                             setRecognizedStatus("Ready to Check In");
@@ -223,7 +228,7 @@ export default function AttendancePortal() {
                         // Fallback: If today attendance exists for loggedInEmail, use that name/email
                         let fallbackName = extractedName;
                         let fallbackEmail = null;
-                        let userTodayRecord =
+                        const userTodayRecord =
                             attendance.find(
                                 (record) =>
                                     new Date(record.date).toDateString() === today.toDateString() &&
@@ -265,7 +270,7 @@ export default function AttendancePortal() {
                         stopWebcam();
                     } else {
                         // Fallback: If today attendance exists for loggedInEmail, use that
-                        let userTodayRecord =
+                        const userTodayRecord =
                             attendance.find(
                                 (record) =>
                                     new Date(record.date).toDateString() === today.toDateString() &&
@@ -411,17 +416,6 @@ export default function AttendancePortal() {
                                                     recognizedName !== "Unknown"
                                                 ) {
                                                     // Show recognized info and attendance for correct user
-                                                    let userTodayRecord =
-                                                        attendance.find(
-                                                            (record) =>
-                                                                new Date(record.date).toDateString() === today.toDateString() &&
-                                                                record.email === recognizedEmail
-                                                        ) ||
-                                                        fetchedAttendance.find(
-                                                            (record) =>
-                                                                new Date(record.date).toDateString() === today.toDateString() &&
-                                                                record.email === recognizedEmail
-                                                        );
                                                     return (
                                                         <>
                                                             <div className="text-3xl font-bold mb-2">👋 {recognizedName}</div>
@@ -508,17 +502,6 @@ export default function AttendancePortal() {
                                             recognizedName &&
                                             recognizedName !== "Unknown"
                                         ) {
-                                            let userTodayRecord =
-                                                attendance.find(
-                                                    (record) =>
-                                                        new Date(record.date).toDateString() === today.toDateString() &&
-                                                        record.email === recognizedEmail
-                                                ) ||
-                                                fetchedAttendance.find(
-                                                    (record) =>
-                                                        new Date(record.date).toDateString() === today.toDateString() &&
-                                                        record.email === recognizedEmail
-                                                );
                                             return (
                                                 <>
                                                     <div className="text-3xl font-bold mb-2">✅ {recognizedName}</div>
@@ -532,7 +515,16 @@ export default function AttendancePortal() {
                                                         />
                                                     )}
                                                     <div className="text-lg mb-1">
-                                                        {userTodayRecord && userTodayRecord.checkOut
+                                                        {(attendance.find(
+                                                            (record) =>
+                                                                new Date(record.date).toDateString() === today.toDateString() &&
+                                                                record.email === recognizedEmail
+                                                        ) ||
+                                                        fetchedAttendance.find(
+                                                            (record) =>
+                                                                new Date(record.date).toDateString() === today.toDateString() &&
+                                                                record.email === recognizedEmail
+                                                        ))?.checkOut
                                                             ? "Attendance completed for today"
                                                             : "Attendance already marked for today"}
                                                     </div>

@@ -36,8 +36,8 @@ export default function ManagerDashboard() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalEmployees, setTotalEmployees] = useState(0);
-  const [_employees, setEmployees] = useState<Employee[]>([]);
-  const [_loadingEmployees, setLoadingEmployees] = useState(true);
+  const [, setEmployees] = useState<Employee[]>([]);
+  const [, setLoadingEmployees] = useState(true);
 
   // ---------------- Fetch Attendance ----------------
   useEffect(() => {

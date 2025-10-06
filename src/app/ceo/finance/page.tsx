@@ -5,7 +5,6 @@ import {
   FiArrowUp, 
   FiArrowDown, 
   FiTrendingUp,
-  FiSearch,
   FiUsers
 } from "react-icons/fi";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -34,7 +33,7 @@ interface Employee {
   id: number;
   email: string;
   salary: number;
-  status: "Credited" | "Pending";
+  status: "Credited" | "Pending" | "Paid";
   date: string;
   department: string;
   name: string;
@@ -62,10 +61,6 @@ const FinanceDashboard: React.FC = () => {
   };
 
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [departmentFilter, setDepartmentFilter] = useState("All");
 
   const [financeData, setFinanceData] = useState({
     totalPayroll: 0,
@@ -105,7 +100,6 @@ const FinanceDashboard: React.FC = () => {
         }));
 
         setEmployees(mapped);
-        setFilteredEmployees(mapped);
 
         // --------------------- FINANCE CALCULATIONS ---------------------
         const totalPayroll = mapped.reduce((acc, emp) => acc + emp.salary, 0);
@@ -166,49 +160,10 @@ const FinanceDashboard: React.FC = () => {
     fetchPayroll();
   }, []);
 
-  // --------------------- FILTER ---------------------
-  useEffect(() => {
-    let result = employees;
-
-    if (searchTerm) {
-      result = result.filter(emp =>
-        emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.department.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (statusFilter !== "All") {
-      result = result.filter(emp => emp.status === statusFilter);
-    }
-
-    if (departmentFilter !== "All") {
-      result = result.filter(emp => emp.department === departmentFilter);
-    }
-
-    setFilteredEmployees(result);
-  }, [searchTerm, statusFilter, departmentFilter, employees]);
-
-  const departments = ["All", ...Array.from(new Set(employees.map(emp => emp.department)))];
-  const statuses = ["All", "Credited", "Pending"];
-
   // Helper component to render payroll table and cards
   const PayrollSection: React.FC<{title: string; payrolls: Employee[]}> = ({title, payrolls}) => (
     <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md border border-gray-100 mb-8">
       <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">{title}</h2>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-4">
-        <div className="relative flex-1">
-          <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"/>
-          <input type="text" placeholder="Search employees..." className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full" value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)}/>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <select className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value={departmentFilter} onChange={(e)=>setDepartmentFilter(e.target.value)}>
-            {departments.map(d=> <option key={d} value={d}>{d}</option>)}
-          </select>
-          <select className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)}>
-            {statuses.map(s=> <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-      </div>
 
       {/* Responsive Table */}
       <div className="overflow-x-auto hidden sm:block">
@@ -223,13 +178,13 @@ const FinanceDashboard: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredEmployees.map(emp=>(
+            {payrolls.map(emp => (
               <tr key={emp.id} className="border-b hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900">{emp.name}</td>
                 <td className="px-4 py-3">{emp.department}</td>
                 <td className="px-4 py-3">{emp.salary.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-3 py-1 text-xs font-medium rounded-full ${emp.status==="Credited"?"bg-green-100 text-green-600":"bg-red-100 text-red-600"}`}>
+                  <span className={`px-3 py-1 text-xs font-medium rounded-full ${emp.status === "Credited" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
                     {emp.status}
                   </span>
                 </td>
@@ -242,11 +197,11 @@ const FinanceDashboard: React.FC = () => {
 
       {/* Cards for small devices */}
       <div className="sm:hidden flex flex-col gap-4">
-        {filteredEmployees.map(emp=>(
+        {payrolls.map(emp => (
           <div key={emp.id} className="p-4 rounded-xl shadow-md border border-gray-200 bg-white">
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-semibold text-gray-800">{emp.name}</h3>
-              <span className={`px-2 py-1 text-xs font-medium rounded-full ${emp.status==="Credited"?"bg-green-100 text-green-600":"bg-red-100 text-red-600"}`}>
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${emp.status === "Credited" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
                 {emp.status}
               </span>
             </div>

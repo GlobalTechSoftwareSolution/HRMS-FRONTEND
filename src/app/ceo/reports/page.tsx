@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import Image from "next/image";
 import jsPDF from "jspdf";
-import autoTable, { UserOptions } from "jspdf-autotable";
+import autoTable  from "jspdf-autotable";
 
 interface Employee {
   name: string;
@@ -155,7 +155,12 @@ export default function ReportsAndTasksPage() {
       headStyles: { fillColor: [37, 99, 235] },
     });
 
-    y = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 10 : y + 60;
+    // Fix TypeScript error for doc.lastAutoTable by using a safer type than 'any'
+    interface LastAutoTable {
+        finalY?: number;
+    }
+    const lastTable = (doc as unknown as { lastAutoTable?: LastAutoTable }).lastAutoTable;
+    y = lastTable?.finalY ? lastTable.finalY + 10 : y + 60;
 
     // -------------------- Reports --------------------
     doc.setFontSize(14);

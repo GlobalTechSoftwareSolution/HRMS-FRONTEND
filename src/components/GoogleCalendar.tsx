@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import Calendar from "react-calendar";
+import Calendar, { CalendarProps } from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 
 type Holiday = {
@@ -112,7 +112,11 @@ const HolidayCalendar: React.FC = () => {
     return holidays.filter((h) => h.date === formatted);
   };
 
-  const handleDateChange = (value: Date) => setSelectedDate(value);
+  const handleDateChange: CalendarProps['onChange'] = (value) => {
+    if (value instanceof Date) {
+      setSelectedDate(value);
+    }
+  };
 
   const tileClassName = ({ date, view }: { date: Date; view: string }) => {
     if (view !== "month") return "";
@@ -224,7 +228,7 @@ const HolidayCalendar: React.FC = () => {
                     onChange={handleDateChange}
                     value={selectedDate}
                     view={activeView}
-                    onViewChange={(v) => setActiveView(v as CalendarView)}
+                    onViewChange={(v) => setActiveView(v as unknown as CalendarView)}
                     tileClassName={tileClassName}
                     tileContent={tileContent}
                     className="rounded-xl border-0 shadow-inner bg-gray-50/50 p-4 mt-5 mb-5 gap-5"
