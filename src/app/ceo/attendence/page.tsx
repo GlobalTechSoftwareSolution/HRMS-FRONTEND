@@ -1,6 +1,19 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  Legend as RechartsLegend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -120,6 +133,44 @@ export default function ManagerDashboard() {
     const secs = Math.round(totalHoursToday % 60);
     return `${hrs}h ${mins}m ${secs}s`;
   })();
+
+  // Recharts Data Preparation
+  // Pie Chart: Attendance Distribution
+  const attendancePieData = [
+    { name: "Checked In", value: checkedIn },
+    { name: "Absent", value: absent },
+  ];
+  const pieColors = ["#34d399", "#f87171"]; // green, red
+
+  // ---------------- Bar Chart: Monthly Hours Worked per Employee ----------------
+  const currentMonth = new Date().getMonth(); // 0-11
+  const currentYear = new Date().getFullYear();
+
+  // Filter records for current month
+  const monthlyAttendance = attendance.filter((rec) => {
+    const recDate = new Date(rec.date);
+    return recDate.getMonth() === currentMonth && recDate.getFullYear() === currentYear;
+  });
+
+  // Sum hours per employee
+  const hoursPerEmployeeMap: Record<string, number> = {};
+  monthlyAttendance.forEach((rec) => {
+    const hours =
+      rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600;
+    if (hoursPerEmployeeMap[rec.fullname]) {
+      hoursPerEmployeeMap[rec.fullname] += hours;
+    } else {
+      hoursPerEmployeeMap[rec.fullname] = hours;
+    }
+  });
+
+  // Prepare chart data
+  const barChartData = Object.entries(hoursPerEmployeeMap).map(
+    ([name, hours]) => ({
+      name: name.length > 14 ? name.slice(0, 12) + "…" : name,
+      hours: Number(hours.toFixed(2)),
+    })
+  );
 
   // ---------------- PDF Generation ----------------
   const downloadPDF = async () => {
@@ -243,6 +294,53 @@ export default function ManagerDashboard() {
             </motion.div>
           ))}
         </motion.div>
+
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+          {/* Pie Chart - Attendance Distribution */}
+          <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
+            <h3 className="text-lg font-semibold text-gray-700 mb-4">Attendance Distribution</h3>
+            <div className="w-full h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                 <Pie
+  data={attendancePieData}
+  dataKey="value"
+  nameKey="name"
+  cx="50%"
+  cy="50%"
+  outerRadius={80}
+  label={(props) => {
+    const { name, percent } = props as unknown as { name: string; percent: number };
+    return `${name} (${(percent * 100).toFixed(0)}%)`;
+  }}
+>
+  {attendancePieData.map((entry, idx) => (
+    <Cell key={entry.name} fill={pieColors[idx % pieColors.length]} />
+  ))}
+</Pie>
+                  <RechartsTooltip />
+                  <RechartsLegend verticalAlign="bottom" />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          {/* Bar Chart - Hours Worked per Employee */}
+          <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
+            <h3 className="text-lg font-semibold text-gray-700 mb-4">Hours Worked Per Employee (month)</h3>
+            <div className="w-full h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis label={{ value: "Hours", angle: -90, position: "insideLeft", fontSize: 12 }} />
+                  <RechartsTooltip />
+                  <Bar dataKey="hours" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
 
         {/* Today's Attendance + Download PDF */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">

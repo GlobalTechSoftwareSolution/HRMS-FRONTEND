@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, Home, User, Mail, LogIn, FileText, Users } from "lucide-react";
-import Face from "./facescan";
+import FaceScanPage from "./facescan";
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -257,7 +257,7 @@ export const Navbar: React.FC = () => {
         </AnimatePresence>
       </motion.nav>
 
-      {/* Face Modal */}
+      {/* Attendance Modal with FaceScanPage */}
       <AnimatePresence>
         {isModalOpen && (
           <motion.div
@@ -266,22 +266,10 @@ export const Navbar: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <motion.div
-              className="bg-white rounded-xl shadow-xl w-[90%] max-w-3xl p-6 relative"
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.8 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            >
-              {/* Close Button */}
-              <button className="absolute top-3 right-3 text-gray-500 hover:text-gray-700" onClick={toggleModal}>
-                <X size={24} />
-              </button>
-
-              {/* Face.tsx content */}
-              <Face />
+        
+              {/* FaceScanPage Component */}
+              <FaceScanPage />
             </motion.div>
-          </motion.div>
         )}
       </AnimatePresence>
     </>

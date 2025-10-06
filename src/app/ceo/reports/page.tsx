@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import Image from "next/image";
 import jsPDF from "jspdf";
 import autoTable  from "jspdf-autotable";
 
@@ -136,9 +135,8 @@ export default function ReportsAndTasksPage() {
     doc.setFontSize(14);
     doc.text("Tasks", 14, y);
 
-    const taskColumns = ["Employee", "Email", "Title", "Department", "Priority", "Status", "Due Date"];
+    const taskColumns = ["Email", "Title", "Department", "Priority", "Status", "Due Date"];
     const taskRows = tasks.map(task => [
-      task.assigned_to?.name || "-",
       task.email,
       task.title,
       task.department || "-",
@@ -166,9 +164,8 @@ export default function ReportsAndTasksPage() {
     doc.setFontSize(14);
     doc.text("Reports", 14, y);
 
-    const reportColumns = ["Employee", "Title", "Description", "Date", "Created At", "Updated At"];
+    const reportColumns = ["Title", "Description", "Date", "Created At", "Updated At"];
     const reportRows = reports.map(report => [
-      report.assigned_to?.name || "-",
       report.title,
       report.description,
       report.date ? formatDate(report.date) : "-",
@@ -233,132 +230,103 @@ export default function ReportsAndTasksPage() {
             ) : (
     <>
     {/* Table for md+ */ }
-    < div className = "hidden md:block overflow-x-auto" >
-      <table className="min-w-full divide-y divide-gray-200" >
-        <thead className="bg-gray-50" >
+    <div className="hidden md:block overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
           <tr>
-          {
-            [
-              "Employee",
+            {[
               "Email",
               "Title",
               "Department",
               "Priority",
               "Status",
               "Actions",
-                        ].map((h) => (
-                <th
-                            key= { h }
-                            className = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                { h }
-                </th>
-              ))
-          }
-          </tr>
-          </thead>
-          < tbody className = "bg-white divide-y divide-gray-200" >
-          {
-            tasks.map((task) => (
-              <tr
-                          key= { task.task_id }
-                          className = "hover:bg-gray-50 transition-colors"
+            ].map((h) => (
+              <th
+                key={h}
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-              <td className="px-6 py-4" >
-            <Image
-  src={
-              task.assigned_to?.profileImage || "/placeholder-profile.png"
-            }
-  alt = { task.assigned_to?.name || "No profile" }
-  width = { 40}       // match h-10
-  height = { 40}      // match w-10
-  className = "rounded-full object-cover"
-              />
-              </td>
-              < td className = "px-6 py-4" > { task.email } </td>
-              < td className = "px-6 py-4" > { task.title } </td>
-              < td className = "px-6 py-4" > { task.department } </td>
-              < td className = "px-6 py-4" >
-              <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-                task.priority
-              )}`}
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {tasks.map((task, index) => (
+            <tr
+              key={`${task.task_id}-${index}`}
+              className="hover:bg-gray-50 transition-colors"
             >
-            { task.priority }
-            </span>
-            </td>
-            < td className = "px-6 py-4" >
-              <span
-                              className={
-    `px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-      task.status
-    )}`
-  }
-                            >
-    { task.status }
-    </span>
-    </td>
-    < td className = "px-6 py-4" >
-      <button
-                              onClick={ () => openTaskModal(task) }
-  className = "text-blue-600 hover:text-blue-800 font-medium text-sm"
-    >
-    View
-    </button>
-    </td>
-    </tr>
-                      ))
-}
-</tbody>
-  </table>
-  </div>
-
-{/* Card view for small devices */ }
-<div className="md:hidden grid gap-4" >
-{
-  tasks.map((task) => (
-    <div
-                      key= { task.task_id }
-                      className = "bg-gray-50 p-4 rounded-lg shadow flex flex-col gap-2"
-    >
-    <div className="flex items-center gap-3" >
-  <Image
-  src={ task.assigned_to?.profileImage || "/placeholder-profile.png" }
-  alt = { task.assigned_to?.name || "No profile" }
-  width = { 40}      // corresponds to h-10
-  height = { 40}     // corresponds to w-10
-  className = "rounded-full object-cover"
-    />
-
-    <div className="font-medium" > { task.email } </div>
+              <td className="px-6 py-4">{task.email}</td>
+              <td className="px-6 py-4">{task.title}</td>
+              <td className="px-6 py-4">{task.department}</td>
+              <td className="px-6 py-4">
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+                    task.priority
+                  )}`}
+                >
+                  {task.priority}
+                </span>
+              </td>
+              <td className="px-6 py-4">
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                    task.status
+                  )}`}
+                >
+                  {task.status}
+                </span>
+              </td>
+              <td className="px-6 py-4">
+                <button
+                  onClick={() => openTaskModal(task)}
+                  className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                >
+                  View
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
-  < div className = "text-sm text-gray-600" >
-  Department: { task.department }
-  </div>
-  < div className = "flex gap-2" >
-  <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-    task.priority
-  )}`}
-  >
-  { task.priority }
-  </span>
-  < span
-className = {`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-  task.status
-)}`}
-                        >
-  { task.status }
-  </span>
-  </div>
-  < button
-onClick = {() => openTaskModal(task)}
-className = "text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 self-start"
-  >
-  View
-  </button>
-  </div>
-                  ))}
+
+{/* Card view for small devices */}
+<div className="md:hidden grid gap-4">
+  {tasks.map((task, index) => (
+    <div
+      key={`${task.task_id}-${index}`}
+      className="bg-gray-50 p-4 rounded-lg shadow flex flex-col gap-2"
+    >
+      <div className="flex items-center gap-3">
+        <div className="text-sm text-gray-600">{task.email}</div>
+      </div>
+      <div className="text-sm text-gray-600">Department: {task.department}</div>
+      <div className="flex gap-2">
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+            task.priority
+          )}`}
+        >
+          {task.priority}
+        </span>
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+            task.status
+          )}`}
+        >
+          {task.status}
+        </span>
+      </div>
+      <button
+        onClick={() => openTaskModal(task)}
+        className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 self-start"
+      >
+        View
+      </button>
+    </div>
+  ))}
 </div>
   </>
             )}
@@ -380,96 +348,69 @@ className = "text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 self-sta
       </div>
             ) : (
     <>
-    <div className= "hidden md:block overflow-x-auto" >
-    <table className="min-w-full divide-y divide-gray-200" >
-      <thead className="bg-gray-50" >
-        <tr>
-        {
-          ["Employee", "Title", "Description", "Date", "Actions"].map(
-            (h) => (
+    <div className="hidden md:block overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            {["Title", "Description", "Date", "Actions"].map((h) => (
               <th
-                              key= { h }
-                              className = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-            >
-            { h }
-            </th>
-          )
-                        )
-        }
-        </tr>
+                key={h}
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
         </thead>
-        < tbody className = "bg-white divide-y divide-gray-200" >
-        {
-          reports.map((report, index) => (
+        <tbody className="bg-white divide-y divide-gray-200">
+          {reports.map((report, index) => (
             <tr
-                          key= {`${report.task_id}-${index}`}
-  className = "hover:bg-gray-50 transition-colors"
-    >
-    <td className="px-6 py-4" >
-      <Image
-  src={ report.assigned_to?.profileImage || "/placeholder-profile.png" }
-  alt = { report.assigned_to?.name || "No profile" }
-  width = { 40}          // match the original h-10
-  height = { 40}         // match the original w-10
-  className = "rounded-full object-cover"
-    />
-    </td>
-    < td className = "px-6 py-4 font-medium" > { report.title } </td>
-      < td className = "px-6 py-4 text-gray-600 max-w-xs truncate" >
-        { report.description }
-        </td>
-        < td className = "px-6 py-4 text-gray-600 text-sm" >
-          { formatDate(report.date) }
-          </td>
-          < td className = "px-6 py-4" >
-            <button
-                              onClick={ () => openReportModal(report) }
-  className = "text-blue-600 hover:text-blue-800 font-medium text-sm"
-    >
-    View
-    </button>
-    </td>
-    </tr>
-                      ))
-}
-</tbody>
-  </table>
-  </div>
-
-{/* Card view for small devices */ }
-<div className="md:hidden grid gap-4" >
-{
-  reports.map((report) => (
-    <div
-                      key= { report.task_id }
-                      className = "bg-gray-50 p-4 rounded-lg shadow flex flex-col gap-2"
-    >
-    <div className="flex items-center gap-3" >
-  <Image
-  src={ report.assigned_to?.profileImage || "/placeholder-profile.png" }
-  alt = { report.assigned_to?.name || "No profile" }
-  width = { 40}       // Tailwind h-10
-  height = { 40}      // Tailwind w-10
-  className = "rounded-full object-cover"
-    />
-
-    <div className="font-medium" > { report.title } </div>
+              key={`${report.task_id}-${index}`}
+              className="hover:bg-gray-50 transition-colors"
+            >
+              <td className="px-6 py-4 font-medium">{report.title}</td>
+              <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
+                {report.description}
+              </td>
+              <td className="px-6 py-4 text-gray-600 text-sm">
+                {formatDate(report.date)}
+              </td>
+              <td className="px-6 py-4">
+                <button
+                  onClick={() => openReportModal(report)}
+                  className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                >
+                  View
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
-  < div className = "text-sm text-gray-600 truncate" >
-  { report.description }
-  </div>
-  < div className = "text-sm text-gray-600" >
-  Date: { formatDate(report.date)
-}
-  </div>
-  < button
-onClick = {() => openReportModal(report)}
-className = "text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 self-start"
-  >
-  View
-  </button>
-  </div>
-                  ))}
+
+{/* Card view for small devices */}
+<div className="md:hidden grid gap-4">
+  {reports.map((report, index) => (
+    <div
+      key={`${report.task_id}-${index}`}
+      className="bg-gray-50 p-4 rounded-lg shadow flex flex-col gap-2"
+    >
+      <div className="flex items-center gap-3">
+        <div className="text-sm text-gray-600 font-medium">{report.title}</div>
+      </div>
+      <div className="text-sm text-gray-600 truncate">{report.description}</div>
+      <div className="text-sm text-gray-600">
+        Date: {formatDate(report.date)}
+      </div>
+      <button
+        onClick={() => openReportModal(report)}
+        className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 self-start"
+      >
+        View
+      </button>
+    </div>
+  ))}
 </div>
   </>
             )}
@@ -481,15 +422,15 @@ className = "text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 self-sta
   isTaskModalOpen && selectedTask && (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" >
       <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6" >
-        <div className="flex justify-between items-start mb-4" >
-          <h2 className="text-2xl font-bold" > { selectedTask.title } </h2>
-            < button
-  onClick = { closeModals }
-  className = "text-gray-500 hover:text-gray-700 text-xl"
-    >
-                  & times;
-  </button>
-    </div>
+        <div className="flex justify-between items-start mb-4">
+          <h2 className="text-2xl font-bold">{selectedTask.title}</h2>
+          <button
+            onClick={closeModals}
+            className="text-gray-500 hover:text-gray-700 text-xl ml-4"
+          >
+            &times;
+          </button>
+        </div>
     < div className = "grid grid-cols-1 md:grid-cols-2 gap-4" >
       <div>
       <strong>Department: </strong> {selectedTask.department}
@@ -528,15 +469,15 @@ className = "text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 self-sta
   isReportModalOpen && selectedReport && (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" >
       <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6" >
-        <div className="flex justify-betwaeen items-start mb-4" >
-          <h2 className="text-2xl font-bold" > { selectedReport.title } </h2>
-            < button
-  onClick = { closeModals }
-  className = "text-gray-500 hover:text-gray-700 text-xl"
-    >
-                  & times;
-  </button>
-    </div>
+        <div className="flex justify-between items-start mb-4">
+          <h2 className="text-2xl font-bold">{selectedReport.title}</h2>
+          <button
+            onClick={closeModals}
+            className="text-gray-500 hover:text-gray-700 text-xl ml-4"
+          >
+            &times;
+          </button>
+        </div>
     < div >
     <strong>Description: </strong>
       < p > { selectedReport.description } </p>

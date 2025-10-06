@@ -1,309 +1,182 @@
+
+
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useRef, useState, useCallback } from 'react';
-import Webcam from 'react-webcam';
-import { Camera, Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import Image from "next/image";
+import React, { useState, useRef, useEffect } from "react";
 
-
-interface ApiResponse {
-  success: boolean;
+type APIResponse = {
+  status?: string;
   message?: string;
-  user?: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  timestamp?: string;
-  error?: string;
-}
+  username?: string;
+  email?: string;
+  check_in_status?: "Checked In" | "Checked Out" | null;
+};
 
 const FaceScanPage = () => {
-  const webcamRef = useRef<Webcam>(null);
+  const [modalOpen, setModalOpen] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [cameraEnabled, setCameraEnabled] = useState(true);
-  const [error, setError] = useState<string>('');
+  const [apiResponse, setApiResponse] = useState<APIResponse | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // Video constraints for better quality
-  const videoConstraints = {
-    width: 1280,
-    height: 720,
-    facingMode: "user",
-    frameRate: 30
-  };
-
-  const capture = useCallback(() => {
-    if (webcamRef.current) {
-      const imageSrc = webcamRef.current.getScreenshot();
-      setCapturedImage(imageSrc);
+  useEffect(() => {
+    if (modalOpen) {
+      startCamera();
+    } else {
+      stopCamera();
+      setCapturedImage(null);
       setApiResponse(null);
-      setError('');
     }
-  }, []);
+    // Cleanup when component unmounts or modal closes
+    return () => {
+      stopCamera();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalOpen]);
 
-  const retake = () => {
-    setCapturedImage(null);
-    setApiResponse(null);
-    setError('');
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        setStream(mediaStream);
+      }
+    } catch (error) {
+      console.error("Error accessing webcam: ", error);
+    }
   };
 
-  const upload = async () => {
-    if (!capturedImage) return;
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
 
-    setIsLoading(true);
-    setError('');
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
+  };
+
+  const captureImage = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageDataUrl = canvas.toDataURL("image/png");
+    setCapturedImage(imageDataUrl);
+    sendImageToAPI(imageDataUrl);
+  };
+
+  const sendImageToAPI = async (imageDataUrl: string) => {
+    setLoading(true);
     setApiResponse(null);
-
     try {
-      // Convert base64 to Blob with better error handling
-      const base64Response = await fetch(capturedImage);
-      if (!base64Response.ok) throw new Error('Failed to process image');
-      
-      const blob = await base64Response.blob();
-      
-      // Validate image size
-      if (blob.size > 5 * 1024 * 1024) { // 5MB limit
-        throw new Error('Image size too large. Please capture a smaller image.');
+      // Convert base64 image data to Blob
+      const byteString = atob(imageDataUrl.split(",")[1]);
+      const mimeString = imageDataUrl.split(",")[0].split(":")[1].split(";")[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
       }
+      const blob = new Blob([ab], { type: mimeString });
 
-      const file = new File([blob], "attendance.jpg", { 
-        type: "image/jpeg",
-        lastModified: Date.now()
-      });
-
+      // Prepare form data
       const formData = new FormData();
-      formData.append("image", file);
-      formData.append("timestamp", new Date().toISOString());
-      formData.append("device_info", navigator.userAgent);
+      formData.append("image", blob, "capture.png");
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/mark_attendance/`,
         {
           method: "POST",
           body: formData,
-          headers: {
-            'Accept': 'application/json',
-          },
         }
       );
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: ApiResponse = await response.json();
+      const data: APIResponse = await response.json();
       setApiResponse(data);
-
-      // Auto-retake after successful upload if needed
-      if (data.success) {
-        setTimeout(() => {
-          retake();
-        }, 3000);
-      }
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      setError(errorMessage);
-      console.error('Upload error:', error);
-    } finally {
-      setIsLoading(false);
+    } catch {
+      setApiResponse({ status: "error", message: "Failed to communicate with server." });
     }
-  };
-
-  const toggleCamera = () => {
-    setCameraEnabled(!cameraEnabled);
-  };
-
-  const formatTimestamp = (timestamp?: string) => {
-    if (!timestamp) return 'N/A';
-    return new Date(timestamp).toLocaleString();
+    setLoading(false);
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-2xl">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          Face Recognition Attendance
-        </h1>
-        <p className="text-gray-600">
-          Capture your face to mark your attendance
-        </p>
-      </div>
+    <>
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4 text-black">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-auto p-6 relative flex flex-col">
+            <button
+              onClick={handleCloseModal}
+              className="absolute top-3 right-3 text-gray-600 hover:text-gray-900 transition text-3xl font-bold"
+              aria-label="Close modal"
+              title="Close"
+            >
+              &times;
+            </button>
 
-      {/* Camera Section */}
-      <div className="relative bg-gray-900 rounded-2xl overflow-hidden shadow-lg mb-6">
-        {cameraEnabled ? (
-          <Webcam
-            audio={false}
-            ref={webcamRef}
-            screenshotFormat="image/jpeg"
-            videoConstraints={videoConstraints}
-            className="w-full h-auto max-h-96 object-cover"
-            mirrored
-            onUserMediaError={() => {
-              setError('Camera access denied or not available');
-              setCameraEnabled(false);
-            }}
-          />
-        ) : (
-          <div className="w-full h-96 bg-gray-800 flex items-center justify-center">
-            <Camera className="w-16 h-16 text-gray-500" />
-          </div>
-        )}
-        
-        {/* Camera overlay */}
-        <div className="absolute inset-0 border-2 border-white border-opacity-20 rounded-2xl pointer-events-none"></div>
-      </div>
+            <h2 className="text-2xl font-semibold mb-4 text-center">Face Scan Attendance</h2>
 
-      {/* Camera Controls */}
-      <div className="flex justify-center gap-4 mb-6">
-        <button
-          onClick={toggleCamera}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-        >
-          <Camera className="w-4 h-4" />
-          {cameraEnabled ? 'Disable Camera' : 'Enable Camera'}
-        </button>
-      </div>
+            <div className="w-full aspect-video rounded-lg overflow-hidden shadow-md mb-4">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover rounded-lg"
+              />
+            </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-4 mb-6">
-        <button
-          onClick={capture}
-          disabled={!cameraEnabled || isLoading}
-          className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-3 px-4 rounded-lg shadow hover:bg-blue-700 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
-        >
-          <Camera className="w-5 h-5" />
-          Capture Photo
-        </button>
-        
-        <button
-          onClick={upload}
-          disabled={!capturedImage || isLoading}
-          className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white py-3 px-4 rounded-lg shadow hover:bg-green-700 transition-colors disabled:bg-green-300 disabled:cursor-not-allowed"
-        >
-          {isLoading ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <Upload className="w-5 h-5" />
-          )}
-          {isLoading ? 'Processing...' : 'Mark Attendance'}
-        </button>
-      </div>
+            <button
+              onClick={captureImage}
+              disabled={loading}
+              className="w-full py-3 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition disabled:opacity-50 mb-6"
+            >
+              {loading ? "Scanning..." : "Capture & Scan"}
+            </button>
 
-      {/* Retake Button */}
-      {capturedImage && !isLoading && (
-        <div className="flex justify-center mb-6">
-          <button
-            onClick={retake}
-            className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-          >
-            Retake Photo
-          </button>
-        </div>
-      )}
-
-      {/* Captured Image Preview */}
-      {capturedImage && (
-  <div className="mb-6">
-    <h3 className="text-lg font-semibold text-gray-700 mb-3">Captured Image</h3>
-    <div className="relative bg-gray-100 rounded-lg p-4">
-      <Image
-        src={capturedImage}
-        alt="Captured for attendance"
-        width={256} // approximate width
-        height={256} // approximate height
-        className="rounded-lg shadow-md object-cover mx-auto"
-      />
-    </div>
-  </div>
-)}
-
-
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center gap-3 p-6 bg-blue-50 rounded-lg mb-6">
-          <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-          <span className="text-blue-700 font-medium">Processing your attendance...</span>
-        </div>
-      )}
-
-      {/* Error Display */}
-      {error && (
-        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg mb-6">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-          <div>
-            <h4 className="font-medium text-red-800">Error</h4>
-            <p className="text-red-600 text-sm">{error}</p>
-          </div>
-        </div>
-      )}
-
-      {/* API Response Display */}
-      {apiResponse && (
-  <>
-    {(() => {
-      const isSuccess =
-        apiResponse.success === true ||
-        (apiResponse.message && /already marked/i.test(apiResponse.message));
-
-      return (
-        <div className={`p-6 rounded-lg border-2 ${
-          isSuccess ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-        }`}>
-          <div className="flex items-center gap-3 mb-4">
-            {isSuccess ? (
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            ) : (
-              <AlertCircle className="w-6 h-6 text-red-600" />
-            )}
-            <h3 className={`text-lg font-semibold ${
-              isSuccess ? 'text-green-800' : 'text-red-800'
-            }`}>
-              {isSuccess
-                ? apiResponse.message || 'Attendance Marked Successfully!'
-                : apiResponse.message || 'Attendance Failed'}
-            </h3>
-          </div>
-
-          <div className="space-y-2 text-sm">
-            {apiResponse.user && (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="text-gray-600">Name:</span>
-                  <span className="font-medium">{apiResponse.user.name}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="text-gray-600">Email:</span>
-                  <span className="font-medium">{apiResponse.user.email}</span>
-                </div>
-              </>
-            )}
-            
-            {apiResponse.timestamp && (
-              <div className="grid grid-cols-2 gap-2">
-                <span className="text-gray-600">Time:</span>
-                <span className="font-medium">{formatTimestamp(apiResponse.timestamp)}</span>
+            {capturedImage && (
+              <div className="rounded-lg shadow-md bg-gray-50 p-4 mb-4">
+                <img
+                  src={capturedImage}
+                  alt="Captured"
+                  className="w-full rounded-lg object-contain mb-4"
+                />
+                {apiResponse && (
+                  <div
+                    className={`p-3 rounded text-center font-semibold ${
+                      apiResponse.status === "success"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    } shadow`}
+                  >
+                    <p>Status: {apiResponse.status ?? "Unknown"}</p>
+                    {apiResponse.message && <p className="mt-1">{apiResponse.message}</p>}
+                    {apiResponse.username && <p className="mt-1">User: {apiResponse.username}</p>}
+                    {apiResponse.email && <p className="mt-1">Email: {apiResponse.email}</p>}
+                  </div>
+                )}
               </div>
             )}
+
+            <canvas ref={canvasRef} className="hidden" />
           </div>
         </div>
-      );
-    })()}
-  </>
-)}
-
-      {/* Footer Info */}
-      <div className="mt-8 pt-6 border-t border-gray-200">
-        <div className="text-center text-sm text-gray-500">
-          <p>Ensure good lighting and face the camera directly for best results</p>
-          <p className="mt-1">Your image is processed securely and not stored</p>
-        </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 };
 

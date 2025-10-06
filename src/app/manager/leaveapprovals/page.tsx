@@ -21,6 +21,7 @@ type Employee = {
 };
 
 type LeaveRequest = {
+  id: string;
   email: string;
   applied_on: string;
   start_date: string;
@@ -78,22 +79,17 @@ export default function ManagerDashboard() {
   }, [fetchData]);
 
   const updateLeaveStatus = async (leave: LeaveRequest, status: "Approved" | "Rejected") => {
-    setUpdatingKey(getLeaveKey(leave));
+    setUpdatingKey(leave.id);
+
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_leave/`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_leave/${leave.id}/`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: leave.email,
-          start_date: leave.start_date,
-          end_date: leave.end_date,
-          leave_type: leave.leave_type,
-          status,
-        }),
+        body: JSON.stringify({ status }),
       });
 
       if (!res.ok) {
-        const errData = await res.json();
+        const errData = await res.json().catch(() => ({}));
         console.error("Backend error:", errData);
         alert(errData.error || "Failed to update leave status.");
         return;
@@ -103,7 +99,7 @@ export default function ManagerDashboard() {
 
       setLeaveRequests((prev) =>
         prev.map((lr) =>
-          getLeaveKey(lr) === getLeaveKey(leave) ? { ...lr, status: updatedLeave.leave.status } : lr
+          lr.id === leave.id ? { ...lr, status: updatedLeave.leave?.status || status } : lr
         )
       );
 
@@ -245,24 +241,24 @@ export default function ManagerDashboard() {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => updateLeaveStatus(lr, "Approved")}
-                                disabled={updatingKey === leaveKey}
+                                disabled={updatingKey === lr.id}
                                 className={`px-4 py-2 rounded-lg text-white ${
-                                  updatingKey === leaveKey ? "bg-green-400" : "bg-green-600 hover:bg-green-700"
+                                  updatingKey === lr.id ? "bg-green-400" : "bg-green-600 hover:bg-green-700"
                                 }`}
                               >
                                 Approve
                               </button>
                               <button
                                 onClick={() => updateLeaveStatus(lr, "Rejected")}
-                                disabled={updatingKey === leaveKey}
+                                disabled={updatingKey === lr.id}
                                 className={`px-4 py-2 rounded-lg text-white ${
-                                  updatingKey === leaveKey ? "bg-red-400" : "bg-red-600 hover:bg-red-700"
+                                  updatingKey === lr.id ? "bg-red-400" : "bg-red-600 hover:bg-red-700"
                                 }`}
                               >
                                 Reject
                               </button>
                             </div>
-                            {updatingKey === leaveKey && <p className="text-xs text-gray-500">Updating...</p>}
+                            {updatingKey === lr.id && <p className="text-xs text-gray-500">Updating...</p>}
                           </div>
                         )}
                       </div>

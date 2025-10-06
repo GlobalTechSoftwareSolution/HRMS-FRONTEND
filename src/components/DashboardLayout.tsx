@@ -75,31 +75,36 @@ export default function DashboardLayout({ children, role }: Props) {
   const router = useRouter();
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
   // Load user info from localStorage & listen for updates
   useEffect(() => {
     const loadUserInfo = () => {
       const storedUser = localStorage.getItem("userInfo");
-      if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          setUserInfo({
-            name: parsedUser.name || "Guest User",
-            email: parsedUser.email || "",
-            picture: parsedUser.picture || "/default-profile.png",
-            profile_profile_picture: parsedUser.profile_profile_picture || "",
-            role: parsedUser.role || role.toUpperCase(),
-          });
-        } catch (error) {
-          console.error("Error parsing stored user info:", error);
-        }
+      if (!storedUser) {
+        router.replace("/login"); // redirect to login if not logged in
+        return;
+      }
+
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUserInfo({
+          name: parsedUser.name || "Guest User",
+          email: parsedUser.email || "",
+          picture: parsedUser.picture || "/default-profile.png",
+          profile_profile_picture: parsedUser.profile_profile_picture || "",
+          role: parsedUser.role || role.toUpperCase(),
+        });
+      } catch (error) {
+        console.error("Error parsing stored user info:", error);
+        router.replace("/login"); // redirect if parsing fails
       }
     };
 
     loadUserInfo();
     window.addEventListener("profile-updated", loadUserInfo);
     return () => window.removeEventListener("profile-updated", loadUserInfo);
-  }, [role]);
+  }, [role, router]);
 
   // Fetch updated user data from backend
   useEffect(() => {
@@ -154,7 +159,7 @@ export default function DashboardLayout({ children, role }: Props) {
   return (
     <div className="flex min-h-screen bg-gray-100 font-sans text-gray-800">
       {/* Sidebar (desktop) */}
-      <aside className="hidden md:flex w-72 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex-col">
+      <aside className="hidden md:flex fixed top-0 left-0 bottom-0 w-72 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex-col z-20">
         <div className="p-6 flex items-center gap-4 border-b border-blue-700">
           <Image
             src={profilePic}
@@ -162,7 +167,7 @@ export default function DashboardLayout({ children, role }: Props) {
             width={64}
             height={64}
             unoptimized
-            className="rounded-full border-2 border-white shadow-md object-cover"
+            className="rounded-full border-2 border-white shadow-md object-cover w-16 h-16"
           />
           <div className="flex flex-col">
             <p className="text-lg font-semibold text-white">
@@ -172,7 +177,7 @@ export default function DashboardLayout({ children, role }: Props) {
           </div>
         </div>
 
-        <nav className="flex flex-col p-4 space-y-2">
+        <nav className="flex-1 overflow-y-auto flex flex-col p-4 space-y-2">
           {roleLinks?.map((link) => (
             <Link
               href={link.path}
@@ -184,9 +189,9 @@ export default function DashboardLayout({ children, role }: Props) {
           ))}
         </nav>
 
-        <div className="mt-auto p-4">
+        <div className="sticky bottom-0 p-4 bg-gradient-to-t from-blue-800">
           <button
-            onClick={handleLogout}
+            onClick={() => setLogoutModalOpen(true)}
             className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all"
           >
             <FiLogOut /> Logout
@@ -216,7 +221,7 @@ export default function DashboardLayout({ children, role }: Props) {
                 width={64}
                 height={64}
                 unoptimized
-                className="rounded-full border-2 border-white shadow-md object-cover"
+                className="rounded-full border-2 border-white shadow-md object-cover w-12 h-12"
               />
               <div className="flex flex-col">
                 <p className="text-lg font-semibold text-white">
@@ -226,7 +231,7 @@ export default function DashboardLayout({ children, role }: Props) {
               </div>
             </div>
 
-            <nav className="flex flex-col p-4 space-y-2">
+            <nav className="flex-1 overflow-y-auto flex flex-col p-4 space-y-2">
               {roleLinks?.map((link) => (
                 <Link
                   href={link.path}
@@ -239,11 +244,11 @@ export default function DashboardLayout({ children, role }: Props) {
               ))}
             </nav>
 
-            <div className="mt-auto p-4">
+            <div className="sticky bottom-0 p-4 bg-gradient-to-t from-blue-800">
               <button
                 onClick={() => {
+                  setLogoutModalOpen(true);
                   setMenuOpen(false);
-                  handleLogout();
                 }}
                 className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all"
               >
@@ -254,9 +259,35 @@ export default function DashboardLayout({ children, role }: Props) {
         </div>
       )}
 
+      {/* Logout Confirmation Modal */}
+      {logoutModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-80 max-w-full">
+            <h3 className="text-lg font-semibold mb-4">Are you sure you want to logout?</h3>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setLogoutModalOpen(false)}
+                className="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setLogoutModalOpen(false);
+                  handleLogout();
+                }}
+                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 transition"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
-      <main className="flex-1 flex flex-col">
-        <header className="bg-white shadow-md p-4 flex justify-between items-center border-b border-gray-200 sticky top-0 z-20">
+      <main className="flex-1 flex flex-col ml-0 md:ml-72">
+        <header className="fixed top-0 left-0 right-0 md:left-72 bg-white shadow-md p-4 flex justify-between items-center border-b border-gray-200 sticky z-30">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMenuOpen(true)}
@@ -277,16 +308,16 @@ export default function DashboardLayout({ children, role }: Props) {
               <Image
                 src={profilePic}
                 alt={userInfo?.name || "Profile"}
-                width={64}
-                height={64}
+                width={40}
+                height={40}
                 unoptimized
-                className="rounded-full border border-gray-300 shadow-sm object-cover cursor-pointer"
+                className="rounded-full border border-gray-300 shadow-md object-cover w-10 h-10 cursor-pointer"
               />
             </button>
           </div>
         </header>
 
-        <div className="p-6 flex-1 overflow-auto">{children}</div>
+        <div className="pt-20 p-6 flex-1 overflow-auto">{children}</div>
       </main>
     </div>
   );
