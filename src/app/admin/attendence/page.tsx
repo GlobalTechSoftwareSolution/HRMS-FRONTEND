@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -48,7 +47,8 @@ type Employee = {
   department: string;
 };
 
-export default function ManagerDashboard() {
+// This component uses the admin layout
+export default function AdminAttendanceDashboard() {
   // Helper to format date as DD/MM/YYYY
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -321,7 +321,7 @@ export default function ManagerDashboard() {
   };
 
   return (
-    <DashboardLayout role="ceo">
+    <DashboardLayout role="admin">
       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
         <motion.h1
           initial={{ opacity: 0, y: -20 }}
@@ -329,7 +329,7 @@ export default function ManagerDashboard() {
           transition={{ duration: 0.5 }}
           className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 text-gray-800"
         >
-          CEO Dashboard 📋
+          Admin Dashboard 📋
         </motion.h1>
 
         {/* KPI Cards */}
@@ -511,30 +511,30 @@ export default function ManagerDashboard() {
         {/* Calendar for filtering */}
         <div className="mb-4 flex flex-col items-center">
           <div className="bg-white p-4 rounded-xl shadow-md w-full max-w-md">
-           <Calendar
-  onChange={(value, event) => {
-    if (!value || Array.isArray(value)) return; // ignore null or range
-    if (!(value instanceof Date)) return; // extra safety
-    const local = new Date(value.getTime() - value.getTimezoneOffset() * 60000);
-    const dateStr = local.toISOString().split("T")[0];
-    setSelectedDate(dateStr === selectedDate ? null : dateStr);
-  }}
-  value={
-    selectedDate
-      ? (() => {
-          const [year, month, day] = selectedDate.split("-");
-          return new Date(Number(year), Number(month) - 1, Number(day));
-        })()
-      : null
-  }
-  tileClassName={({ date }) => {
-    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    const dateStr = local.toISOString().split("T")[0];
-    if (dateStr === today) return "bg-green-100 text-green-700 font-bold rounded";
-    if (dateStr === yesterday) return "bg-yellow-100 text-yellow-700 font-bold rounded";
-    return "";
-  }}
-/>
+            <Calendar
+              onChange={(value, event) => {
+                if (!value || Array.isArray(value)) return; // ignore null or range
+                if (!(value instanceof Date)) return; // extra safety for non-Date
+                const local = new Date(value.getTime() - value.getTimezoneOffset() * 60000);
+                const dateStr = local.toISOString().split("T")[0];
+                setSelectedDate(dateStr === selectedDate ? null : dateStr);
+              }}
+              value={
+                selectedDate
+                  ? (() => {
+                      const [year, month, day] = selectedDate.split("-");
+                      return new Date(Number(year), Number(month) - 1, Number(day));
+                    })()
+                  : null
+              }
+              tileClassName={({ date }) => {
+                const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                const dateStr = local.toISOString().split("T")[0];
+                if (dateStr === today) return "bg-green-100 text-green-700 font-bold rounded";
+                if (dateStr === yesterday) return "bg-yellow-100 text-yellow-700 font-bold rounded";
+                return "";
+              }}
+            />
           </div>
           {selectedDate && (
             <button

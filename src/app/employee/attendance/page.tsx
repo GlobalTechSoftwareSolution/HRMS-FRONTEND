@@ -635,76 +635,163 @@ export default function AttendancePortal() {
                 <div className="mt-10">
                     <h2 className="text-xl font-semibold mb-4">Your Attendance Records</h2>
 
-                    {loadingFetchedAttendance && <p>Loading attendance records...</p>}
-                    {fetchError && <p className="text-red-600">Error: {fetchError}</p>}
-
-                    {!loadingFetchedAttendance && !fetchError && (
-                        <>
-                            {fetchedAttendance.filter((rec) => rec.email === loggedInEmail).length === 0 ? (
-                                <div className="border border-gray-300 bg-white rounded-lg shadow p-6 text-center text-gray-500 max-w-md">
-                                    No attendance records found.
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 gap-6">
-                                    {fetchedAttendance
-                                        .filter((rec) => rec.email === loggedInEmail)
-                                        .map((record, idx) => {
-                                            let status = record.status || "-";
-                                            let hoursWorked = "-";
-
-                                            if (record.checkIn && record.checkOut && record.checkIn !== "-" && record.checkOut !== "-") {
-                                                const checkInDate = new Date(`${record.date}T${record.checkIn}`);
-                                                const checkOutDate = new Date(`${record.date}T${record.checkOut}`);
-                                                hoursWorked = ((checkOutDate.getTime() - checkInDate.getTime()) / 3600000).toFixed(2);
-                                                status = "Present";
-                                            } else if (record.checkIn && record.checkIn !== "-") {
-                                                status = "Working In";
-                                            }
-
-                                            return (
-                                                <div key={`${record.email}-${record.date}-${idx}`} className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        <div>
-                                                            <div className="text-xs text-gray-500 font-semibold mb-1">Date</div>
-                                                            <div className="text-base font-medium">{record.date}</div>
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-xs text-gray-500 font-semibold mb-1">Status</div>
-                                                            <div
-                                                                className={`inline-block px-2 py-1 rounded ${status === "Present"
-                                                                        ? "bg-green-100 text-green-700"
-                                                                        : status === "Working In"
-                                                                            ? "bg-yellow-100 text-yellow-700"
-                                                                            : status === "Absent"
-                                                                                ? "bg-red-100 text-red-700"
-                                                                                : "bg-gray-100 text-gray-700"
-                                                                    }`}
-                                                            >
-                                                                {status}
-                                                            </div>
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-xs text-gray-500 font-semibold mb-1">Check-In</div>
-                                                            <div className="text-base">{record.checkIn}</div>
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-xs text-gray-500 font-semibold mb-1">Check-Out</div>
-                                                            <div className="text-base">{record.checkOut || "-"}</div>
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-xs text-gray-500 font-semibold mb-1">Hours Worked</div>
-                                                            <div className="text-base">{hoursWorked}</div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                </div>
-                            )}
-                        </>
-                    )}
+                    {/* Minimal calendar/date picker */}
+                    <AttendanceRecordsWithDatePicker
+                        fetchedAttendance={fetchedAttendance}
+                        loggedInEmail={loggedInEmail}
+                        loadingFetchedAttendance={loadingFetchedAttendance}
+                        fetchError={fetchError}
+                    />
                 </div>
             </div>
         </DashboardLayout>
+    );
+}
+// --- Minimal Calendar/Date Picker + filter for Today/Yesterday ---
+type AttendanceRecordsWithDatePickerProps = {
+    fetchedAttendance: AttendanceRecord[];
+    loggedInEmail: string | null;
+    loadingFetchedAttendance: boolean;
+    fetchError: string | null;
+};
+
+function AttendanceRecordsWithDatePicker({
+    fetchedAttendance,
+    loggedInEmail,
+    loadingFetchedAttendance,
+    fetchError,
+}: AttendanceRecordsWithDatePickerProps) {
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+    // Compute today and yesterday in YYYY-MM-DD format
+    const todayObj = new Date();
+    const todayStr = todayObj.toISOString().split("T")[0];
+    const yesterdayObj = new Date(todayObj);
+    yesterdayObj.setDate(todayObj.getDate() - 1);
+    const yesterdayStr = yesterdayObj.toISOString().split("T")[0];
+
+    // Show only today and yesterday unless a date is picked
+    let filtered = fetchedAttendance.filter((rec) => rec.email === loggedInEmail);
+    if (!selectedDate) {
+        filtered = filtered.filter(
+            (rec) => rec.date === todayStr || rec.date === yesterdayStr
+        );
+    } else {
+        filtered = filtered.filter((rec) => rec.date === selectedDate);
+    }
+
+    return (
+        <>
+            <div className="mb-4 flex items-center gap-3">
+                <label htmlFor="attendance-date-picker" className="text-sm text-gray-700 font-medium">
+                    Pick a date:
+                </label>
+                <input
+                    id="attendance-date-picker"
+                    type="date"
+                    className="border px-2 py-1 rounded text-sm"
+                    max={todayStr}
+                    value={selectedDate || ""}
+                    onChange={(e) => setSelectedDate(e.target.value || null)}
+                />
+                {selectedDate && (
+                    <button
+                        className="ml-2 text-xs text-blue-600 underline"
+                        onClick={() => setSelectedDate(null)}
+                        type="button"
+                    >
+                        Show Today &amp; Yesterday
+                    </button>
+                )}
+            </div>
+            {loadingFetchedAttendance && <p>Loading attendance records...</p>}
+            {fetchError && <p className="text-red-600">Error: {fetchError}</p>}
+            {!loadingFetchedAttendance && !fetchError && (
+                <>
+                    {filtered.length === 0 ? (
+                        <div className="border border-gray-300 bg-white rounded-lg shadow p-6 text-center text-gray-500 max-w-md">
+                            No attendance records found{selectedDate ? ` for ${selectedDate}` : " for today/yesterday"}.
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-6">
+                            {filtered
+                                .map((record, idx) => {
+                                    let status = record.status || "-";
+                                    let hoursWorked = "-";
+
+                                    if (
+                                        record.checkIn &&
+                                        record.checkOut &&
+                                        record.checkIn !== "-" &&
+                                        record.checkOut !== "-"
+                                    ) {
+                                        const checkInDate = new Date(`${record.date}T${record.checkIn}`);
+                                        const checkOutDate = new Date(`${record.date}T${record.checkOut}`);
+                                        hoursWorked = (
+                                            (checkOutDate.getTime() - checkInDate.getTime()) /
+                                            3600000
+                                        ).toFixed(2);
+                                        status = "Present";
+                                    } else if (record.checkIn && record.checkIn !== "-") {
+                                        status = "Working In";
+                                    }
+
+                                    return (
+                                        <div
+                                            key={`${record.email}-${record.date}-${idx}`}
+                                            className="bg-white rounded-xl shadow-md p-6 border border-gray-200"
+                                        >
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <div className="text-xs text-gray-500 font-semibold mb-1">
+                                                        Date
+                                                    </div>
+                                                    <div className="text-base font-medium">{record.date}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs text-gray-500 font-semibold mb-1">
+                                                        Status
+                                                    </div>
+                                                    <div
+                                                        className={`inline-block px-2 py-1 rounded ${
+                                                            status === "Present"
+                                                                ? "bg-green-100 text-green-700"
+                                                                : status === "Working In"
+                                                                ? "bg-yellow-100 text-yellow-700"
+                                                                : status === "Absent"
+                                                                ? "bg-red-100 text-red-700"
+                                                                : "bg-gray-100 text-gray-700"
+                                                        }`}
+                                                    >
+                                                        {status}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs text-gray-500 font-semibold mb-1">
+                                                        Check-In
+                                                    </div>
+                                                    <div className="text-base">{record.checkIn}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs text-gray-500 font-semibold mb-1">
+                                                        Check-Out
+                                                    </div>
+                                                    <div className="text-base">{record.checkOut || "-"}</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs text-gray-500 font-semibold mb-1">
+                                                        Hours Worked
+                                                    </div>
+                                                    <div className="text-base">{hoursWorked}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                        </div>
+                    )}
+                </>
+            )}
+        </>
     );
 }

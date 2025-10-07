@@ -14,6 +14,7 @@ interface ValidationErrors {
   email?: string;
   password?: string;
   terms?: string;
+  reEnterPassword?: string;
 }
 
 export default function SignupPage() {
@@ -22,9 +23,11 @@ export default function SignupPage() {
     email: "",
     password: "",
   });
+  const [reEnterPassword, setReEnterPassword] = useState("");
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showReEnterPassword, setShowReEnterPassword] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
@@ -49,6 +52,11 @@ export default function SignupPage() {
     // Password validation
     if (formData.password.length < 8) {
       errors.password = "Password must be at least 8 characters long";
+    }
+
+    // Re-enter Password validation
+    if (reEnterPassword !== formData.password) {
+      errors.reEnterPassword = "Passwords do not match";
     }
 
     // Terms validation
@@ -286,6 +294,43 @@ export default function SignupPage() {
                       </div>
                     </div>
                   </div>
+                )}
+              </div>
+
+              {/* Re-enter Password Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Re-enter Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showReEnterPassword ? "text" : "password"}
+                    value={reEnterPassword}
+                    onChange={(e) => {
+                      setReEnterPassword(e.target.value);
+                      if (validationErrors.reEnterPassword) {
+                        setValidationErrors((prev) => ({ ...prev, reEnterPassword: undefined }));
+                      }
+                      if (message) setMessage(null);
+                    }}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors pr-12 ${
+                      validationErrors.reEnterPassword ? "border-red-500" : "border-gray-300"
+                    }`}
+                    placeholder="Re-enter your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowReEnterPassword(!showReEnterPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showReEnterPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+                {validationErrors.reEnterPassword && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {validationErrors.reEnterPassword}
+                  </p>
                 )}
               </div>
 

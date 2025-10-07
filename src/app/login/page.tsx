@@ -242,6 +242,32 @@ const LoginPage = () => {
               </div>
             </div>
 
+            <div className="flex items-center justify-between text-sm text-gray-700">
+              <label className="flex items-center space-x-2">
+                <input
+                  className="h-4 w-4 text-green-600 border-gray-300 rounded"
+                  type="checkbox"
+                />
+                <span>
+                  I agree to the{" "}
+                  <a
+                    className="text-blue-600 hover:text-blue-700 font-medium underline"
+                    href="/terms"
+                  >
+                    Terms &amp; Policy
+                  </a>
+                </span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => router.push("/forgot-password")}
+                className="text-blue-600 hover:text-blue-500 font-medium transition-colors hover:underline"
+              >
+                Forgot Password?
+              </button>
+            </div>
+
             {/* Submit */}
             <button
               type="submit"
@@ -252,12 +278,12 @@ const LoginPage = () => {
             </button>
             <div className="mt-6 text-center">
             <p className="text-gray-600">
-              Don&apos;t have an account? 
+              Don&apos;t have an account?{" "}
               <button
                 onClick={() => router.push("/signup")}
                 className="font-medium text-blue-600 hover:text-blue-500 transition-colors hover:underline"
               >
-                Sign up
+                 Sign up
               </button>
             </p>
           </div>

@@ -148,12 +148,12 @@ const FaceScanPage = () => {
               {loading ? "Scanning..." : "Capture & Scan"}
             </button>
 
-            {capturedImage && (
-              <div className="rounded-lg shadow-md bg-gray-50 p-4 mb-4">
+     {capturedImage && (
+              <div className="flex flex-col items-center mb-4">
                 <img
                   src={capturedImage}
-                  alt="Captured"
-                  className="w-full rounded-lg object-contain mb-4"
+                  alt="Captured Face"
+                  className="w-32 h-32 rounded-full object-cover border-4 border-blue-500 shadow-lg mb-3"
                 />
                 {apiResponse && (
                   <div
