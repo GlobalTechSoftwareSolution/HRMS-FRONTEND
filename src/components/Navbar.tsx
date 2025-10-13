@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X, Home, User, Mail, LogIn, FileText, Users } from "lucide-react";
-import FaceScanPage from "./facescan";
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -95,8 +94,8 @@ export const Navbar: React.FC = () => {
                 );
               })}
               <motion.li className="relative" whileHover={{ y: -2 }}>
-                <button
-                  onClick={toggleModal}
+                <Link
+                  href="/facescan"
                   className="relative flex items-center space-x-2 text-white px-5 py-2.5 font-medium transition-colors duration-300 rounded-lg"
                 >
                   <motion.span
@@ -109,7 +108,7 @@ export const Navbar: React.FC = () => {
                     <Users size={18} />
                   </motion.span>
                   <span>Attendance</span>
-                </button>
+                </Link>
               </motion.li>
             </ul>
 
@@ -216,12 +215,10 @@ export const Navbar: React.FC = () => {
                   transition={{ delay: navLinks.length * 0.1, type: "spring", stiffness: 100 }}
                   className="border-b border-gray-100 last:border-b-0"
                 >
-                  <button
-                    onClick={() => {
-                      toggleModal();
-                      setIsOpen(false);
-                    }}
+                  <Link
+                    href="/facescan"
                     className="flex items-center space-x-3 text-gray-800 px-6 py-4 font-medium transition-all duration-300 rounded-lg hover:bg-indigo-50 w-full"
+                    onClick={() => setIsOpen(false)}
                   >
                     <motion.span
                       animate={{
@@ -232,7 +229,7 @@ export const Navbar: React.FC = () => {
                       <Users size={18} />
                     </motion.span>
                     <span>Attendance</span>
-                  </button>
+                  </Link>
                 </motion.li>
 
                 {/* Mobile Login Button */}
@@ -257,19 +254,6 @@ export const Navbar: React.FC = () => {
         </AnimatePresence>
       </motion.nav>
 
-      {/* Attendance Modal with FaceScanPage */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <FaceScanPage />
-          </motion.div>
-        )}
-      </AnimatePresence>
     </>
   );
 };

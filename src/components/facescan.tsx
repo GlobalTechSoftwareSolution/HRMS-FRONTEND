@@ -13,6 +13,12 @@ export default function AttendancePage() {
   const [mounted, setMounted] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [canvasVisible, setCanvasVisible] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanLine, setScanLine] = useState(0);
+  const [confirmation, setConfirmation] = useState<{ userName: string; time: string } | null>(null);
+
+  // State for simulated face tracking offsets
+  const [faceOffset, setFaceOffset] = useState({ x: 0, y: 0, scale: 1 });
 
   useEffect(() => {
     setMounted(true);
@@ -67,11 +73,49 @@ export default function AttendancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted]);
 
+  // Simple scan line animation
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (scanning) {
+      setScanLine(0);
+      interval = setInterval(() => {
+        setScanLine(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            return 100;
+          }
+          return prev + 5;
+        });
+      }, 50);
+    }
+    return () => clearInterval(interval);
+  }, [scanning]);
+
+  // Face tracking offset simulation: update every 1 second with subtle random values
+  useEffect(() => {
+    if (!scanning) {
+      setFaceOffset({ x: 0, y: 0, scale: 1 });
+      return;
+    }
+    const interval = setInterval(() => {
+      const x = (Math.random() - 0.5) * 6; // ±3px
+      const y = (Math.random() - 0.5) * 6; // ±3px
+      const scale = 1 + (Math.random() - 0.5) * 0.04; // scale from 0.98 to 1.02
+      setFaceOffset({ x, y, scale });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [scanning]);
+
   const captureAndUpload = () => {
     if (!videoRef.current || !canvasRef.current) {
       showMessage("Start camera first!", "error");
       return;
     }
+
+    // Start simple scanning animation
+    setScanning(true);
+    setScanLine(0);
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     canvas.width = video.videoWidth || 640;
@@ -82,15 +126,18 @@ export default function AttendancePage() {
     setCanvasVisible(true);
     video.pause();
 
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-      await uploadImage(blob, "attendance.jpg", () => {
-        setCanvasVisible(false);
-        video.play();
-      });
-    }, "image/jpeg");
+    // Wait for scan to complete
+    setTimeout(() => {
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        await uploadImage(blob, "attendance.jpg", () => {
+          setCanvasVisible(false);
+          setScanning(false);
+          video.play();
+        });
+      }, "image/jpeg");
+    }, 1000);
   };
-
 
   const uploadImage = async (file: Blob, filename: string, callback?: () => void) => {
     setLoading(true);
@@ -106,8 +153,13 @@ export default function AttendancePage() {
         body: formData,
       });
       const data = await res.json();
-      if (data.status === "success") showMessage(data.message, "success");
-      else showMessage(data.message || "Failed", "error");
+      if (data.status === "success") {
+        showMessage(data.message, "success");
+        // Show confirmation with current time
+        const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setConfirmation({ userName: data.userName || "User", time: currentTime });
+        setTimeout(() => setConfirmation(null), 3000);
+      } else showMessage(data.message || "Failed", "error");
     } catch (err) {
       console.error(err);
       showMessage("Failed to mark attendance", "error");
@@ -118,32 +170,241 @@ export default function AttendancePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-start bg-gradient-to-br from-blue-400 to-purple-700 p-4">
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md text-center">
-        <h1 className="text-2xl font-bold text-gray-800 mb-4">Face Recognition Attendance</h1>
-
-        <div className="relative mb-4 w-full aspect-video">
-          <video ref={videoRef} autoPlay playsInline muted className={`w-full h-full rounded-lg shadow-md object-cover ${canvasVisible ? 'hidden' : 'block'}`} />
-          <canvas ref={canvasRef} className={`absolute top-0 left-0 w-full h-full ${canvasVisible ? 'block' : 'hidden'}`} />
+    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 p-4">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Face Recognition Attendance</h1>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2 justify-center mb-4">
-          <button onClick={captureAndUpload} disabled={loading} className="px-4 py-2 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700 transition disabled:opacity-50">
-            {loading ? "Scanning..." : "Mark Attendance (Camera)"}
-          </button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Camera Section - Full width on mobile, half on desktop */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Camera Feed</h2>
+            
+            <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden mb-4">
+              {/* Video feed */}
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted 
+                className={`w-full h-full object-cover ${canvasVisible ? 'hidden' : 'block'}`} 
+              />
+              
+              {/* Canvas for captured image */}
+              <canvas 
+                ref={canvasRef} 
+                className={`absolute top-0 left-0 w-full h-full ${canvasVisible ? 'block' : 'hidden'}`} 
+              />
+
+              {/* Facial scan overlay */}
+              {scanning && (
+                <div
+                  className="absolute inset-0 pointer-events-none flex items-center justify-center"
+                  style={{
+                    transform: `translate(${faceOffset.x}px, ${faceOffset.y}px) scale(${faceOffset.scale})`,
+                    transition: "transform 1s ease-in-out",
+                  }}
+                >
+                  {/* Hexagonal wireframe with smooth opacity animation */}
+                  <svg
+                    viewBox="0 0 200 200"
+                    className="w-48 h-48"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeOpacity="0.5"
+                    style={{ animation: "hex-opacity 3s ease-in-out infinite alternate" }}
+                  >
+                    <polygon points="100,15 155,50 155,120 100,155 45,120 45,50" />
+                  </svg>
+
+                  {/* Multiple layered scanning grid lines */}
+                  <svg
+                    className="absolute inset-0 w-full h-full"
+                    style={{ pointerEvents: "none" }}
+                  >
+                    {/* Vertical lines */}
+                    {[...Array(6)].map((_, i) => {
+                      const x = (100 / 5) * i + "%";
+                      return (
+                        <line
+                          key={"v" + i}
+                          x1={x}
+                          y1="0"
+                          x2={x}
+                          y2="100%"
+                          stroke="white"
+                          strokeWidth="1"
+                          strokeOpacity="0.15"
+                          style={{
+                            animation: `pulse-line 2.5s ease-in-out infinite`,
+                            animationDelay: `${i * 0.3}s`,
+                          }}
+                        />
+                      );
+                    })}
+                    {/* Horizontal lines */}
+                    {[...Array(6)].map((_, i) => {
+                      const y = (100 / 5) * i + "%";
+                      return (
+                        <line
+                          key={"h" + i}
+                          x1="0"
+                          y1={y}
+                          x2="100%"
+                          y2={y}
+                          stroke="white"
+                          strokeWidth="1"
+                          strokeOpacity="0.15"
+                          style={{
+                            animation: `pulse-line 2.5s ease-in-out infinite`,
+                            animationDelay: `${i * 0.3 + 1.2}s`,
+                          }}
+                        />
+                      );
+                    })}
+
+                    {/* Animated scanning lines (horizontal) */}
+                    <line
+                      x1="0"
+                      y1={`${scanLine}%`}
+                      x2="100%"
+                      y2={`${scanLine}%`}
+                      stroke="white"
+                      strokeWidth="2"
+                      strokeOpacity="0.6"
+                      style={{ filter: "drop-shadow(0 0 4px white)" }}
+                    />
+                    {/* Animated scanning lines (vertical) */}
+                    <line
+                      x1={`${scanLine}%`}
+                      y1="0"
+                      x2={`${scanLine}%`}
+                      y2="100%"
+                      stroke="white"
+                      strokeWidth="2"
+                      strokeOpacity="0.6"
+                      style={{ filter: "drop-shadow(0 0 4px white)" }}
+                    />
+                  </svg>
+
+                  {/* Animated corner brackets */}
+                  <div className="absolute w-48 h-48 pointer-events-none">
+                    <span className="absolute top-0 left-0 border-4 border-white border-opacity-80 rounded-sm w-10 h-10 animate-bracket-top-left"></span>
+                    <span className="absolute top-0 right-0 border-4 border-white border-opacity-80 rounded-sm w-10 h-10 animate-bracket-top-right"></span>
+                    <span className="absolute bottom-0 left-0 border-4 border-white border-opacity-80 rounded-sm w-10 h-10 animate-bracket-bottom-left"></span>
+                    <span className="absolute bottom-0 right-0 border-4 border-white border-opacity-80 rounded-sm w-10 h-10 animate-bracket-bottom-right"></span>
+                  </div>
+
+                  <style>{`
+                    @keyframes bracket-pulse {
+                      0%, 100% {
+                        opacity: 0.8;
+                        transform: scale(1);
+                      }
+                      50% {
+                        opacity: 0.4;
+                        transform: scale(1.1);
+                      }
+                    }
+                    .animate-bracket-top-left {
+                      animation: bracket-pulse 1.5s ease-in-out infinite;
+                      border-right: none;
+                      border-bottom: none;
+                    }
+                    .animate-bracket-top-right {
+                      animation: bracket-pulse 1.5s ease-in-out infinite;
+                      border-left: none;
+                      border-bottom: none;
+                    }
+                    .animate-bracket-bottom-left {
+                      animation: bracket-pulse 1.5s ease-in-out infinite;
+                      border-top: none;
+                      border-right: none;
+                    }
+                    .animate-bracket-bottom-right {
+                      animation: bracket-pulse 1.5s ease-in-out infinite;
+                      border-top: none;
+                      border-left: none;
+                    }
+
+                    @keyframes pulse-line {
+                      0%, 100% {
+                        stroke-opacity: 0.15;
+                      }
+                      50% {
+                        stroke-opacity: 0.35;
+                      }
+                    }
+
+                    @keyframes hex-opacity {
+                      0% {
+                        stroke-opacity: 0.3;
+                      }
+                      50% {
+                        stroke-opacity: 0.6;
+                      }
+                      100% {
+                        stroke-opacity: 0.3;
+                      }
+                    }
+                  `}</style>
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={captureAndUpload} 
+              disabled={loading || scanning}
+              className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700 transition disabled:opacity-50 font-semibold text-lg"
+            >
+              {scanning ? "Scanning Face..." : loading ? "Processing..." : "Mark Attendance"}
+            </button>
+
+            {/* Status Message */}
+            {message && (
+              <div className={`mt-4 p-3 rounded-lg font-medium text-center ${
+                message.type === "success" ? "bg-green-100 text-green-800 border border-green-200" : 
+                message.type === "error" ? "bg-red-100 text-red-800 border border-red-200" : 
+                "bg-yellow-100 text-yellow-800 border border-yellow-200"
+              }`}>
+                <div className="font-bold">{message.type.toUpperCase()}</div>
+                <div>{message.text}</div>
+                {/* Show time below status when confirmation exists */}
+                {confirmation && message.type === "success" && (
+                  <div className="mt-2 text-sm font-normal">
+                    Time: {confirmation.time}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Location Section - Full width on mobile, half on desktop */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Location Information</h2>
+            
+            <div className="mb-4">
+              <p className="text-gray-600 mb-2 font-medium">Current Location:</p>
+              <p className="text-gray-800 p-3 bg-gray-50 rounded-lg">
+                {latitude && longitude ? 
+                  `📍 Latitude: ${latitude.toFixed(5)}, Longitude: ${longitude.toFixed(5)}` : 
+                  "Getting location..."}
+              </p>
+            </div>
+
+            <div className="w-full h-64 rounded-lg shadow-md overflow-hidden">
+              <iframe 
+                src={mapUrl} 
+                className="w-full h-full border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+          </div>
         </div>
-
-  
-        <p className="text-gray-600 mb-2">
-          {latitude && longitude ? `📍 Lat: ${latitude.toFixed(5)}, Lng: ${longitude.toFixed(5)}` : "Getting location..."}
-        </p>
-        <iframe src={mapUrl} className="w-full h-64 rounded-lg shadow-md" />
-
-        {message && (
-          <p className={`mt-4 p-2 rounded font-medium ${message.type === "success" ? "bg-green-100 text-green-800" : message.type === "error" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>
-            {message.text}
-          </p>
-        )}
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import {
   FiBriefcase,
   FiMail,
   FiCamera,
+  FiX,
 } from "react-icons/fi";
 
 type UserProfile = {
@@ -144,6 +145,7 @@ export default function Profile() {
 
   // Image preview (with local preview, robust to backend error)
   const [localProfilePic, setLocalProfilePic] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -153,6 +155,7 @@ export default function Profile() {
     reader.onload = () => {
       setLocalProfilePic(reader.result as string);
       setUser((prev) => ({ ...prev, profile_picture: reader.result as string }));
+      setImageError(false);
     };
     reader.readAsDataURL(file);
   };
@@ -290,6 +293,7 @@ export default function Profile() {
       setUser(originalUser);
     }
     setLocalProfilePic(null);
+    setImageError(false);
     setIsEditing(false);
     setSaveMessage({ type: "", text: "" });
   };
@@ -339,6 +343,16 @@ export default function Profile() {
           <h2 className="text-lg font-semibold text-gray-700 mb-2">Profile Picture</h2>
           <div className="flex items-center gap-6">
             <div className="relative flex-shrink-0 group">
+              {/* X button in top-right corner */}
+              <button
+                onClick={() => { window.location.href = "/"; }}
+                className="absolute -top-2 -right-2 z-10 bg-white rounded-full shadow p-1 hover:bg-gray-100 transition"
+                type="button"
+                aria-label="Close profile"
+                tabIndex={0}
+              >
+                <FiX size={18} className="text-gray-500" />
+              </button>
               {(() => {
                 let profileSrc = "/default-profile.png";
                 // Prefer local preview if available
@@ -347,21 +361,28 @@ export default function Profile() {
                 } else if (user.profile_picture && user.profile_picture !== "null") {
                   if (
                     user.profile_picture.startsWith("/") ||
-                    user.profile_picture.startsWith("http") ||
+                    user.profile_picture.startsWith("https") ||
                     user.profile_picture.startsWith("data:")
                   ) {
                     profileSrc = user.profile_picture;
                   }
                 }
+                // If imageError, always use default-profile.png
+                const finalSrc = imageError ? "/default-profile.png" : profileSrc;
+                // Determine if remote image for unoptimized
+                const isRemote = /^https?:\/\//.test(finalSrc);
                 return (
                   <>
                     <Image
-                      src={profileSrc}
+                      src={finalSrc}
                       alt={user.fullname || "Profile"}
                       width={96}
                       height={96}
-                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
-                      unoptimized={!!(profileSrc.startsWith("http"))}
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-md object-cover"
+                      unoptimized={isRemote}
+                      onError={() => setImageError(true)}
+                      onLoad={() => setImageError(false)}
+                      priority
                     />
                     {isEditing && (
                       <button
@@ -388,8 +409,6 @@ export default function Profile() {
                   onChange={handleImageUpload}
                   className="hidden"
                   tabIndex={-1}
-                  // For debugging: log file selection
-                  // (onChange handled above)
                 />
               )}
             </div>
