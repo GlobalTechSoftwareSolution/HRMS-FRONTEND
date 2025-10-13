@@ -183,23 +183,29 @@ const Docs = () => {
           &times;
         </button>
         {previewUrl.match(/\.(jpeg|jpg|png)$/i) ? (
-          <div className="relative w-full h-[75vh] mx-auto rounded">
-            <Image
-              src={previewUrl}
-              alt="Document Preview"
-              layout="fill"
-              objectFit="contain"
-              className="rounded"
-              unoptimized
-            />
-          </div>
-        ) : (
+          <Image
+            src={previewUrl}
+            alt="Document Preview"
+            layout="fill"
+            objectFit="contain"
+            className="rounded"
+            unoptimized
+            onError={() => setPreviewUrl("/default-document.png")}
+          />
+        ) : previewUrl.match(/\.(pdf)$/i) ? (
           <iframe
             src={previewUrl}
             title="Document Preview"
             className="w-full h-[75vh]"
             frameBorder="0"
+            onError={() => setPreviewUrl(null)}
           />
+        ) : (
+          <div className="w-full h-[75vh] flex items-center justify-center">
+            <p className="text-center text-red-500">
+              Cannot preview this document. You can download it instead.
+            </p>
+          </div>
         )}
       </div>
     </div>

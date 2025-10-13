@@ -186,12 +186,20 @@ export default function Profile() {
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
           <div className="relative flex-shrink-0">
             <Image
-              src={user.picture || "/default-profile.png"}
+              src={
+                user.picture && user.picture.length > 0
+                  ? user.picture
+                  : "/default-profile.png"
+              }
               alt={user.name || "Profile"}
               width={96}
               height={96}
               className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
-              unoptimized={!!(user.picture && user.picture.startsWith("http"))}
+              unoptimized={user.picture?.startsWith("http")} // allows external URLs
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = "/default-profile.png";
+              }}
             />
             {isEditing && (
               <>

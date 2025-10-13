@@ -353,64 +353,48 @@ export default function Profile() {
               >
                 <FiX size={18} className="text-gray-500" />
               </button>
-              {(() => {
-                let profileSrc = "/default-profile.png";
-                // Prefer local preview if available
-                if (localProfilePic) {
-                  profileSrc = localProfilePic;
-                } else if (user.profile_picture && user.profile_picture !== "null") {
-                  if (
-                    user.profile_picture.startsWith("/") ||
-                    user.profile_picture.startsWith("https") ||
-                    user.profile_picture.startsWith("data:")
-                  ) {
-                    profileSrc = user.profile_picture;
-                  }
-                }
-                // If imageError, always use default-profile.png
-                const finalSrc = imageError ? "/default-profile.png" : profileSrc;
-                // Determine if remote image for unoptimized
-                const isRemote = /^https?:\/\//.test(finalSrc);
-                return (
-                  <>
-                    <Image
-                      src={finalSrc}
-                      alt={user.fullname || "Profile"}
-                      width={96}
-                      height={96}
-                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-md object-cover"
-                      unoptimized={isRemote}
-                      onError={() => setImageError(true)}
-                      onLoad={() => setImageError(false)}
-                      priority
-                    />
-                    {isEditing && (
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-                        type="button"
-                        aria-label="Edit profile picture"
-                        tabIndex={0}
-                      >
-                        <span className="flex flex-col items-center text-white">
-                          <FiCamera size={22} />
-                          <span className="text-xs mt-1">Change</span>
-                        </span>
-                      </button>
-                    )}
-                  </>
-                );
-              })()}
-              {isEditing && (
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  tabIndex={-1}
+              <Image
+                src={localProfilePic || user.profile_picture || "/default-profile.png"}
+                alt={user.fullname || "Profile"}
+                width={96}
+                height={96}
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-md object-cover"
+                unoptimized={/^https?:\/\//.test(localProfilePic || user.profile_picture || "")}
+                onError={() => setImageError(true)}
+                onLoad={() => setImageError(false)}
+              />
+              {imageError && (
+                <Image
+                  src="/default-profile.png"
+                  alt="Default Profile"
+                  width={96}
+                  height={96}
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-md object-cover"
+                  unoptimized={false}
                 />
               )}
+              {isEditing && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                  type="button"
+                  aria-label="Edit profile picture"
+                  tabIndex={0}
+                >
+                  <span className="flex flex-col items-center text-white">
+                    <FiCamera size={22} />
+                    <span className="text-xs mt-1">Change</span>
+                  </span>
+                </button>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                className="hidden"
+                tabIndex={-1}
+              />
             </div>
           </div>
         </section>
