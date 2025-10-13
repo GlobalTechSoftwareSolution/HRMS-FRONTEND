@@ -1,72 +1,64 @@
-
-
-/* eslint-disable @next/next/no-img-element */
 "use client";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 
-import React, { useState, useRef, useEffect } from "react";
-
-type APIResponse = {
-  status?: string;
-  message?: string;
-  username?: string;
-  email?: string;
-  check_in_status?: "Checked In" | "Checked Out" | null;
-};
-
-const FaceScanPage = () => {
-  const [modalOpen, setModalOpen] = useState(true);
+export default function AttendancePage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [apiResponse, setApiResponse] = useState<APIResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ text: string; type: "success" | "error" | "warning" } | null>(null);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [mapUrl, setMapUrl] = useState<string>("https://www.google.com/maps?q=0,0&z=15&output=embed");
 
-  useEffect(() => {
-    if (modalOpen) {
-      startCamera();
-    } else {
-      stopCamera();
-      setCapturedImage(null);
-      setApiResponse(null);
-    }
-    // Cleanup when component unmounts or modal closes
-    return () => {
-      stopCamera();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modalOpen]);
-
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        setStream(mediaStream);
-      }
-    } catch (error) {
-      console.error("Error accessing webcam: ", error);
+      if (videoRef.current) videoRef.current.srcObject = mediaStream;
+      setStream(mediaStream);
+    } catch (err) {
+      showMessage("Cannot access camera", "error");
+      console.error(err);
     }
-  };
+  }, []);
 
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
       setStream(null);
     }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
+  }, [stream]);
+
+  const getLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      showMessage("Geolocation not supported", "error");
+      return;
     }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatitude(pos.coords.latitude);
+        setLongitude(pos.coords.longitude);
+        setMapUrl(`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}&z=17&output=embed`);
+      },
+      () => showMessage("Unable to access location. Allow permission.", "error"),
+      { enableHighAccuracy: true }
+    );
+  }, []);
+
+  useEffect(() => {
+    startCamera();
+    getLocation();
+    return () => stopCamera();
+  }, [startCamera, getLocation, stopCamera]);
+
+  // Show Message
+  const showMessage = (text: string, type: "success" | "error" | "warning") => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage(null), 5000);
   };
 
-  const handleCloseModal = () => {
-    setModalOpen(false);
-    if (typeof window !== "undefined") {
-      window.location.href = "/";
-    }
-  };
-
-  const captureImage = () => {
+  // Capture & Upload from Camera
+  const captureAndUpload = () => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -75,109 +67,74 @@ const FaceScanPage = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageDataUrl = canvas.toDataURL("image/png");
-    setCapturedImage(imageDataUrl);
-    sendImageToAPI(imageDataUrl);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      await uploadImage(blob, "attendance.jpg");
+    }, "image/jpeg");
   };
 
-  const sendImageToAPI = async (imageDataUrl: string) => {
+  // Upload image function
+  const uploadImage = async (file: Blob, filename: string) => {
     setLoading(true);
-    setApiResponse(null);
     try {
-      // Convert base64 image data to Blob
-      const byteString = atob(imageDataUrl.split(",")[1]);
-      const mimeString = imageDataUrl.split(",")[0].split(":")[1].split(";")[0];
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
-      }
-      const blob = new Blob([ab], { type: mimeString });
-
-      // Prepare form data
       const formData = new FormData();
-      formData.append("image", blob, "capture.png");
+      formData.append("image", file, filename);
+      if (latitude && longitude) {
+        formData.append("latitude", latitude.toString());
+        formData.append("longitude", longitude.toString());
+      }
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/mark_attendance/`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      const data: APIResponse = await response.json();
-      setApiResponse(data);
-    } catch {
-      setApiResponse({ status: "error", message: "Failed to communicate with server." });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/mark_attendance/`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.status === "success") showMessage(data.message, "success");
+      else showMessage(data.message || "Failed", "error");
+    } catch (err) {
+      console.error(err);
+      showMessage("Failed to mark attendance", "error");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <>
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4 text-black">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-auto p-6 relative flex flex-col">
-            <button
-              onClick={handleCloseModal}
-              className="absolute top-3 right-3 text-gray-600 hover:text-gray-900 transition text-3xl font-bold"
-              aria-label="Close modal"
-              title="Close"
-            >
-              &times;
-            </button>
+    <div className="min-h-screen flex flex-col items-center justify-start bg-gradient-to-br from-blue-400 to-purple-700 p-4">
+      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md text-center">
+        <h1 className="text-2xl font-bold text-gray-800 mb-4">Face Recognition Attendance</h1>
 
-            <h2 className="text-2xl font-semibold mb-4 text-center">Face Scan Attendance</h2>
-
-            <div className="w-full aspect-video rounded-lg overflow-hidden shadow-md mb-4">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover rounded-lg"
-              />
-            </div>
-
-            <button
-              onClick={captureImage}
-              disabled={loading}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition disabled:opacity-50 mb-6"
-            >
-              {loading ? "Scanning..." : "Capture & Scan"}
-            </button>
-
-     {capturedImage && (
-              <div className="flex flex-col items-center mb-4">
-                <img
-                  src={capturedImage}
-                  alt="Captured Face"
-                  className="w-32 h-32 rounded-full object-cover border-4 border-blue-500 shadow-lg mb-3"
-                />
-                {apiResponse && (
-                  <div
-                    className={`p-3 rounded text-center font-semibold ${
-                      apiResponse.status === "success"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    } shadow`}
-                  >
-                    <p>Status: {apiResponse.status ?? "Unknown"}</p>
-                    {apiResponse.message && <p className="mt-1">{apiResponse.message}</p>}
-                    {apiResponse.username && <p className="mt-1">User: {apiResponse.username}</p>}
-                    {apiResponse.email && <p className="mt-1">Email: {apiResponse.email}</p>}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <canvas ref={canvasRef} className="hidden" />
-          </div>
+        <div className="relative mb-4">
+          <video ref={videoRef} autoPlay playsInline muted className="w-full rounded-lg shadow-md" />
+          <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full hidden" />
         </div>
-      )}
-    </>
-  );
-};
 
-export default FaceScanPage;
+        <div className="flex flex-col sm:flex-row gap-2 justify-center mb-4">
+          <button
+            onClick={captureAndUpload}
+            disabled={loading}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700 transition disabled:opacity-50"
+          >
+            {loading ? "Scanning..." : "Mark Attendance (Camera)"}
+          </button>
+        </div>
+
+        <p className="text-gray-600 mb-2">{latitude && longitude ? `📍 Lat: ${latitude.toFixed(5)}, Lng: ${longitude.toFixed(5)}` : "Getting location..."}</p>
+        <iframe src={mapUrl} className="w-full h-64 rounded-lg shadow-md" />
+
+        {message && (
+          <p
+            className={`mt-4 p-2 rounded font-medium ${
+              message.type === "success" ? "bg-green-100 text-green-800" :
+              message.type === "error" ? "bg-red-100 text-red-800" :
+              "bg-yellow-100 text-yellow-800"
+            }`}
+          >
+            {message.text}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}

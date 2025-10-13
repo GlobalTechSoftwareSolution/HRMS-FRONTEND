@@ -9,7 +9,7 @@ type Employee = {
   role: string;
   department: string;
   email: string;
-  status: "active" | "on-leave" | "offboarded";
+  status: "active" | "on-leave" | "offboarded" | "pre-boarded";
   joinDate: string;
   phone: string;
   salary: number;
@@ -166,6 +166,7 @@ export default function EmployeesPage() {
                   <option value="active">Active</option>
                   <option value="on-leave">On Leave</option>
                   <option value="offboarded">Offboarded</option>
+                  <option value="pre-boarded">Pre-boarded</option>
                 </select>
               </div>
             </div>

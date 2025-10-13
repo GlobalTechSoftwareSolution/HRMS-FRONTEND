@@ -9,7 +9,8 @@ const nextConfig: NextConfig = {
       "hrms-6qja.onrender.com",
       "127.0.0.1",       
       "localhost",       
-      "globaltechsoftwaresolutions.cloud", // <-- ADD THIS
+      "globaltechsoftwaresolutions.cloud",
+      "194.238.19.109"
     ],
   },
   async rewrites() {

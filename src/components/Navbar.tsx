@@ -10,7 +10,7 @@ import FaceScanPage from "./facescan";
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const pathname = usePathname(); // get current route
+  const pathname = usePathname();
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const toggleModal = () => setIsModalOpen(!isModalOpen);
@@ -33,7 +33,7 @@ export const Navbar: React.FC = () => {
         <div className="container mx-auto px-6 py-3 flex items-center justify-between">
           {/* Logo */}
           <motion.div
-            className="flex items-center space-x-3 cursor-pointer ml-8 md:ml-28"
+            className="flex items-center space-x-3 cursor-pointer ml-8 lg:ml-28"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -57,12 +57,12 @@ export const Navbar: React.FC = () => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
             >
-              HRMS
+              HRMS 
             </motion.span>
           </motion.div>
 
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-4 mr-24">
+          {/* Desktop Menu - Only show on lg screens and above */}
+          <div className="hidden lg:flex items-center space-x-4 mr-24">
             <ul className="flex space-x-1">
               {navLinks.map((link) => {
                 const isActive = pathname === link.href;
@@ -125,10 +125,10 @@ export const Navbar: React.FC = () => {
             </motion.div>
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile Menu Button - Show on all screens except lg and above */}
           <motion.button
             onClick={toggleMenu}
-            className="md:hidden text-white focus:outline-none p-1 rounded-lg bg-white/10"
+            className="lg:hidden text-white focus:outline-none p-1 rounded-lg bg-white/10"
             whileHover={{ scale: 1.1, backgroundColor: "rgba(255,255,255,0.2)" }}
             whileTap={{ scale: 0.9 }}
           >
@@ -158,7 +158,7 @@ export const Navbar: React.FC = () => {
           </motion.button>
         </div>
 
-        {/* Mobile Dropdown */}
+        {/* Mobile Dropdown - Show on all screens except lg and above */}
         <AnimatePresence>
           {isOpen && (
             <motion.div
@@ -166,7 +166,7 @@ export const Navbar: React.FC = () => {
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="md:hidden bg-white/95 backdrop-blur-sm rounded-b-xl shadow-xl overflow-hidden"
+              className="lg:hidden bg-white/95 backdrop-blur-sm rounded-b-xl shadow-xl overflow-hidden"
             >
               <ul className="flex flex-col p-2">
                 {navLinks.map((link, index) => {
@@ -266,10 +266,8 @@ export const Navbar: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-        
-              {/* FaceScanPage Component */}
-              <FaceScanPage />
-            </motion.div>
+            <FaceScanPage />
+          </motion.div>
         )}
       </AnimatePresence>
     </>

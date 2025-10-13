@@ -5,6 +5,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FiLogOut, FiMenu, FiX } from "react-icons/fi";
 
+
+
 type Role = "ceo" | "manager" | "hr" | "employee" | "admin";
 
 type Props = {
@@ -22,6 +24,7 @@ type UserInfo = {
 
 const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
   ceo: [
+   { name: "Dashboard", path: "/ceo/dashboard" },
     { name: "Reports", path: "/ceo/reports" },
     { name: "Employees", path: "/ceo/employees" },
     { name: "Attendence", path: "/ceo/attendence" },
@@ -60,7 +63,9 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Payroll", path: "/employee/payroll" },
     { name: "Calender", path: "/employee/calender" },
     { name: "Notice", path: "/employee/notice" },
+    { name: "KRA & KPA", path: "/employee/Kra&Kpa" },
     { name: "Profile", path: "/employee/profile" },
+    
   ],
   admin: [
     { name: "Attendence", path: "/admin/attendence" },
@@ -151,7 +156,7 @@ export default function DashboardLayout({ children, role }: Props) {
     sessionStorage.clear();
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     document.cookie = "role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    router.replace("/login");
+    router.replace("/");
   }, [router]);
 
   const roleLinks = roleLinksMap[role];
@@ -208,51 +213,49 @@ export default function DashboardLayout({ children, role }: Props) {
             className="fixed inset-0 bg-black bg-opacity-40"
             onClick={() => setMenuOpen(false)}
           />
-          <div className="relative w-72 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex flex-col z-40">
+          <div className="relative w-64 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex flex-col z-40">
             <button
               onClick={() => setMenuOpen(false)}
-              className="absolute top-4 right-4 text-white"
+              className="absolute top-3 right-3 text-white"
             >
               <FiX size={24} />
             </button>
 
-            <div className="p-6 flex items-center gap-4 border-b border-blue-700">
+            <div className="p-4 flex flex-col items-center gap-2 border-b border-blue-700">
               <Image
                 src={profilePic}
                 alt={userInfo?.name || "Profile"}
-                width={64}
-                height={64}
+                width={56}
+                height={56}
                 unoptimized
-                className="rounded-full border-2 border-white shadow-md object-cover w-12 h-12"
+                className="rounded-full border-2 border-white shadow-md object-cover w-14 h-14"
               />
-              <div className="flex flex-col">
-                <p className="text-lg font-semibold text-white">
-                  {userInfo?.name || "Guest User"}
-                </p>
-                <p className="text-sm text-blue-200">{role.toUpperCase()}</p>
+              <div className="text-center">
+                <p className="text-md font-semibold text-white break-words">{userInfo?.name || "Guest"}</p>
+                <p className="text-xs text-blue-200 uppercase break-words">{role.toUpperCase()}</p>
               </div>
             </div>
 
-            <nav className="flex-1 overflow-y-auto flex flex-col p-4 space-y-2">
+            <nav className="flex-1 overflow-y-auto flex flex-col p-2 space-y-1">
               {roleLinks?.map((link) => (
                 <Link
                   href={link.path}
                   key={link.name}
                   onClick={() => setMenuOpen(false)}
-                  className="px-4 py-2 rounded-lg hover:bg-blue-500 hover:shadow-md transition-all font-medium"
+                  className="px-3 py-2 rounded-lg hover:bg-blue-500 hover:shadow-md transition-all font-medium text-sm truncate"
                 >
                   {link.name}
                 </Link>
               ))}
             </nav>
 
-            <div className="sticky bottom-0 p-4 bg-gradient-to-t from-blue-800">
+            <div className="sticky bottom-0 p-3 bg-gradient-to-t from-blue-800">
               <button
                 onClick={() => {
                   setLogoutModalOpen(true);
                   setMenuOpen(false);
                 }}
-                className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all"
+                className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg font-semibold text-sm transition-all"
               >
                 <FiLogOut /> Logout
               </button>
@@ -292,7 +295,7 @@ export default function DashboardLayout({ children, role }: Props) {
         <header className="fixed top-0 left-0 right-0 md:left-72 bg-white shadow-md p-4 flex justify-between items-center border-b border-gray-200 sticky z-30">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setMenuOpen(true)}
+              onClick={() => setMenuOpen(prev => !prev)}
               className="md:hidden text-blue-700"
             >
               <FiMenu size={24} />

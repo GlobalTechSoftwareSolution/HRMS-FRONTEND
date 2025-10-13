@@ -7,7 +7,7 @@ import Image from "next/image";
 export default function HRStandOut() {
   const features = [
   {
-    title: "Intelligent Automation",
+    title: "AI Automation",
     desc: "Streamline HR tasks with AI-powered workflows, from attendance to payroll, saving time and reducing errors.",
     img: "/images/image1.png",
     w: 150,

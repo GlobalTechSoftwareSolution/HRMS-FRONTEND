@@ -17,8 +17,22 @@ import {
 } from "recharts";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
-import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import FullCalendar from "@fullcalendar/react";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin from "@fullcalendar/interaction";
+
+
+
+
+type Holiday = {
+  date: string;
+  summary: string;
+  type: "Government" | "Bank" | "Festival" | "Jayanthi";
+  description?: string;
+}
+
+
 
 type AttendanceRecord = {
   email: string;
@@ -48,6 +62,8 @@ type Employee = {
   department: string;
 };
 
+import { useRouter } from "next/navigation";
+
 export default function ManagerDashboard() {
   // Helper to format date as DD/MM/YYYY
   const formatDate = (dateStr: string) => {
@@ -60,10 +76,23 @@ export default function ManagerDashboard() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalEmployees, setTotalEmployees] = useState(0);
-  const [, setEmployees] = useState<Employee[]>([]);
-  const [, setLoadingEmployees] = useState(true);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(true);
   // --- For mini calendar selection (full attendance list) ---
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [leaves, setLeaves] = useState<
+    {
+      employee_name?: string;
+      status: string;
+      date: string;
+      [key: string]: unknown;
+    }[]
+  >([]);
+  // Attendance filter for attendance cards
+  // null = all, "checked-in" = only checked-in, "absent" = only absent
+  const [attendanceFilter, setAttendanceFilter] = useState<null | "checked-in" | "absent">(null);
+  const router = useRouter();
 
   // ---------------- Fetch Attendance ----------------
   useEffect(() => {
@@ -132,23 +161,51 @@ export default function ManagerDashboard() {
   }, []);
 
   const today = new Date().toISOString().split("T")[0];
-  const yesterday = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split("T")[0];
-  })();
-  const todaysAttendance = attendance.filter((a) => a.date === today);
-  const checkedIn = todaysAttendance.filter((a) => a.check_in).length;
+  // Build attendance for selected date (or today if none selected): include absent employees as well
+  const effectiveDate = selectedDate || today;
+  const effectiveDateObj = new Date(effectiveDate);
+  const isFutureDate = effectiveDateObj > new Date(today);
+  const attendanceRecordsForDate = attendance.filter((a) => a.date === effectiveDate);
+  // Map email to attendance record for the date for quick lookup
+  const attendanceMap: Record<string, AttendanceRecord> = {};
+  attendanceRecordsForDate.forEach((rec) => {
+    attendanceMap[rec.email] = rec;
+  });
+  // Compose full list: for each employee, get their attendance record for the date, or fill as absent
+  const dateAttendance = employees.map((emp) => {
+    const rec = attendanceMap[emp.email];
+    if (rec) {
+      return rec;
+    } else {
+      // Absent employee
+      return {
+        email: emp.email,
+        fullname: emp.fullname,
+        department: emp.department,
+        date: effectiveDate,
+        check_in: null,
+        check_out: null,
+        hours: { hrs: 0, mins: 0, secs: 0 },
+      };
+    }
+  });
+  // Filtered attendance for KPI cards click
+  const filteredDateAttendance = attendanceFilter === "checked-in"
+    ? dateAttendance.filter((a) => a.check_in)
+    : attendanceFilter === "absent"
+    ? dateAttendance.filter((a) => !a.check_in)
+    : dateAttendance;
+  const checkedIn = dateAttendance.filter((a) => a.check_in).length;
   const absent = totalEmployees - checkedIn;
 
-  const totalHoursToday = todaysAttendance.reduce(
+  const totalHoursForDate = dateAttendance.reduce(
     (acc, a) => acc + (a.hours.hrs * 3600 + a.hours.mins * 60 + a.hours.secs),
     0
   );
-  const totalHoursTodayDisplay = (() => {
-    const hrs = Math.floor(totalHoursToday / 3600);
-    const mins = Math.floor((totalHoursToday % 3600) / 60);
-    const secs = Math.round(totalHoursToday % 60);
+  const totalHoursForDateDisplay = (() => {
+    const hrs = Math.floor(totalHoursForDate / 3600);
+    const mins = Math.floor((totalHoursForDate % 3600) / 60);
+    const secs = Math.round(totalHoursForDate % 60);
     return `${hrs}h ${mins}m ${secs}s`;
   })();
 
@@ -160,37 +217,15 @@ export default function ManagerDashboard() {
   ];
   const pieColors = ["#34d399", "#f87171"]; // green, red
 
-  // ---------------- Bar Chart: Monthly Hours Worked per Employee ----------------
-  const currentMonth = new Date().getMonth(); // 0-11
-  const currentYear = new Date().getFullYear();
-
-  // Filter records for current month
-  const monthlyAttendance = attendance.filter((rec) => {
-    const recDate = new Date(rec.date);
-    return recDate.getMonth() === currentMonth && recDate.getFullYear() === currentYear;
-  });
-
-  // Sum hours per employee
-  const hoursPerEmployeeMap: Record<string, number> = {};
-  monthlyAttendance.forEach((rec) => {
-    const hours =
-      rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600;
-    if (hoursPerEmployeeMap[rec.fullname]) {
-      hoursPerEmployeeMap[rec.fullname] += hours;
-    } else {
-      hoursPerEmployeeMap[rec.fullname] = hours;
-    }
-  });
-
-  // Prepare chart data
-  const barChartData = Object.entries(hoursPerEmployeeMap).map(
-    ([name, hours]) => ({
-      name: name.length > 14 ? name.slice(0, 12) + "…" : name,
-      hours: Number(hours.toFixed(2)),
-    })
-  );
+  // ---------------- Bar Chart: Daily Hours Worked per Employee (for selected date) ----------------
+  // If selectedDate is set, show hours for that date, else show for today
+  const barChartData = dateAttendance.map((rec) => ({
+    name: rec.fullname.length > 14 ? rec.fullname.slice(0, 12) + "…" : rec.fullname,
+    hours: Number((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600).toFixed(2)),
+  }));
 
   // ---------------- PDF Generation ----------------
+  // Download PDF for selected date or today
   const downloadPDF = async () => {
     const jsPDFModule = (await import("jspdf")).default;
     const autoTableModule = (await import("jspdf-autotable")).default;
@@ -253,7 +288,7 @@ export default function ManagerDashboard() {
     // Title
     doc.setFontSize(20);
     doc.text(
-      "Today's Attendance Report",
+      `${selectedDate ? formatDate(selectedDate) : "Today's"} Attendance Report`,
       doc.internal.pageSize.getWidth() / 2,
       y,
       { align: "center" }
@@ -262,8 +297,13 @@ export default function ManagerDashboard() {
 
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
-    const todayStr = new Date().toLocaleDateString();
-    doc.text(`Date: ${todayStr}`, doc.internal.pageSize.getWidth() / 2, y + 15, {
+    const dateStr = selectedDate
+      ? (() => {
+          const d = new Date(selectedDate);
+          return d.toLocaleDateString();
+        })()
+      : new Date().toLocaleDateString();
+    doc.text(`Date: ${dateStr}`, doc.internal.pageSize.getWidth() / 2, y + 15, {
       align: "center",
     });
 
@@ -278,19 +318,30 @@ export default function ManagerDashboard() {
     ];
     const tableRows: (string | number)[][] = [];
 
-    todaysAttendance.forEach((rec, idx) => {
+    dateAttendance.forEach((rec, idx) => {
+      let checkInDisplay = "Absent";
+      let checkOutDisplay = "Absent";
+      let hoursDisplay = "Absent";
+
+      if (rec.check_in) {
+        checkInDisplay = new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString();
+        if (rec.check_out) {
+          checkOutDisplay = new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString();
+          hoursDisplay = `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`;
+        } else {
+          checkOutDisplay = "Pending";
+          hoursDisplay = `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`;
+        }
+      }
+
       tableRows.push([
         idx + 1,
         rec.fullname || "Unknown",
         rec.email || "-",
         rec.department || "-",
-        rec.check_in
-          ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
-          : "Pending",
-        rec.check_out
-          ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
-          : "Pending",
-        `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`,
+        checkInDisplay,
+        checkOutDisplay,
+        hoursDisplay,
       ]);
     });
 
@@ -317,11 +368,102 @@ export default function ManagerDashboard() {
       },
     });
 
-    doc.save(`Attendance-Report-${todayStr}.pdf`);
+    doc.save(
+      `Attendance-Report-${selectedDate ? selectedDate : today}.pdf`
+    );
   };
 
+
+
+  
+
+  useEffect(() => {
+    const fetchHolidays = async () => {
+      try {
+        const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+        if (!API_KEY) throw new Error("Google API key missing");
+        const calendarId = encodeURIComponent("en.indian#holiday@group.v.calendar.google.com");
+        const timeMin = new Date("2024-01-01").toISOString();
+        const timeMax = new Date("2030-12-31").toISOString();
+        const url = `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?key=${API_KEY}&timeMin=${timeMin}&timeMax=${timeMax}&maxResults=250&orderBy=startTime&singleEvents=true`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+        const holidaysParsed: Holiday[] = (data.items || []).map((item: Record<string, unknown>) => {
+          const date = (item.start as { date?: string; dateTime?: string })?.date || (item.start as { date?: string; dateTime?: string })?.dateTime;
+          const summary = (item.summary as string) || "Unnamed Holiday";
+          const description = (item.description as string) || "";
+          let type: Holiday["type"] = "Festival";
+          const summaryLower = summary.toLowerCase();
+          if (summaryLower.includes("bank")) type = "Bank";
+          else if (summaryLower.includes("jayanti")) type = "Jayanthi";
+          else if (
+            summaryLower.includes("independence") ||
+            summaryLower.includes("republic") ||
+            summaryLower.includes("gandhi") ||
+            summaryLower.includes("government") ||
+            summaryLower.includes("labour")
+          )
+            type = "Government";
+          return { date, summary, type, description };
+        });
+        setHolidays(holidaysParsed);
+      } catch (err: unknown) {
+        console.error("Error fetching holidays", err);
+      }
+    };
+    fetchHolidays();
+  }, []);
+
+
+useEffect(() => {
+  const fetchLeaves = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/leaves`);
+      if (!res.ok) throw new Error("Failed to fetch leaves");
+      const data = await res.json();
+      setLeaves(data);
+    } catch (err) {
+      console.error("Error fetching leaves:", err);
+    }
+  };
+  fetchLeaves();
+}, []);
+
+const calendarEvents = [
+  ...holidays.map((h) => ({
+    title: `${h.summary} (${h.type})`,
+    start: h.date,
+    backgroundColor:
+      h.type === "Government"
+        ? "#3b82f6"
+        : h.type === "Bank"
+        ? "#a855f7"
+        : h.type === "Jayanthi"
+        ? "#22c55e"
+        : "#f97316",
+    textColor: "#fff",
+  })),
+  ...leaves.map((l) => ({
+    title: `${l.employee_name || "Employee"} - ${l.status}`,
+    start: l.date,
+    backgroundColor: l.status === "Approved" ? "#eab308" : "#f97316",
+    textColor: "#000",
+  })),
+];
+
+
+
   return (
-    <DashboardLayout role="ceo">
+    <>
+      <style jsx global>{`
+        .highlight-day {
+          background-color: rgba(59, 130, 246, 0.15) !important;
+          border-radius: 8px;
+          transition: background-color 0.3s ease;
+        }
+      `}</style>
+      <DashboardLayout role="ceo">
       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
         <motion.h1
           initial={{ opacity: 0, y: -20 }}
@@ -329,7 +471,7 @@ export default function ManagerDashboard() {
           transition={{ duration: 0.5 }}
           className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 text-gray-800"
         >
-          CEO Dashboard 📋
+          CEO ATTENDANCE 📋
         </motion.h1>
 
         {/* KPI Cards */}
@@ -344,18 +486,62 @@ export default function ManagerDashboard() {
               title: "Total Employees",
               value: totalEmployees,
               color: "bg-gradient-to-r from-blue-400 to-blue-600",
+              onClick: () => router.push("/employee"),
             },
-            { title: "Checked In", value: checkedIn, color: "bg-gradient-to-r from-green-400 to-green-600" },
-            { title: "Absent", value: absent, color: "bg-gradient-to-r from-red-400 to-red-600" },
+            {
+              title: "Checked In",
+              value: checkedIn,
+              color: "bg-gradient-to-r from-green-400 to-green-600",
+              onClick: () => {
+                setAttendanceFilter("checked-in");
+                setTimeout(() => {
+                  const section = document.getElementById("attendance-section");
+                  if (section) {
+                    section.scrollIntoView({ behavior: "smooth" });
+                  }
+                }, 0);
+              },
+            },
+            {
+              title: "Absent",
+              value: absent,
+              color: "bg-gradient-to-r from-red-400 to-red-600",
+              onClick: () => {
+                setAttendanceFilter("absent");
+                setTimeout(() => {
+                  const section = document.getElementById("attendance-section");
+                  if (section) {
+                    section.scrollIntoView({ behavior: "smooth" });
+                  }
+                }, 0);
+              },
+            },
             {
               title: "Total Hours",
-              value: totalHoursTodayDisplay,
+              value: totalHoursForDateDisplay,
               color: "bg-gradient-to-r from-purple-400 to-purple-600",
+              onClick: () => {
+                setAttendanceFilter(null);
+                setTimeout(() => {
+                  const section = document.getElementById("attendance-section");
+                  if (section) {
+                    section.scrollIntoView({ behavior: "smooth" });
+                  }
+                }, 0);
+              },
             },
           ].map((kpi) => (
             <motion.div
               key={kpi.title}
-              className={`rounded-2xl p-4 sm:p-6 text-white shadow-lg flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color}`}
+              className={`rounded-2xl p-4 sm:p-6 text-white shadow-lg flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color} cursor-pointer`}
+              onClick={kpi.onClick}
+              tabIndex={0}
+              role="button"
+              onKeyDown={e => {
+                if (e.key === "Enter" || e.key === " ") {
+                  kpi.onClick();
+                }
+              }}
             >
               <p className="text-sm sm:text-base font-medium opacity-90">{kpi.title}</p>
               <p className="text-xl sm:text-2xl md:text-3xl font-bold">{kpi.value}</p>
@@ -364,56 +550,74 @@ export default function ManagerDashboard() {
         </motion.div>
 
         {/* Charts Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-          {/* Pie Chart - Attendance Distribution */}
-          <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">Attendance Distribution</h3>
-            <div className="w-full h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                 <Pie
-  data={attendancePieData}
-  dataKey="value"
-  nameKey="name"
-  cx="50%"
-  cy="50%"
-  outerRadius={80}
-  label={(props) => {
-    const { name, percent } = props as unknown as { name: string; percent: number };
-    return `${name} (${(percent * 100).toFixed(0)}%)`;
-  }}
->
-  {attendancePieData.map((entry, idx) => {
-    return <Cell key={`cell-${entry.name}`} fill={pieColors[idx % pieColors.length]} />;
-  })}
-</Pie>
-                  <RechartsTooltip />
-                  <RechartsLegend verticalAlign="bottom" />
-                </PieChart>
-              </ResponsiveContainer>
+        {(() => {
+          // For selected date, do not render charts if all employees are absent or it's a weekend
+          let skipCharts = false;
+          if (selectedDate) {
+            const dayOfWeek = new Date(selectedDate).getDay();
+            const allAbsent = dateAttendance.every(a => !a.check_in);
+            if (allAbsent || dayOfWeek === 0 || dayOfWeek === 6) {
+              skipCharts = true;
+            }
+          }
+          if (skipCharts) {
+            return null;
+          }
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+              {/* Pie Chart - Attendance Distribution */}
+              <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">Attendance Distribution</h3>
+                <div className="w-full h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={attendancePieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={(props) => {
+                          const { name, percent } = props as unknown as { name: string; percent: number };
+                          return `${name} (${(percent * 100).toFixed(0)}%)`;
+                        }}
+                      >
+                        {attendancePieData.map((entry, idx) => {
+                          return <Cell key={`cell-${entry.name}`} fill={pieColors[idx % pieColors.length]} />;
+                        })}
+                      </Pie>
+                      <RechartsTooltip />
+                      <RechartsLegend verticalAlign="bottom" />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              {/* Bar Chart - Hours Worked per Employee */}
+              <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                  Hours Worked Per Employee ({selectedDate ? formatDate(selectedDate) : "Today"})
+                </h3>
+                <div className="w-full h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={barChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                      <YAxis label={{ value: "Hours", angle: -90, position: "insideLeft", fontSize: 12 }} />
+                      <RechartsTooltip />
+                      <Bar dataKey="hours" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
-          </div>
-          {/* Bar Chart - Hours Worked per Employee */}
-          <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">Hours Worked Per Employee (month)</h3>
-            <div className="w-full h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis label={{ value: "Hours", angle: -90, position: "insideLeft", fontSize: 12 }} />
-                  <RechartsTooltip />
-                  <Bar dataKey="hours" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
 
-        {/* Today's Attendance + Download PDF */}
+        {/* Today's/Selected Date Attendance + Download PDF */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-700">
-            Today&apos;s Attendance
+            {selectedDate ? `${formatDate(selectedDate)} Attendance` : "Today's Attendance"}
           </h2>
           <button
             onClick={downloadPDF}
@@ -423,14 +627,15 @@ export default function ManagerDashboard() {
           </button>
         </div>
 
-        {/* Today Attendance Cards */}
+        {/* Date Attendance Cards */}
         <motion.div
+          id="attendance-section"
           className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mb-8"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
         >
-          {loading ? (
+          {loading || loadingEmployees ? (
             Array.from({ length: 4 }).map((_, idx) => (
               <div
                 key={idx}
@@ -441,68 +646,111 @@ export default function ManagerDashboard() {
                 <div className="h-4 bg-gray-200 rounded w-full"></div>
               </div>
             ))
-          ) : todaysAttendance.length ? (
-            <AnimatePresence>
-              {todaysAttendance.map((rec, idx) => (
-                <motion.div
-                  key={`${rec.email}-${rec.date}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3, delay: idx * 0.05 }}
-                  className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
-                >
-                  <div className="mb-3 sm:mb-4">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.fullname}</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
-                  </div>
-                  <div className="mb-2 sm:mb-3">
-                    <p className="text-xs text-gray-400">Check-in / Check-out</p>
-                    <div className="flex gap-2 mt-1 flex-wrap">
-                      <span
-                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                          rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {rec.check_in ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString() : "Pending"}
-                      </span>
-                      <span
-                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                          rec.check_out ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
-                        }`}
-                      >
-                        {rec.check_out ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString() : "Pending"}
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
-                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{
-                          width: `${
-                            Math.min(
-                              ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
-                              100
-                            )
-                          }%`
-                        }}
-                        transition={{ duration: 1 }}
-                        className="h-2 bg-blue-500 rounded-full"
-                      />
-                    </div>
-                    <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
-                      {rec.hours.hrs}h {rec.hours.mins}m {rec.hours.secs}s
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
           ) : (
-            <div className="col-span-full text-center text-gray-500 p-6 sm:p-8 bg-white rounded-xl shadow-lg">
-              No attendance records for today.
-            </div>
+            (() => {
+              // If selected/focused date is in the future, show "Future Date"
+              if (isFutureDate) {
+                return (
+                  <div className="col-span-full flex items-center justify-center py-16">
+                    <span className="italic text-gray-400 text-lg">Future Date</span>
+                  </div>
+                );
+              }
+              // If all employees are absent for the selected date, show single "Leave / No Attendance" card
+              if (
+                selectedDate &&
+                dateAttendance.length > 0 &&
+                dateAttendance.every(a => !a.check_in)
+              ) {
+                return (
+                  <div className="col-span-full flex items-center justify-center py-16">
+                    <span className="italic text-gray-400 text-lg">Leave / No Attendance</span>
+                  </div>
+                );
+              }
+              // If not in the future, show cards or message
+              if (filteredDateAttendance.length) {
+                return (
+                  <AnimatePresence>
+                    {filteredDateAttendance.map((rec, idx) => (
+                      <motion.div
+                        key={`${rec.email}-${rec.date}`}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.3, delay: idx * 0.05 }}
+                        className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
+                      >
+                        <div className="mb-3 sm:mb-4">
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.fullname}</h3>
+                          <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
+                        </div>
+                        <div className="mb-2 sm:mb-3">
+                          <p className="text-xs text-gray-400">Check-in / Check-out</p>
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            <span
+                              className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {rec.check_in
+                                ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
+                                : "Absent"}
+                            </span>
+                            <span
+                              className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                rec.check_out
+                                  ? "bg-green-100 text-green-700"
+                                  : rec.check_in
+                                  ? "bg-orange-100 text-orange-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {rec.check_out
+                                ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
+                                : rec.check_in
+                                ? "Pending"
+                                : "Absent"}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
+                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{
+                                width: `${
+                                  rec.check_in
+                                    ? Math.min(
+                                        ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
+                                        100
+                                      )
+                                    : 0
+                                }%`
+                              }}
+                              transition={{ duration: 1 }}
+                              className={`h-2 ${rec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
+                            />
+                          </div>
+                          <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
+                            {rec.check_in
+                              ? `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`
+                              : "Absent"}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                );
+              }
+              // If no attendance cards for date, and not in the future
+              return (
+                <div className="col-span-full text-center text-gray-500 p-6 sm:p-8 bg-white rounded-xl shadow-lg">
+                  No attendance records for this date.
+                </div>
+              );
+            })()
           )}
         </motion.div>
 
@@ -510,31 +758,61 @@ export default function ManagerDashboard() {
         <h2 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">Full Attendance Records</h2>
         {/* Calendar for filtering */}
         <div className="mb-4 flex flex-col items-center">
-          <div className="bg-white p-4 rounded-xl shadow-md w-full max-w-md">
-           <Calendar
-  onChange={(value, event) => {
-    if (!value || Array.isArray(value)) return; // ignore null or range
-    if (!(value instanceof Date)) return; // extra safety
-    const local = new Date(value.getTime() - value.getTimezoneOffset() * 60000);
-    const dateStr = local.toISOString().split("T")[0];
-    setSelectedDate(dateStr === selectedDate ? null : dateStr);
-  }}
-  value={
-    selectedDate
-      ? (() => {
-          const [year, month, day] = selectedDate.split("-");
-          return new Date(Number(year), Number(month) - 1, Number(day));
-        })()
-      : null
-  }
-  tileClassName={({ date }) => {
-    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    const dateStr = local.toISOString().split("T")[0];
-    if (dateStr === today) return "bg-green-100 text-green-700 font-bold rounded";
-    if (dateStr === yesterday) return "bg-yellow-100 text-yellow-700 font-bold rounded";
-    return "";
-  }}
-/>
+          <div className="bg-white p-4 rounded-xl shadow-md w-full max-w-5xl">
+            {/* Show selected date above calendar */}
+            {selectedDate && (
+              <div className="mb-2 text-center text-gray-700 font-semibold">
+                Showing attendance for: {new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              </div>
+            )}
+            <FullCalendar
+              plugins={[dayGridPlugin, interactionPlugin]}
+              initialView="dayGridMonth"
+              height="auto"
+              events={calendarEvents}
+              eventClick={(info) => {
+                // Get clicked date
+                const clickedDate = info.event.startStr.split("T")[0];
+                setSelectedDate(clickedDate);
+                // Scroll to top smoothly
+                window.scrollTo({ top: 0, behavior: "smooth" });
+                // Highlight the day cell
+                // info.el is the event element; find the parent cell with class 'fc-daygrid-day'
+                const cell = info.el.closest(".fc-daygrid-day") as HTMLElement | null;
+                if (cell) {
+                  // Remove highlight from previously selected cell
+                  document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach((el) => {
+                    el.classList.remove("highlight-day");
+                  });
+                  cell.classList.add("highlight-day");
+                }
+              }}
+              dateClick={(arg) => {
+                const local = new Date(arg.date.getTime() - arg.date.getTimezoneOffset() * 60000);
+                const dateStr = local.toISOString().split("T")[0];
+                // Only update if the date changed
+                if (dateStr !== selectedDate) {
+                  setSelectedDate(dateStr);
+                }
+                // Scroll to top smoothly
+                window.scrollTo({ top: 0, behavior: "smooth" });
+                // Highlight the clicked cell
+                const cell = arg.dayEl as HTMLElement;
+                if (cell) {
+                  // Remove highlight from previously selected cell
+                  document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach((el) => {
+                    el.classList.remove("highlight-day");
+                  });
+                  // Add highlight to current cell
+                  cell.classList.add("highlight-day");
+                }
+              }}
+              headerToolbar={{
+                left: "prev,next today",
+                center: "title",
+                right: "dayGridMonth,dayGridWeek",
+              }}
+            />
           </div>
           {selectedDate && (
             <button
@@ -551,87 +829,239 @@ export default function ManagerDashboard() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}
         >
-          {attendance.length && !loading ? (
-            <AnimatePresence>
-              {(selectedDate
-                ? attendance.filter((rec) => rec.date === selectedDate)
-                : attendance.filter((rec) => rec.date === today || rec.date === yesterday)
-              ).length > 0 ? (
-                (selectedDate
-                  ? attendance.filter((rec) => rec.date === selectedDate)
-                  : attendance.filter((rec) => rec.date === today || rec.date === yesterday)
-                ).map((rec, idx) => (
-                  <motion.div
-                    key={`${rec.email}-${rec.date}-full`}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.3, delay: idx * 0.02 }}
-                    className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
-                  >
-                    <div className="mb-3 sm:mb-4">
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.fullname}</h3>
-                      <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
-                    </div>
-                    <div className="mb-2 sm:mb-3">
-                      <p className="text-xs text-gray-400">Date</p>
-                      <p className="text-sm sm:text-base text-gray-700 font-medium">{formatDate(rec.date)}</p>
-                    </div>
-                    <div className="mb-2 sm:mb-3">
-                      <p className="text-xs text-gray-400">Check-in / Check-out</p>
-                      <div className="flex gap-2 mt-1 flex-wrap">
-                        <span
-                          className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                            rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                          }`}
-                        >
-                          {rec.check_in ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString() : "Pending"}
-                        </span>
-                        <span
-                          className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                            rec.check_out ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
-                          }`}
-                        >
-                          {rec.check_out ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString() : "Pending"}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
-                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{
-                            width: `${
-                              Math.min(
-                                ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
-                                100
-                              )
-                            }%`
-                          }}
-                          transition={{ duration: 1 }}
-                          className="h-2 bg-purple-500 rounded-full"
-                        />
-                      </div>
-                      <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
-                        {rec.hours.hrs}h {rec.hours.mins}m {rec.hours.secs}s
-                      </p>
-                    </div>
-                  </motion.div>
-                ))
-              ) : (
-                <div className="col-span-full text-center text-gray-500 p-6 sm:p-8 bg-white rounded-xl shadow-lg">
-                  No attendance records found for selected date.
-                </div>
-              )}
-            </AnimatePresence>
-          ) : loading ? (
+          {loading || loadingEmployees ? (
             <p>Loading...</p>
           ) : (
-            <p>No attendance records found.</p>
+            <AnimatePresence>
+              {/* Full Attendance Records updated all-absent logic */}
+              {selectedDate ? (
+                (() => {
+                  const selected = selectedDate;
+                  const isFuture = new Date(selected) > new Date(today);
+                  const allAbsent = dateAttendance.length > 0 && dateAttendance.every(a => !a.check_in);
+                  if (isFuture) {
+                    return (
+                      <div className="col-span-full flex items-center justify-center py-16">
+                        <span className="italic text-gray-400 text-lg">Future Date</span>
+                      </div>
+                    );
+                  }
+                  // If all employees are absent (regardless of weekend/weekday), show single "Leave / No Attendance" card
+                  if (allAbsent) {
+                    return (
+                      <div className="col-span-full flex items-center justify-center py-16">
+                        <span className="italic text-gray-400 text-lg">Leave / No Attendance</span>
+                      </div>
+                    );
+                  }
+                  // Otherwise, show attendance cards as normal
+                  return dateAttendance
+                    .sort((a, b) => a.fullname.localeCompare(b.fullname))
+                    .map((rec, idx) => {
+                      const workedPercent = rec.check_in
+                        ? Math.min(
+                            ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
+                            100
+                          )
+                        : 0;
+                      return (
+                        <motion.div
+                          key={`${rec.email}-${selected}-full`}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.3, delay: idx * 0.02 }}
+                          className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
+                        >
+                          <div className="mb-3 sm:mb-4">
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.fullname}</h3>
+                            <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
+                          </div>
+                          <div className="mb-2 sm:mb-3">
+                            <p className="text-xs text-gray-400">Date</p>
+                            <p className="text-sm sm:text-base text-gray-700 font-medium">{formatDate(rec.date)}</p>
+                          </div>
+                          <div className="mb-2 sm:mb-3">
+                            <p className="text-xs text-gray-400">Check-in / Check-out</p>
+                            <div className="flex gap-2 mt-1 flex-wrap">
+                              <span
+                                className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                  rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                }`}
+                              >
+                                {rec.check_in
+                                  ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
+                                  : "Absent"}
+                              </span>
+                              <span
+                                className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                  rec.check_out
+                                    ? "bg-green-100 text-green-700"
+                                    : rec.check_in
+                                    ? "bg-orange-100 text-orange-700"
+                                    : "bg-red-100 text-red-700"
+                                }`}
+                              >
+                                {rec.check_out
+                                  ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
+                                  : rec.check_in
+                                  ? "Pending"
+                                  : "Absent"}
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
+                            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{
+                                  width: `${workedPercent}%`
+                                }}
+                                transition={{ duration: 1 }}
+                                className={`h-2 ${rec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
+                              />
+                            </div>
+                            <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
+                              {rec.check_in
+                                ? `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`
+                                : "Absent"}
+                            </p>
+                          </div>
+                        </motion.div>
+                      );
+                    });
+                })()
+              ) : (
+                (() => {
+                  // All past/current dates for all employees
+                  // Gather all unique dates
+                  const allDatesSet = new Set<string>();
+                  attendance.forEach(rec => allDatesSet.add(rec.date));
+                  const allDates = Array.from(allDatesSet).sort((a, b) => b.localeCompare(a));
+                  // For each date, for each employee, show card or absent
+                  const cards: { emp: Employee; date: string; rec: AttendanceRecord | null }[] = [];
+                  allDates.forEach(date => {
+                    employees.forEach(emp => {
+                      const rec = attendance.find(r => r.email === emp.email && r.date === date) || null;
+                      cards.push({ emp, date, rec });
+                    });
+                  });
+                  // Sort by date desc, then name
+                  cards.sort((a, b) => {
+                    if (a.date !== b.date) return b.date.localeCompare(a.date);
+                    return a.emp.fullname.localeCompare(b.emp.fullname);
+                  });
+                  // If all cards are for future dates, show message
+                  if (
+                    cards.length > 0 &&
+                    cards.every(({ date }) => new Date(date) > new Date(today))
+                  ) {
+                    return (
+                      <div className="col-span-full flex items-center justify-center py-16">
+                        <span className="italic text-gray-400 text-lg">Future Date</span>
+                      </div>
+                    );
+                  }
+                  // Only show cards for today or past
+                  const filteredCards = cards.filter(({ date }) => new Date(date) <= new Date(today));
+                  if (filteredCards.length === 0) {
+                    return (
+                      <div className="col-span-full text-center text-gray-500 p-6 sm:p-8 bg-white rounded-xl shadow-lg">
+                        No attendance records found.
+                      </div>
+                    );
+                  }
+                  return filteredCards.map(({ emp, date, rec }, idx) => {
+                    const displayRec = rec || {
+                      email: emp.email,
+                      fullname: emp.fullname,
+                      department: emp.department,
+                      date: date,
+                      check_in: null,
+                      check_out: null,
+                      hours: { hrs: 0, mins: 0, secs: 0 }
+                    };
+                    const workedPercent = displayRec.check_in
+                      ? Math.min(
+                          ((displayRec.hours.hrs + displayRec.hours.mins / 60 + displayRec.hours.secs / 3600) / 8) * 100,
+                          100
+                        )
+                      : 0;
+                    return (
+                      <motion.div
+                        key={`${emp.email}-${date}-full`}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.3, delay: idx * 0.01 }}
+                        className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
+                      >
+                        <div className="mb-3 sm:mb-4">
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-800">{displayRec.fullname}</h3>
+                          <p className="text-xs sm:text-sm text-gray-500 break-words">{displayRec.email}</p>
+                        </div>
+                        <div className="mb-2 sm:mb-3">
+                          <p className="text-xs text-gray-400">Date</p>
+                          <p className="text-sm sm:text-base text-gray-700 font-medium">{formatDate(displayRec.date)}</p>
+                        </div>
+                        <div className="mb-2 sm:mb-3">
+                          <p className="text-xs text-gray-400">Check-in / Check-out</p>
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            <span
+                              className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                displayRec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {displayRec.check_in
+                                ? new Date(`${displayRec.date}T${displayRec.check_in}`).toLocaleTimeString()
+                                : "Absent"}
+                            </span>
+                            <span
+                              className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                displayRec.check_out
+                                  ? "bg-green-100 text-green-700"
+                                  : displayRec.check_in
+                                  ? "bg-orange-100 text-orange-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {displayRec.check_out
+                                ? new Date(`${displayRec.date}T${displayRec.check_out}`).toLocaleTimeString()
+                                : displayRec.check_in
+                                ? "Pending"
+                                : "Absent"}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
+                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{
+                                width: `${workedPercent}%`
+                              }}
+                              transition={{ duration: 1 }}
+                              className={`h-2 ${displayRec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
+                            />
+                          </div>
+                          <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
+                            {displayRec.check_in
+                              ? `${displayRec.hours.hrs}h ${displayRec.hours.mins}m ${displayRec.hours.secs}s`
+                              : "Absent"}
+                          </p>
+                        </div>
+                      </motion.div>
+                    );
+                  });
+                })()
+              )}
+            </AnimatePresence>
           )}
         </motion.div>
       </div>
     </DashboardLayout>
+    </>
   );
-}
+};

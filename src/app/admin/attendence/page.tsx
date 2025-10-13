@@ -512,7 +512,7 @@ export default function AdminAttendanceDashboard() {
         <div className="mb-4 flex flex-col items-center">
           <div className="bg-white p-4 rounded-xl shadow-md w-full max-w-md">
             <Calendar
-              onChange={(value, event) => {
+              onChange={(value) => {
                 if (!value || Array.isArray(value)) return; // ignore null or range
                 if (!(value instanceof Date)) return; // extra safety for non-Date
                 const local = new Date(value.getTime() - value.getTimezoneOffset() * 60000);

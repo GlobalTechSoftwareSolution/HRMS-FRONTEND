@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Building, User, Lock, Mail } from "lucide-react";
+import { Building, User, Lock, Mail } from "lucide-react";
 
 interface UserData {
   user: {
@@ -204,12 +204,13 @@ const LoginPage = () => {
                 </div>
                 <input
                   id="email"
+                  name="email"
                   type="email"
+                  autoComplete="username"
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-300"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  autoComplete="email"
                   placeholder="name@company.com"
                 />
               </div>
@@ -224,12 +225,13 @@ const LoginPage = () => {
                 </div>
                 <input
                   id="password"
-                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-300"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  autoComplete="current-password"
                   placeholder="••••••••"
                 />
                 <button
@@ -237,7 +239,11 @@ const LoginPage = () => {
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
+                  {showPassword ? (
+                    <span className="text-gray-500 text-sm select-none">Show</span>
+                  ) : (
+                    <span className="text-gray-500 text-sm select-none">Hide</span>
+                  )}
                 </button>
               </div>
             </div>

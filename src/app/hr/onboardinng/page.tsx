@@ -385,8 +385,14 @@ export default function Onboarding() {
         <div className="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold overflow-hidden mr-3">
           {employee.profile_picture ? (
             <div className="relative h-12 w-12">
-              <Image 
-                src={employee.profile_picture} 
+              <Image
+                src={
+                  employee.profile_picture
+                    ? employee.profile_picture.startsWith('/') || employee.profile_picture.startsWith('http')
+                      ? employee.profile_picture
+                      : '/' + employee.profile_picture
+                    : '/placeholder.png'
+                }
                 alt={employee.fullname || employee.email}
                 fill
                 className="object-cover rounded-full"
@@ -652,7 +658,13 @@ export default function Onboarding() {
                   ) : selectedEmployee.profile_picture ? (
                     <div className="relative h-16 w-16">
                       <Image
-                        src={selectedEmployee.profile_picture}
+                        src={
+                          selectedEmployee.profile_picture
+                            ? selectedEmployee.profile_picture.startsWith('/') || selectedEmployee.profile_picture.startsWith('http')
+                              ? selectedEmployee.profile_picture
+                              : '/' + selectedEmployee.profile_picture
+                            : '/placeholder.png'
+                        }
                         alt={selectedEmployee.fullname || selectedEmployee.email}
                         fill
                         className="object-cover rounded-full"
@@ -1002,16 +1014,29 @@ export default function Onboarding() {
                           <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold overflow-hidden">
                             {activeTab === 'all' && (item as Employee).profile_picture ? (
                               <div className="relative h-10 w-10">
-                                <Image 
-                                  src={(item as Employee).profile_picture!} 
-                                  alt={(item as Employee).fullname || item.email}
-                                  fill
-                                  className="object-cover rounded-full"
-                                />
+                                {(() => {
+                                  const profileSrc =
+                                    (item as Employee).profile_picture?.startsWith('/') ||
+                                    (item as Employee).profile_picture?.startsWith('http')
+                                      ? (item as Employee).profile_picture!
+                                      : (item as Employee).profile_picture
+                                      ? '/' + (item as Employee).profile_picture
+                                      : '/placeholder.png';
+
+                                  return (
+                                    <Image
+                                      src={profileSrc}
+                                      alt={(item as Employee).fullname || item.email}
+                                      fill
+                                      className="object-cover rounded-full"
+                                    />
+                                  );
+                                })()}
                               </div>
                             ) : (
-                              (item.fullname && item.fullname.charAt(0)) ||
-                              (item.email && item.email.charAt(0))
+                              <div className="flex h-10 w-10 items-center justify-center bg-blue-100 rounded-full text-blue-600 font-bold">
+                                {(item.fullname && item.fullname.charAt(0)) || (item.email && item.email.charAt(0))}
+                              </div>
                             )}
                           </div>
                           <div className="ml-4">

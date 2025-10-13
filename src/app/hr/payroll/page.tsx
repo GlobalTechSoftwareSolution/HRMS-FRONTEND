@@ -3,23 +3,48 @@ import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
-// ✅ Type for backend response (raw API shape)
-type PayrollAPIResponse = {
-  email: string;
-  basic_salary: number | string;
-  allowances: number | string;
-  deductions: number | string;
-  bonus: number | string;
-  tax: number | string;
-  net_salary: number | string;
-  month: string;
-  year: string | number;
-  status: string;
-  pay_date: string;
+type PayslipData = {
+  id: string;
+  companyName: string;
+  period: string;
+  employeeId: string;
+  employeeName: string;
+  bank: string;
+  bankAccount: string;
+  doj: string;
+  lopDays: number;
+  pfNumber: string;
+  stdDays: number;
+  location: string;
+  workedDays: number;
+  department: string;
+  managementLevel: string;
+  facility: string;
+  entity: string;
+  pfUan: string;
+  earnings: {
+    basic: number;
+    houseRentAllowance: number;
+    personalAllowance: number;
+    otherAllowance: number;
+    oncallShiftAllowance: number;
+  };
+  deductions: {
+    providentFund: number;
+    professionalTax: number;
+    esppContribution: number;
+  };
 };
 
-// ✅ Strict type for state
-type PayrollRecord = {
+type Employee = {
+  id: number;
+  email: string;
+  fullname: string;
+  department: string;
+  // Add other employee fields as per your API
+};
+
+type PayrollAPIResponse = {
   email: string;
   basic_salary: number;
   allowances: number;
@@ -33,720 +58,629 @@ type PayrollRecord = {
   pay_date: string;
 };
 
-// ✅ Type for creating new payroll
-type NewPayrollData = {
-  email: string;
-  basic_salary: number;
-  allowances: number;
-  deductions: number;
-  bonus: number;
-  tax: number;
-  month: string;
-  year: string;
-  status: string;
-};
-
 export default function HRPayrollDashboard() {
-  const [payrollData, setPayrollData] = useState<PayrollRecord[]>([]);
+  const [showPayslip, setShowPayslip] = useState(false);
+  const [selectedPayslip, setSelectedPayslip] = useState<PayslipData | null>(null);
+  const [payslips, setPayslips] = useState<PayslipData[]>([]);
+  // const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [formData, setFormData] = useState<NewPayrollData>({
-    email: "",
-    basic_salary: 0,
-    allowances: 0,
-    deductions: 0,
-    bonus: 0,
-    tax: 0,
-    month: new Date().toLocaleString('default', { month: 'long' }),
-    year: new Date().getFullYear().toString(),
-    status: "Pending"
-  });
-  const [formLoading, setFormLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchPayrolls = async () => {
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_payrolls/`
-      );
-
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        console.error("Invalid JSON response, maybe HTML:", text);
-        setPayrollData([]);
-        return;
-      }
-
-      if (data.payrolls && Array.isArray(data.payrolls)) {
-        const records: PayrollRecord[] = data.payrolls.map(
-          (r: PayrollAPIResponse): PayrollRecord => ({
-            email: r.email,
-            basic_salary: Number(r.basic_salary) || 0,
-            allowances: Number(r.allowances) || 0,
-            deductions: Number(r.deductions) || 0,
-            bonus: Number(r.bonus) || 0,
-            tax: Number(r.tax) || 0,
-            net_salary: Number(r.net_salary) || 0,
-            month: r.month,
-            year: String(r.year),
-            status: r.status,
-            pay_date: r.pay_date,
-          })
-        );
-        setPayrollData(records);
-      } else {
-        setPayrollData([]);
-      }
-    } catch (err) {
-      console.error("Error fetching payroll data:", err);
-      setPayrollData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Fetch data from APIs
   useEffect(() => {
-    fetchPayrolls();
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch employees
+        const employeesResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`
+        );
+        
+        if (!employeesResponse.ok) {
+          throw new Error('Failed to fetch employees');
+        }
+        
+        const employeesData = await employeesResponse.json();
+        // setEmployees(Array.isArray(employeesData) ? employeesData : []);
+
+        // Fetch payrolls
+        const payrollsResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_payrolls/`
+        );
+
+        if (!payrollsResponse.ok) {
+          throw new Error('Failed to fetch payroll data');
+        }
+
+        const payrollsData = await payrollsResponse.json();
+        
+        // Transform API data to PayslipData format
+        if (payrollsData.payrolls && Array.isArray(payrollsData.payrolls)) {
+          const transformedPayslips: PayslipData[] = payrollsData.payrolls.map((payroll: PayrollAPIResponse, index: number) => {
+            // Find employee details
+            const employee = employeesData.find((emp: Employee) => emp.email === payroll.email);
+            
+            return {
+              id: `${payroll.email}-${payroll.month}-${payroll.year}-${index}`,
+              companyName: "GLOBAL TECH SOFTWARE SOLUTIONS",
+              period: `${payroll.month} ${payroll.year}`,
+              employeeId: payroll.email, // Using email as ID if no employee ID
+              employeeName: employee?.fullname || payroll.email,
+              bank: "xxxx",
+              bankAccount: "xxxx",
+              doj: "xxxx",
+              lopDays: 0,
+              pfNumber: "xxxx",
+              stdDays: payroll.month.toLowerCase() === "february" ? 28 : 30,
+              location: employee?.department || "xxxx",
+              workedDays: payroll.month.toLowerCase() === "february" ? 28 : 30,
+              department: employee?.department || "xxxx",
+              managementLevel: "xxxx",
+              facility: "xxxx",
+              entity: "xxxx",
+              pfUan: "xxxx",
+              earnings: {
+                basic: payroll.basic_salary || 0,
+                houseRentAllowance: 0,
+                personalAllowance: 0,
+                otherAllowance: payroll.allowances || 0,
+                oncallShiftAllowance: 0,
+              },
+              deductions: {
+                providentFund: 1800,       // fixed PF
+                professionalTax: 200,      // fixed professional tax
+                esppContribution: 0,       // fixed TDS/ESPP
+              },
+            };
+          });
+          setPayslips(transformedPayslips);
+        } else {
+          setPayslips([]);
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setError(err instanceof Error ? err.message : "Failed to fetch data");
+        setPayslips([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
-  // ✅ Handle form input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'email' || name === 'month' || name === 'year' || name === 'status' 
-        ? value 
-        : Number(value) || 0
-    }));
-  };
-
-  // ✅ Submit new payroll
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormLoading(true);
-    setMessage(null);
-
+  const downloadPDF = async (payslip: PayslipData) => {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/create_payroll/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(formData),
+      const pdfDoc = await PDFDocument.create();
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+      const page = pdfDoc.addPage([595.28, 842]); // A4
+      const { height } = page.getSize();
+      let y = height - 50;
+
+      // Company Header
+      page.drawText(payslip.companyName, {
+        x: 50,
+        y,
+        size: 20,
+        font: boldFont,
+        color: rgb(0, 0, 0),
+      });
+      y -= 30;
+
+      // Payslip Title
+      page.drawText(`Pay slip For ${payslip.period}`, {
+        x: 50,
+        y,
+        size: 16,
+        font: boldFont,
+        color: rgb(0, 0, 0),
+      });
+      y -= 40;
+
+      // Employee Information Table
+      const employeeInfo = [
+        ["Employee ID", payslip.employeeId, "Name", payslip.employeeName],
+        ["Bank", payslip.bank, "Bank A/c No.", payslip.bankAccount],
+        ["DOJ", payslip.doj, "LOP Days", payslip.lopDays.toString()],
+        ["PF No.", payslip.pfNumber, "STD Days", payslip.stdDays.toString()],
+        ["Location", payslip.location, "Worked Days", payslip.workedDays.toString()],
+        ["Department", payslip.department, "Management Level", payslip.managementLevel],
+        ["Facility", payslip.facility, "Entity", payslip.entity],
+        ["PF - UAN", payslip.pfUan, "", ""],
+      ];
+
+      employeeInfo.forEach((row, index) => {
+        const rowY = y - (index * 20);
+        page.drawText(row[0], { x: 50, y: rowY, size: 10, font, color: rgb(0, 0, 0) });
+        page.drawText(row[1], { x: 150, y: rowY, size: 10, font, color: rgb(0, 0, 0) });
+        page.drawText(row[2], { x: 300, y: rowY, size: 10, font, color: rgb(0, 0, 0) });
+        page.drawText(row[3], { x: 400, y: rowY, size: 10, font, color: rgb(0, 0, 0) });
+      });
+
+      y -= (employeeInfo.length * 20) + 30;
+
+      // Earnings & Deductions Table (PDF Table Layout)
+      // Prepare earnings and deductions arrays
+      const earnings = [
+        ["BASIC", payslip.earnings.basic],
+        ["HOUSE RENT ALLOWANCE", payslip.earnings.houseRentAllowance],
+        ["PERSONAL ALLOWANCE", payslip.earnings.personalAllowance],
+        ["OTHER ALLOWANCE", payslip.earnings.otherAllowance],
+        ["ONCALL / SHIFT ALLOWANCE", payslip.earnings.oncallShiftAllowance],
+      ];
+      const deductions = [
+        ["PROVIDENT FUND", payslip.deductions.providentFund],
+        ["PROFESSIONAL TAX", payslip.deductions.professionalTax],
+        ["ESPP CONTRIBUTION DEDUCTION", payslip.deductions.esppContribution],
+      ];
+      const grossEarnings = Object.values(payslip.earnings).reduce((sum, a) => sum + Number(a || 0), 0);
+      const grossDeductions = Object.values(payslip.deductions).reduce((sum, a) => sum + Number(a || 0), 0);
+      const netPay = grossEarnings - grossDeductions;
+
+      // Table Layout Parameters
+      const startX = 50;
+      let tableY = y;
+      const rowHeight = 20;
+      const colWidths = [150, 100, 150, 100];
+
+      // Draw table headers
+      const headers = ["Earnings", "Amount (Rs.)", "Deductions", "Amount (Rs.)"];
+      headers.forEach((text, i) => {
+        page.drawText(text, { x: startX + colWidths.slice(0, i).reduce((a,b) => a+b, 0), y: tableY, size: 12, font: boldFont });
+      });
+      // Draw header underline
+      page.drawLine({
+        start: { x: startX, y: tableY - 2 },
+        end: { x: startX + colWidths.reduce((a,b)=>a+b,0), y: tableY - 2 },
+        thickness: 1,
+        color: rgb(0.7, 0.7, 0.7),
+      });
+      tableY -= rowHeight;
+
+      // Draw earnings and deductions rows
+      const maxRows = Math.max(earnings.length, deductions.length);
+      for (let i = 0; i < maxRows; i++) {
+        const rowY = tableY - i * rowHeight;
+        // Row background for visual clarity (alternating color)
+        if (i % 2 === 1) {
+          page.drawRectangle({
+            x: startX,
+            y: rowY - rowHeight + 4,
+            width: colWidths.reduce((a,b)=>a+b,0),
+            height: rowHeight,
+            color: rgb(0.96, 0.98, 1),
+            opacity: 0.5,
+          });
         }
-      );
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setMessage({ type: 'success', text: result.message || "Payroll created successfully!" });
-        setFormData({
-          email: "",
-          basic_salary: 0,
-          allowances: 0,
-          deductions: 0,
-          bonus: 0,
-          tax: 0,
-          month: new Date().toLocaleString('default', { month: 'long' }),
-          year: new Date().getFullYear().toString(),
-          status: "Pending"
+        // Earnings
+        if (earnings[i]) {
+          page.drawText(String(earnings[i][0]), { x: startX, y: rowY, size: 10, font });
+          page.drawText((Number(earnings[i][1]) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), { x: startX + colWidths[0], y: rowY, size: 10, font });
+        }
+        // Deductions
+        if (deductions[i]) {
+          page.drawText(String(deductions[i][0]), { x: startX + colWidths[0] + colWidths[1], y: rowY, size: 10, font });
+          page.drawText((Number(deductions[i][1]) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), { x: startX + colWidths[0] + colWidths[1] + colWidths[2], y: rowY, size: 10, font });
+        }
+        // Draw horizontal separator for each row
+        page.drawLine({
+          start: { x: startX, y: rowY - 2 },
+          end: { x: startX + colWidths.reduce((a,b)=>a+b,0), y: rowY - 2 },
+          thickness: 0.5,
+          color: rgb(0.8, 0.8, 0.8),
         });
-        setShowAddForm(false);
-        
-        // Refresh the payroll list
-        await fetchPayrolls();
-      } else {
-        setMessage({ type: 'error', text: result.error || "Failed to create payroll" });
       }
+      tableY -= rowHeight * maxRows;
+
+      // Totals Row
+      // Draw background for totals row
+      page.drawRectangle({
+        x: startX,
+        y: tableY - rowHeight + 4,
+        width: colWidths.reduce((a,b)=>a+b,0),
+        height: rowHeight,
+        color: rgb(0.94, 0.94, 0.94),
+        opacity: 0.7,
+      });
+      // GROSS EARNINGS
+      page.drawText("GROSS EARNINGS", { x: startX, y: tableY, size: 10, font: boldFont });
+      page.drawText(formatCurrency(grossEarnings), { x: startX + colWidths[0], y: tableY, size: 10, font: boldFont });
+      // GROSS DEDUCTIONS
+      page.drawText("GROSS DEDUCTIONS", { x: startX + colWidths[0] + colWidths[1], y: tableY, size: 10, font: boldFont });
+      page.drawText(formatCurrency(grossDeductions), { x: startX + colWidths[0] + colWidths[1] + colWidths[2], y: tableY, size: 10, font: boldFont });
+      // Draw horizontal line below totals
+      page.drawLine({
+        start: { x: startX, y: tableY - 2 },
+        end: { x: startX + colWidths.reduce((a,b)=>a+b,0), y: tableY - 2 },
+        thickness: 1,
+        color: rgb(0.6, 0.6, 0.6),
+      });
+      tableY -= rowHeight;
+
+      // Net Pay Row
+      page.drawRectangle({
+        x: startX,
+        y: tableY - rowHeight + 4,
+        width: colWidths.reduce((a,b)=>a+b,0),
+        height: rowHeight,
+        color: rgb(0.85, 0.92, 1),
+        opacity: 0.6,
+      });
+      page.drawText("NET PAY", { x: startX, y: tableY, size: 12, font: boldFont, color: rgb(0,0,1) });
+      page.drawText(formatCurrency(netPay), { x: startX + colWidths[0] + colWidths[1] + colWidths[2], y: tableY, size: 12, font: boldFont, color: rgb(0,0,1) });
+      // Draw bottom border for table
+      page.drawLine({
+        start: { x: startX, y: tableY - 2 },
+        end: { x: startX + colWidths.reduce((a,b)=>a+b,0), y: tableY - 2 },
+        thickness: 1.2,
+        color: rgb(0.3, 0.3, 0.6),
+      });
+      tableY -= rowHeight + 20;
+
+      // Draw vertical borders for columns
+      const vertYTop = y;
+      const vertYBottom = tableY + 20;
+      let curX = startX;
+      for (let i = 0; i <= colWidths.length; i++) {
+        page.drawLine({
+          start: { x: curX, y: vertYTop },
+          end: { x: curX, y: vertYBottom },
+          thickness: 0.7,
+          color: rgb(0.7, 0.7, 0.7),
+        });
+        if (i < colWidths.length) curX += colWidths[i];
+      }
+
+      // Footer
+      page.drawText("** This is a computer generated payslip and does not require signature and stamp.", {
+        x: 50,
+        y: tableY - 20,
+        size: 8,
+        font,
+        color: rgb(0.5, 0.5, 0.5),
+      });
+
+      // Save PDF
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `payslip_${payslip.employeeName}_${payslip.period}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
     } catch (error) {
-      console.error("Error creating payroll:", error);
-      setMessage({ type: 'error', text: "Network error. Please try again." });
-    } finally {
-      setFormLoading(false);
+      console.error("Error generating PDF:", error);
+      alert("Error generating PDF. Please try again.");
     }
   };
 
-  // ✅ Download Payroll PDF
-const downloadPDF = async (record: PayrollRecord) => {
-  const pdfDoc = await PDFDocument.create();
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
 
-  const page = pdfDoc.addPage([595.28, 842]); // A4
-  const { width, height } = page.getSize();
-  let y = height - 60;
-
-  // Logo
-  // Logo
-const logoUrl = "/logo/Global.jpg";
-const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer());
-const logoImage = await pdfDoc.embedJpg(logoBytes);
-
-const logoDims = logoImage.scale(0.3);
-
-page.drawImage(logoImage, {
-  x: 50,
-  y: y - logoDims.height + 10,
-  width: logoDims.width,
-  height: logoDims.height,
-});
-
-// Company name — increase size from 18 to 24 and align vertically to middle of logo
-const companyName = "Global Tech Software Solutions";
-page.drawText(companyName, {
-  x: 50 + logoDims.width + 15, // slightly more spacing
-  y: y - logoDims.height / 2 + 8, // vertically center with logo
-  size: 24,
-  font: boldFont,
-  color: rgb(0, 0.53, 0.71),
-});
-
-
-  y -= Math.max(logoDims.height, 40) + 20;
-
-  // Payroll title
-  const title = "PAYROLL REPORT";
-  page.drawText(title, {
-    x: width / 2 - boldFont.widthOfTextAtSize(title, 20) / 2,
-    y,
-    size: 20,
-    font: boldFont,
-    color: rgb(0, 0.53, 0.71),
-  });
-  y -= 40;
-
-  // Employee Info Box
-  const infoBoxHeight = 70;
-  page.drawRectangle({
-    x: 50,
-    y: y - infoBoxHeight,
-    width: width - 100,
-    height: infoBoxHeight,
-    borderColor: rgb(0.8, 0.8, 0.8),
-    borderWidth: 1,
-    color: rgb(0.95, 0.95, 0.95),
-  });
-
-  const infoLines = [
-    `Employee Email: ${record.email}`,
-    `Month: ${record.month} ${record.year}`,
-    `Status: ${record.status}`,
-    `Pay Date: ${record.pay_date}`,
-  ];
-
-  let infoY = y - 20;
-  infoLines.forEach(line => {
-    page.drawText(line, {
-      x: 60,
-      y: infoY,
-      size: 12,
-      font,
-      color: rgb(0, 0, 0),
-    });
-    infoY -= 15;
-  });
-  y -= infoBoxHeight + 20;
-
-  // Earnings & Deductions Table
-  const tableX = 50;
-  const tableWidth = width - 100;
-  const tableGap = 20;
-
-  const earnings = [
-    { label: "Basic Salary", value: record.basic_salary },
-    { label: "Allowances", value: record.allowances },
-    { label: "Bonus", value: record.bonus },
-    { label: "Total Earnings", value: record.basic_salary + record.allowances + record.bonus },
-  ];
-
-  const deductions = [
-    { label: "Tax", value: record.tax },
-    { label: "Other Deductions", value: record.deductions },
-    { label: "Total Deductions", value: record.tax + record.deductions },
-  ];
-
-  // Headers
-  page.drawText("Earnings", {
-    x: tableX,
-    y,
-    size: 14,
-    font: boldFont,
-    color: rgb(0, 0.53, 0.71),
-  });
-  page.drawText("Deductions", {
-    x: tableX + tableWidth / 2,
-    y,
-    size: 14,
-    font: boldFont,
-    color: rgb(0, 0.53, 0.71),
-  });
-  y -= 20;
-
-  const maxRows = Math.max(earnings.length, deductions.length);
-  for (let i = 0; i < maxRows; i++) {
-    const earning = earnings[i];
-    const deduction = deductions[i];
-
-    if (earning) {
-      page.drawText(`${earning.label}: Rs. ${earning.value}`, {
-        x: tableX,
-        y,
-        size: 12,
-        font,
-        color: rgb(0, 0, 0),
-      });
-    }
-
-    if (deduction) {
-      page.drawText(`${deduction.label}: Rs. ${deduction.value}`, {
-        x: tableX + tableWidth / 2,
-        y,
-        size: 12,
-        font,
-        color: rgb(0, 0, 0),
-      });
-    }
-
-    y -= tableGap;
+  // Loading state
+  if (loading) {
+    return (
+      <DashboardLayout role="hr">
+        <div className="min-h-screen bg-gray-50 p-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
   }
 
-  y -= 10;
+  // Error state
+  if (error) {
+    return (
+      <DashboardLayout role="hr">
+        <div className="min-h-screen bg-gray-50 p-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center py-16">
+              <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-12 h-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">Error Loading Data</h3>
+              <p className="text-gray-600 mb-6">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
-  // Net Salary Box
-  const netSalary = record.basic_salary + record.allowances + record.bonus - (record.tax + record.deductions);
-  page.drawRectangle({
-    x: tableX,
-    y: y - 30,
-    width: tableWidth,
-    height: 30,
-    color: rgb(0.9, 1, 0.9),
-  });
-  page.drawText(`NET SALARY: Rs. ${netSalary}`, {
-    x: tableX + 10,
-    y: y - 20,
-    size: 14,
-    font: boldFont,
-    color: rgb(0, 0.6, 0.2),
-  });
-  y -= 50;
+  if (!showPayslip) {
+    return (
+      <DashboardLayout role="hr">
+        <div className="min-h-screen bg-gray-50 p-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-800 mb-4">Employee Payslips</h1>
+              <p className="text-gray-600">
+                {payslips.length > 0 
+                  ? "Select an employee to view and download payslip" 
+                  : "No payroll data available"}
+              </p>
+            </div>
 
-  // Footer
-  const footer = "Generated by Global Tech Software Solutions Payroll System";
-  page.drawText(footer, {
-    x: width / 2 - font.widthOfTextAtSize(footer, 10) / 2,
-    y: 30,
-    size: 10,
-    font,
-    color: rgb(0.5, 0.5, 0.5),
-  });
+            {payslips.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-xl shadow-lg">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">No Payroll Records Found</h3>
+                <p className="text-gray-500">There are no payroll records available at the moment.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {payslips.map((payslip) => (
+                  <div
+                    key={payslip.id}
+                    className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-300"
+                  >
+                    <div className="text-center mb-4">
+                      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-800">{payslip.employeeName}</h3>
+                      <p className="text-sm text-gray-600">{payslip.employeeId}</p>
+                      <p className="text-sm text-blue-600 font-medium mt-1">{payslip.period}</p>
+                    </div>
 
-  // Save & download
-  const pdfBytes = await pdfDoc.save();
-  const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `payroll_${record.email}_${record.month}_${record.year}.pdf`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-};
+                    <div className="space-y-2 text-sm text-gray-600 mb-6">
+                      <div className="flex justify-between">
+                        <span>Department:</span>
+                        <span className="font-medium">{payslip.department}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Location:</span>
+                        <span className="font-medium">{payslip.location}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Worked Days:</span>
+                        <span className="font-medium">{payslip.workedDays}/{payslip.stdDays}</span>
+                      </div>
+                    </div>
 
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "paid":
-        return "bg-green-100 text-green-800";
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "processing":
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-
-  // Months for dropdown
-  const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setSelectedPayslip(payslip);
+                          setShowPayslip(true);
+                        }}
+                        className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        View Payslip
+                      </button>
+                      <button
+                        onClick={() => downloadPDF(payslip)}
+                        className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        PDF
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout role="hr">
-      <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-800">
-            Payroll Dashboard
-          </h2>
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          {/* Back Button */}
           <button
-            onClick={() => setShowAddForm(true)}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            onClick={() => setShowPayslip(false)}
+            className="mb-6 flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
           >
-            + Add New Payroll
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Employee List
           </button>
-        </div>
 
-        {/* Message Display */}
-        {message && (
-          <div className={`mb-4 p-4 rounded-lg ${
-            message.type === 'success' 
-              ? 'bg-green-100 text-green-800 border border-green-200' 
-              : 'bg-red-100 text-red-800 border border-red-200'
-          }`}>
-            {message.text}
-          </div>
-        )}
+          {selectedPayslip && (
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+              {/* Payslip Content */}
+              <div className="p-8">
+                {/* Header */}
+                <div className="text-center mb-8">
+                  <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                    {selectedPayslip.companyName}
+                  </h1>
+                  <h2 className="text-lg font-semibold text-gray-700">
+                    Pay slip For {selectedPayslip.period}
+                  </h2>
+                </div>
 
-        {/* Add Payroll Form Modal */}
-        {showAddForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-bold text-gray-800">Add New Payroll</h3>
+                {/* Employee Information Table */}
+                <div className="mb-8">
+                  <table className="w-full text-sm border-collapse">
+                    <tbody>
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50 w-1/4">Employee ID</td>
+                        <td className="py-2 px-4 text-gray-900 w-1/4">{selectedPayslip.employeeId}</td>
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50 w-1/4">Name</td>
+                        <td className="py-2 px-4 text-gray-900 w-1/4">{selectedPayslip.employeeName}</td>
+                      </tr>
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Bank</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.bank}</td>
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Bank A/c No.</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.bankAccount}</td>
+                      </tr>
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">DOJ</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.doj}</td>
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">LOP Days</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.lopDays}</td>
+                      </tr>
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">PF No.</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.pfNumber}</td>
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">STD Days</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.stdDays}</td>
+                      </tr>
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Location</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.location}</td>
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Worked Days</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.workedDays}</td>
+                      </tr>
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Department</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.department}</td>
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Management Level</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.managementLevel}</td>
+                      </tr>
+                      <tr className="border-b border-gray-200">
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Facility</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.facility}</td>
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Entity</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.entity}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">PF - UAN</td>
+                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.pfUan}</td>
+                        <td className="py-2 px-4 bg-gray-50"></td>
+                        <td className="py-2 px-4"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Earnings & Deductions Table */}
+                <div className="mb-8">
+                  <table className="w-full text-sm border-collapse border border-gray-300">
+                    <thead>
+                      <tr>
+                        <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-left w-2/5">Earnings</th>
+                        <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-right w-1/5">Amount in Rs.</th>
+                        <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-left w-2/5">Deductions</th>
+                        <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-right w-1/5">Amount in Rs.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Earnings Rows */}
+                      {[
+                        ["BASIC", selectedPayslip.earnings.basic],
+                        ["HOUSE RENT ALLOWANCE", selectedPayslip.earnings.houseRentAllowance],
+                        ["PERSONAL ALLOWANCE", selectedPayslip.earnings.personalAllowance],
+                        ["OTHER ALLOWANCE", selectedPayslip.earnings.otherAllowance],
+                        ["ONCALL / SHIFT ALLOWANCE", selectedPayslip.earnings.oncallShiftAllowance],
+                      ].map(([label, amount], idx) => (
+                        <tr key={`earn-${idx}`} className="border-b border-gray-300">
+                          <td className="py-2 px-4 border border-gray-300">{label}</td>
+                          <td className="py-2 px-4 border border-gray-300 text-right">{formatCurrency(Number(amount))}</td>
+                          {/* Only show deduction for first 3 rows */}
+                          <td className="py-2 px-4 border border-gray-300">
+                            {idx === 0 && "PROVIDENT FUND"}
+                            {idx === 1 && "PROFESSIONAL TAX"}
+                            {idx === 2 && "ESPP CONTRIBUTION DEDUCTION"}
+                          </td>
+                          <td className="py-2 px-4 border border-gray-300 text-right">
+                            {idx === 0 && formatCurrency(selectedPayslip.deductions.providentFund)}
+                            {idx === 1 && formatCurrency(selectedPayslip.deductions.professionalTax)}
+                            {idx === 2 && formatCurrency(selectedPayslip.deductions.esppContribution)}
+                          </td>
+                        </tr>
+                      ))}
+
+                      {/* Totals Row */}
+                      <tr className="bg-gray-50 font-semibold">
+                        <td className="py-3 px-4 border border-gray-300">GROSS EARNINGS</td>
+                        <td className="py-3 px-4 border border-gray-300 text-right">
+                          {formatCurrency(
+                            Object.values(selectedPayslip.earnings).reduce((sum, a) => sum + Number(a || 0), 0)
+                          )}
+                        </td>
+                        <td className="py-3 px-4 border border-gray-300">GROSS DEDUCTIONS</td>
+                        <td className="py-3 px-4 border border-gray-300 text-right">
+                          {formatCurrency(
+                            Object.values(selectedPayslip.deductions).reduce((sum, a) => sum + Number(a || 0), 0)
+                          )}
+                        </td>
+                      </tr>
+
+                      {/* Net Pay Row */}
+                      <tr className="bg-blue-50 font-bold">
+                        <td className="py-3 px-4 border border-gray-300" colSpan={2}></td>
+                        <td className="py-3 px-4 border border-gray-300">NET PAY</td>
+                        <td className="py-3 px-4 border border-gray-300 text-right text-blue-700">
+                          {formatCurrency(
+                            Object.values(selectedPayslip.earnings).reduce((sum, a) => sum + Number(a || 0), 0) -
+                            Object.values(selectedPayslip.deductions).reduce((sum, a) => sum + Number(a || 0), 0)
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer */}
+                <div className="text-center text-gray-500 text-sm border-t border-gray-200 pt-4">
+                  <p>** This is a computer generated payslip and does not require signature and stamp.</p>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="mt-8 flex justify-center gap-4">
                   <button
-                    onClick={() => setShowAddForm(false)}
-                    className="text-gray-500 hover:text-gray-700"
+                    onClick={() => downloadPDF(selectedPayslip)}
+                    className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center gap-2"
                   >
-                    ✕
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download PDF
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Print
                   </button>
                 </div>
-                
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Employee Email *
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="employee@company.com"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Month *
-                      </label>
-                      <select
-                        name="month"
-                        value={formData.month}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {months.map(month => (
-                          <option key={month} value={month}>{month}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Year *
-                      </label>
-                      <input
-                        type="number"
-                        name="year"
-                        value={formData.year}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        min="2020"
-                        max="2030"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Basic Salary (₹)
-                    </label>
-                    <input
-                      type="number"
-                      name="basic_salary"
-                      value={formData.basic_salary}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Allowances (₹)
-                    </label>
-                    <input
-                      type="number"
-                      name="allowances"
-                      value={formData.allowances}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Bonus (₹)
-                    </label>
-                    <input
-                      type="number"
-                      name="bonus"
-                      value={formData.bonus}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tax (₹)
-                    </label>
-                    <input
-                      type="number"
-                      name="tax"
-                      value={formData.tax}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Other Deductions (₹)
-                    </label>
-                    <input
-                      type="number"
-                      name="deductions"
-                      value={formData.deductions}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Status
-                    </label>
-                    <select
-                      name="status"
-                      value={formData.status}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Processing">Processing</option>
-                      <option value="Paid">Paid</option>
-                    </select>
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <button
-                      type="button"
-                      onClick={() => setShowAddForm(false)}
-                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={formLoading}
-                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                    >
-                      {formLoading ? "Creating..." : "Create Payroll"}
-                    </button>
-                  </div>
-                </form>
               </div>
             </div>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          </div>
-        ) : payrollData.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-xl">
-            <h3 className="mt-2 text-lg font-medium text-gray-900">
-              No payroll records found
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Get started by creating your first payroll record.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {payrollData.map((record) => {
-              const totalEarnings =
-                record.basic_salary + record.allowances + record.bonus;
-              const totalDeductions = record.tax + record.deductions;
-              const netSalary = totalEarnings - totalDeductions;
-
-              return (
-                <div
-                  key={`${record.email}-${record.year}-${record.month}`}
-                  className="bg-white rounded-xl shadow-sm overflow-hidden"
-                >
-                  <div className="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between items-center">
-                    <div>
-                      <h3 className="text-lg font-medium leading-6 text-gray-900">
-                        Payroll Details for {record.month} {record.year}
-                      </h3>
-                      <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                        Employee: {record.email}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => downloadPDF(record)}
-                      className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
-                    >
-                      Download PDF
-                    </button>
-                  </div>
-
-                  <div className="px-4 py-5 sm:p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-500 mb-3">
-                          Earnings
-                        </h4>
-                        <div className="space-y-3">
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
-                              Basic Salary
-                            </span>
-                            <span className="text-sm font-medium text-gray-900">
-                              {formatCurrency(record.basic_salary)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
-                              Allowances
-                            </span>
-                            <span className="text-sm font-medium text-gray-900">
-                              {formatCurrency(record.allowances)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Bonus</span>
-                            <span className="text-sm font-medium text-gray-900">
-                              {formatCurrency(record.bonus)}
-                            </span>
-                          </div>
-                          <div className="border-t border-gray-200 pt-2 mt-2">
-                            <div className="flex justify-between">
-                              <span className="text-sm font-medium text-gray-700">
-                                Total Earnings
-                              </span>
-                              <span className="text-sm font-medium text-green-600">
-                                {formatCurrency(totalEarnings)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-500 mb-3">
-                          Deductions
-                        </h4>
-                        <div className="space-y-3">
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Tax</span>
-                            <span className="text-sm font-medium text-gray-900">
-                              {formatCurrency(record.tax)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">
-                              Other Deductions
-                            </span>
-                            <span className="text-sm font-medium text-gray-900">
-                              {formatCurrency(record.deductions)}
-                            </span>
-                          </div>
-                          <div className="border-t border-gray-200 pt-2 mt-2">
-                            <div className="flex justify-between">
-                              <span className="text-sm font-medium text-gray-700">
-                                Total Deductions
-                              </span>
-                              <span className="text-sm font-medium text-red-600">
-                                {formatCurrency(totalDeductions)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-8 pt-5 border-t border-gray-200">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">
-                            Pay Date
-                          </span>
-                          <p className="text-sm text-gray-900">
-                            {record.pay_date}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-gray-500">
-                            Status
-                          </span>
-                          <span
-                            className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                              record.status
-                            )}`}
-                          >
-                            {record.status}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-sm font-medium text-gray-500">
-                            Net Salary
-                          </span>
-                          <p className="text-lg font-bold text-blue-700">
-                            {formatCurrency(netSalary)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );
