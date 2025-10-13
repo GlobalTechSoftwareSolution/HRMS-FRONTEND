@@ -91,17 +91,6 @@ export default function AttendancePage() {
     }, "image/jpeg");
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);
-  };
-
-  const uploadFile = async () => {
-    if (!file) {
-      showMessage("Please select a file first.", "error");
-      return;
-    }
-    await uploadImage(file, file.name);
-  };
 
   const uploadImage = async (file: Blob, filename: string, callback?: () => void) => {
     setLoading(true);

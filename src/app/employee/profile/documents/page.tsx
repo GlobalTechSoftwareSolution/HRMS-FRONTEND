@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import Image from "next/image";
 import { FiUpload, FiCheckCircle, FiXCircle, FiAlertCircle, FiFileText, FiFile } from "react-icons/fi";
 import Docs from "@/components/docs";
@@ -48,7 +48,7 @@ export default function DocumentsPage() {
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string>("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState<string>("");
 
@@ -60,8 +60,10 @@ export default function DocumentsPage() {
     try {
       const res = await axios.get<UploadedDoc[]>(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_document/${encodeURIComponent(email)}/`);
       if (res.data.length > 0) setUploadedDocs(res.data);
+      else setUploadedDocs([]);
     } catch (err) {
       console.error("Error fetching documents:", err);
+      setUploadedDocs([]);
     }
   }, [email]);
 
@@ -94,7 +96,7 @@ export default function DocumentsPage() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!email) return setError("No logged-in user");
 
@@ -111,11 +113,8 @@ export default function DocumentsPage() {
       const formData = new FormData();
       Object.entries(files).forEach(([key, file]) => formData.append(key, file));
 
-      // Decide PATCH or POST based on whether documents exist
-      const method = uploadedDocs.length > 0 ? "patch" : "post";
-      const url = uploadedDocs.length > 0
-        ? `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_document/${encodeURIComponent(email)}/`
-        : `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/create_document/`;
+      const method = "patch";
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_document/${encodeURIComponent(email)}/`;
 
       await axios({
         method,
@@ -130,7 +129,17 @@ export default function DocumentsPage() {
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       console.error(err);
-      setError("Upload failed");
+      if (axios.isAxiosError(err)) {
+        const axiosError = err as AxiosError;
+        if (axiosError.response?.data) {
+          const serverMsg = typeof axiosError.response.data === "string" ? axiosError.response.data : JSON.stringify(axiosError.response.data);
+          setError(`Upload failed: ${serverMsg}`);
+        } else {
+          setError("Upload failed due to network or server error.");
+        }
+      } else {
+        setError("Upload failed due to an unexpected error.");
+      }
     } finally {
       setUploading(false);
     }
@@ -159,10 +168,10 @@ export default function DocumentsPage() {
             const uploadedUrl = uploadedDocs[0]?.[key];
             const selectedFile = files[key];
             const uploadedFileName = uploadedUrl != null ? String(uploadedUrl).split("/").pop() || "" : "";
-            const isImage = selectedFile 
-                ? isImageFile(selectedFile.name) 
-                : uploadedUrl 
-                    ? isImageFile(uploadedFileName) 
+            const isImage = selectedFile
+                ? isImageFile(selectedFile.name)
+                : uploadedUrl
+                    ? isImageFile(uploadedFileName)
                     : false;
 
             const previewSrc = selectedFile ? URL.createObjectURL(selectedFile) : uploadedUrl != null ? String(uploadedUrl) : null;
@@ -183,7 +192,7 @@ export default function DocumentsPage() {
                     <span className="truncate max-w-[150px]" title={selectedFile.name}>{selectedFile.name}</span>
                   ) : uploadedUrl ? (
                     <span className="truncate max-w-[150px]" title={String(uploadedUrl)}>
-                      {uploadedUrl != null ? String(uploadedUrl).split("/").pop() : ""} (Already uploaded, re-upload?)
+                      {uploadedFileName} (Already uploaded, re-upload?)
                     </span>
                   ) : (
                     <span>Choose a file</span>
@@ -211,7 +220,7 @@ export default function DocumentsPage() {
                       ) : previewSrc ? getFileIcon(previewTitleText) : null}
 
                       <div className="flex-1 text-sm text-gray-700 truncate">
-                        {selectedFile?.name || (uploadedUrl != null ? String(uploadedUrl).split("/").pop() : "")}
+                        {selectedFile?.name || uploadedFileName}
                       </div>
                       {selectedFile && (
                         <button

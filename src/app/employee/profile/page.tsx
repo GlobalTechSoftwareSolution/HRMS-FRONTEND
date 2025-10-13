@@ -5,7 +5,6 @@ import DashboardLayout from "@/components/DashboardLayout";
 import Link from "next/link";
 import Docs from "@/components/docs";
 
-
 import {
   FiSave,
   FiEdit,
@@ -143,165 +142,154 @@ export default function Profile() {
     }
   }, []);
 
-  // Image preview
+  // Image preview (with local preview, robust to backend error)
+  const [localProfilePic, setLocalProfilePic] = useState<string | null>(null);
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    // For debugging: log file
+    console.log("Selected file for upload:", file);
     const reader = new FileReader();
-    reader.onload = () =>
+    reader.onload = () => {
+      setLocalProfilePic(reader.result as string);
       setUser((prev) => ({ ...prev, profile_picture: reader.result as string }));
+    };
     reader.readAsDataURL(file);
   };
 
   // Save profile
  const handleSave = async () => {
-  setIsSaving(true);
-  try {
-    const fileInput = fileInputRef.current?.files?.[0];
+   setIsSaving(true);
+   try {
+     const fileInput = fileInputRef.current?.files?.[0];
+     if (fileInput) {
+       console.log("Uploading file to backend:", fileInput);
+     }
 
-    // Helper: Normalize empty/undefined/whitespace values to null
-    const normalize = (value: unknown): string | null =>
-      value != null && value.toString().trim() !== "" ? value.toString().trim() : null;
+     // Only send non-empty fields to backend
+     const allowedFields: (keyof UserProfile)[] = [
+       "fullname",
+       "phone",
+       "department",
+       "designation",
+       "date_of_birth",
+       "date_joined",
+       "skills",
+       "gender",
+       "marital_status",
+       "nationality",
+       "current_address",
+       "permanent_address",
+       "emp_id",
+       "employment_type",
+       "work_location",
+       "team",
+       "reports_to",
+       "degree",
+       "degree_passout_year",
+       "institution",
+       "grade",
+       "languages",
+       "emergency_contact_name",
+       "emergency_contact_relationship",
+       "emergency_contact_no",
+     ];
 
-    // Helper: Date to YYYY-MM-DD or null (safe for any type)
-    const formatDate = (value: unknown): string | null => {
-      if (!value) return null;
-      const d = new Date(value as string);
-      if (isNaN(d.getTime())) return null;
-      return d.toISOString().slice(0, 10);
-    };
+     const formData = new FormData();
+     if (fileInput) {
+       formData.append("profile_picture", fileInput);
+     }
+     allowedFields.forEach((field) => {
+       const value = user[field];
+       // Only append if value is non-empty string (not null, undefined, or empty string)
+       if (typeof value === "string" && value.trim() !== "") {
+         formData.append(field, value);
+       }
+     });
+     // Do NOT append email to FormData (handled by backend, avoid ForeignKey assignment error)
+     // if (user.email && user.email.trim() !== "") {
+     //   formData.append("email", user.email);
+     // }
 
-    // Ensure certain fields are valid strings or null
-    const normalizeStringOrNull = (value: unknown): string | null =>
-      value != null && value.toString().trim() !== "" ? value.toString().trim() : null;
+     const fetchOptions: RequestInit = {
+       method: "PATCH",
+       body: formData,
+       // Do NOT set Content-Type, browser handles boundary for FormData
+     };
 
-    // Build payload as object, then decide to send as FormData or JSON
-    const payload: { [key: string]: string | null } = {
-      fullname: normalize(user.fullname),
-      phone: normalize(user.phone),
-      department: normalize(user.department),
-      designation: normalize(user.designation),
-      date_of_birth: formatDate(user.date_of_birth),
-      date_joined: formatDate(user.date_joined),
-      skills: normalize(user.skills),
-      gender: normalize(user.gender),
-      marital_status: normalize(user.marital_status),
-      nationality: normalize(user.nationality),
-      current_address: normalize(user.current_address),
-      permanent_address: normalize(user.permanent_address),
-      emergency_contact_name: normalize(user.emergency_contact_name),
-      emergency_contact_relationship: normalize(user.emergency_contact_relationship),
-      emergency_contact_no: normalize(user.emergency_contact_no),
-      emp_id: normalizeStringOrNull(user.emp_id),
-      employment_type: normalize(user.employment_type),
-      work_location: normalizeStringOrNull(user.work_location),
-      team: normalizeStringOrNull(user.team),
-      degree: normalize(user.degree),
-      degree_passout_year: normalize(user.degree_passout_year),
-      institution: normalize(user.institution),
-      grade: normalize(user.grade),
-      languages: normalize(user.languages),
-      reports_to: normalizeStringOrNull(user.reports_to),
-    };
+     const response = await fetch(
+       `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(user.email)}/`,
+       fetchOptions
+     );
 
-    // Remove keys with undefined so backend gets null for empty
-    Object.keys(payload).forEach((k) => {
-      if (payload[k] === undefined) payload[k] = null;
-    });
+     const responseText = await response.text();
+     let data;
+     let isJSON = false;
+     try {
+       data = JSON.parse(responseText);
+       isJSON = true;
+     } catch {
+       data = null;
+       isJSON = false;
+     }
 
-    const fetchOptions: RequestInit = {
-      method: "PATCH",
-    };
+     if (!response.ok) {
+       // If backend returned HTML (not JSON), show a generic error
+       let errorMsg = "An error occurred while saving your profile.";
+       if (isJSON && data?.error) {
+         errorMsg = data.error;
+       } else if (
+         typeof responseText === "string" &&
+         (responseText.startsWith("<!DOCTYPE html") ||
+           responseText.startsWith("<html"))
+       ) {
+         errorMsg = "Server error. Please try again later.";
+       } else if (typeof responseText === "string" && responseText.trim() !== "") {
+         // Show up to 200 chars of text, but not HTML
+         errorMsg = responseText.length > 500
+           ? responseText.slice(0, 500)
+           : responseText;
+       }
+       setSaveMessage({
+         type: "error",
+         text: errorMsg,
+       });
+       setIsSaving(false);
+       // Don't clear local image preview if backend fails
+       return;
+     }
 
-    const isMultipart = !!fileInput;
-    let dataToSend: unknown;
-    if (isMultipart) {
-      // Use FormData for file uploads
-      const formData = new FormData();
-      Object.entries(payload).forEach(([k, v]) => {
-        // FormData: null or undefined → empty string, otherwise string value
-        formData.append(k, v == null ? "" : v);
-      });
-      formData.append("profile_picture", fileInput);
-      dataToSend = formData;
-      fetchOptions.body = formData;
-      // Do NOT set Content-Type for FormData; browser will set boundary
-    } else {
-      // Explicitly send JSON, fallback for PATCH without file
-      fetchOptions.headers = { "Content-Type": "application/json" };
-      fetchOptions.body = JSON.stringify(payload);
-      dataToSend = payload;
-    }
+     // Merge backend response into user, but don't overwrite local image preview with broken/HTML data
+     setUser((prev) => {
+       // If localProfilePic is set, keep it as profile_picture
+       if (localProfilePic) {
+         return { ...prev, ...data, profile_picture: localProfilePic };
+       }
+       return { ...prev, ...data };
+     });
+     setIsEditing(false);
+     setSaveMessage({ type: "success", text: "Profile updated successfully!" });
+     window.scrollTo({ top: 0, behavior: "smooth" });
+     // Clear localProfilePic on successful save
+     setLocalProfilePic(null);
 
-    // Log payload for debugging
-    console.log("Sending normalized payload to backend:", dataToSend);
-
-    const response: Response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(user.email)}/`,
-      fetchOptions
-    );
-
-    // Log full backend response for debugging
-    const responseText = await response.text();
-    console.log("Backend response status:", response.status, "text:", responseText);
-    let parsedData: unknown = null;
-    try {
-      parsedData = JSON.parse(responseText);
-    } catch {
-      parsedData = null;
-    }
-
-    if (!response.ok) {
-      // Graceful error for backend 500 errors (raw HTML)
-      let errorMsg = "";
-      if (response.status >= 500) {
-        // Try to extract error message from HTML if possible
-        const match = responseText.match(/<title>(.*?)<\/title>/i);
-        errorMsg =
-          "Server error: " +
-          (match && match[1]
-            ? match[1]
-            : "An unexpected error occurred. Please try again later.");
-      } else if (parsedData) {
-        errorMsg = typeof parsedData === "string" ? parsedData : JSON.stringify(parsedData);
-      } else {
-        errorMsg = "Failed to update profile: " + responseText.slice(0, 200);
-      }
-      setSaveMessage({
-        type: "error",
-        text: errorMsg,
-      });
-      setIsSaving(false);
-      return;
-    }
-
-    const updatedUser: Record<string, unknown> = typeof parsedData === "object" && parsedData !== null ? (parsedData as Record<string, unknown>) : {};
-    setUser((prev) => ({ ...prev, ...updatedUser }));
-    localStorage.setItem("userInfo", JSON.stringify({ ...user, ...updatedUser }));
-    setSaveMessage({ type: "success", text: "Profile updated successfully!" });
-    // Scroll to top smoothly after save
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    setIsEditing(false);
-  } catch (error: unknown) {
-    console.error(error);
-    setSaveMessage({
-      type: "error",
-      text:
-        error instanceof Error
-          ? error.message
-          : "Failed to save profile changes.",
-    });
-  } finally {
-    setIsSaving(false);
-    setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
-  }
-};
+   } catch (error: unknown) {
+     setSaveMessage({
+       type: "error",
+       text: error instanceof Error ? error.message : "Failed to save profile",
+     });
+   } finally {
+     setIsSaving(false);
+     setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
+   }
+ };
 
   const handleCancel = () => {
     // Restore previous values
     if (originalUser) {
       setUser(originalUser);
     }
+    setLocalProfilePic(null);
     setIsEditing(false);
     setSaveMessage({ type: "", text: "" });
   };
@@ -350,32 +338,59 @@ export default function Profile() {
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-gray-700 mb-2">Profile Picture</h2>
           <div className="flex items-center gap-6">
-            <div className="relative flex-shrink-0">
-              <Image
-                src={user.profile_picture || "/default-profile.png"}
-                alt={user.fullname || "Profile"}
-                width={96}
-                height={96}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
-                unoptimized={!!(user.profile_picture && user.profile_picture.startsWith("http"))}
-              />
+            <div className="relative flex-shrink-0 group">
+              {(() => {
+                let profileSrc = "/default-profile.png";
+                // Prefer local preview if available
+                if (localProfilePic) {
+                  profileSrc = localProfilePic;
+                } else if (user.profile_picture && user.profile_picture !== "null") {
+                  if (
+                    user.profile_picture.startsWith("/") ||
+                    user.profile_picture.startsWith("http") ||
+                    user.profile_picture.startsWith("data:")
+                  ) {
+                    profileSrc = user.profile_picture;
+                  }
+                }
+                return (
+                  <>
+                    <Image
+                      src={profileSrc}
+                      alt={user.fullname || "Profile"}
+                      width={96}
+                      height={96}
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
+                      unoptimized={!!(profileSrc.startsWith("http"))}
+                    />
+                    {isEditing && (
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                        type="button"
+                        aria-label="Edit profile picture"
+                        tabIndex={0}
+                      >
+                        <span className="flex flex-col items-center text-white">
+                          <FiCamera size={22} />
+                          <span className="text-xs mt-1">Change</span>
+                        </span>
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
               {isEditing && (
-                <>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-0 right-0 bg-blue-500 text-white p-1.5 rounded-full shadow-md hover:bg-blue-600 transition-colors"
-                    type="button"
-                  >
-                    <FiCamera size={14} />
-                  </button>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInputRef}
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                </>
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  tabIndex={-1}
+                  // For debugging: log file selection
+                  // (onChange handled above)
+                />
               )}
             </div>
           </div>
