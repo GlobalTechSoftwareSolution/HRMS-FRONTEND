@@ -13,7 +13,6 @@ import {
   FiBriefcase,
   FiMail,
   FiCamera,
-  FiX,
 } from "react-icons/fi";
 
 type UserProfile = {
@@ -96,6 +95,7 @@ export default function Profile() {
         );
         if (!response.ok) throw new Error("Failed to fetch user data");
         const currentUser: Record<string, unknown> = await response.json();
+        // Debug: log profile picture value
         // Map only the allowed fields from backend to frontend
         const loadedUser: UserProfile = {
           email: typeof currentUser.email === "string" ? currentUser.email : email,
@@ -107,7 +107,7 @@ export default function Profile() {
           date_joined: typeof currentUser.date_joined === "string" ? currentUser.date_joined : "",
           skills: typeof currentUser.skills === "string" ? currentUser.skills : "",
           profile_picture: typeof currentUser.profile_picture === "string"
-            ? currentUser.profile_picture
+            ? currentUser.profile_picture.replace(/^"|"$/g, "").replace(/@/g, "%40")
             : "/default-profile.png",
           gender: typeof currentUser.gender === "string" ? currentUser.gender : "",
           marital_status: typeof currentUser.marital_status === "string" ? currentUser.marital_status : "",
@@ -131,7 +131,6 @@ export default function Profile() {
         setUser(loadedUser);
         setOriginalUser(loadedUser);
       } catch (error: unknown) {
-        console.error("Error fetching user data:", error);
         setSaveMessage({ type: "error", text: "Failed to load profile data." });
       }
     };
@@ -145,17 +144,14 @@ export default function Profile() {
 
   // Image preview (with local preview, robust to backend error)
   const [localProfilePic, setLocalProfilePic] = useState<string | null>(null);
-  const [imageError, setImageError] = useState(false);
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     // For debugging: log file
-    console.log("Selected file for upload:", file);
     const reader = new FileReader();
     reader.onload = () => {
       setLocalProfilePic(reader.result as string);
       setUser((prev) => ({ ...prev, profile_picture: reader.result as string }));
-      setImageError(false);
     };
     reader.readAsDataURL(file);
   };
@@ -166,7 +162,6 @@ export default function Profile() {
    try {
      const fileInput = fileInputRef.current?.files?.[0];
      if (fileInput) {
-       console.log("Uploading file to backend:", fileInput);
      }
 
      // Only send non-empty fields to backend
@@ -293,7 +288,6 @@ export default function Profile() {
       setUser(originalUser);
     }
     setLocalProfilePic(null);
-    setImageError(false);
     setIsEditing(false);
     setSaveMessage({ type: "", text: "" });
   };
@@ -343,58 +337,54 @@ export default function Profile() {
           <h2 className="text-lg font-semibold text-gray-700 mb-2">Profile Picture</h2>
           <div className="flex items-center gap-6">
             <div className="relative flex-shrink-0 group">
-              {/* X button in top-right corner */}
-              <button
-                onClick={() => { window.location.href = "/"; }}
-                className="absolute -top-2 -right-2 z-10 bg-white rounded-full shadow p-1 hover:bg-gray-100 transition"
-                type="button"
-                aria-label="Close profile"
-                tabIndex={0}
-              >
-                <FiX size={18} className="text-gray-500" />
-              </button>
-              <Image
-                src={localProfilePic || user.profile_picture || "/default-profile.png"}
-                alt={user.fullname || "Profile"}
-                width={96}
-                height={96}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-md object-cover"
-                unoptimized={/^https?:\/\//.test(localProfilePic || user.profile_picture || "")}
-                onError={() => setImageError(true)}
-                onLoad={() => setImageError(false)}
-              />
-              {imageError && (
-                <Image
-                  src="/default-profile.png"
-                  alt="Default Profile"
-                  width={96}
-                  height={96}
-                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-full shadow-md object-cover"
-                  unoptimized={false}
+              {(() => {
+                let profileSrc = "";
+                // Prefer local preview if available
+                if (localProfilePic) {
+                  profileSrc = localProfilePic;
+                } else if (user.profile_picture && user.profile_picture !== "null") {
+                  profileSrc = user.profile_picture.replace(/^"|"$/g, "").replace(/@/g, "%40");
+                }
+                return (
+                  <>
+                    {profileSrc ? (
+                      <Image
+                        src={profileSrc}
+                        alt={user.fullname || "Profile"}
+                        width={96}
+                        height={96}
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
+                        unoptimized={profileSrc.startsWith("http")}
+                        onError={(e) => console.error("Failed to load profile picture:", e)}
+                      />
+                    ) : null}
+                    {isEditing && (
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                        type="button"
+                        aria-label="Edit profile picture"
+                        tabIndex={0}
+                      >
+                        <span className="flex flex-col items-center text-white">
+                          <FiCamera size={22} />
+                          <span className="text-xs mt-1">Change</span>
+                        </span>
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
+              {isEditing && (
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  tabIndex={-1}
                 />
               )}
-              {isEditing && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-                  type="button"
-                  aria-label="Edit profile picture"
-                  tabIndex={0}
-                >
-                  <span className="flex flex-col items-center text-white">
-                    <FiCamera size={22} />
-                    <span className="text-xs mt-1">Change</span>
-                  </span>
-                </button>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                ref={fileInputRef}
-                onChange={handleImageUpload}
-                className="hidden"
-                tabIndex={-1}
-              />
             </div>
           </div>
         </section>
