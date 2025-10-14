@@ -78,13 +78,8 @@ const Docs = () => {
     };
 
     documentsData.forEach((doc) => {
-      // Ensure doc is an object
       if (typeof doc !== "object" || doc === null) return;
-
-      // Type doc as a record with string keys and string | number | null values
       const recordDoc = doc as Record<string, string | number | null>;
-
-      // Ensure email exists and is a string or number or null
       if (typeof recordDoc.email !== "string" && typeof recordDoc.email !== "number") return;
       if (String(recordDoc.email).toLowerCase() !== userEmail.toLowerCase()) return;
 
@@ -100,8 +95,6 @@ const Docs = () => {
         }
       });
     });
-
-    console.log("Normalized Documents for current user:", normalizedDocs);
 
     setEmployees([{ ...employeeData, documents: normalizedDocs }]);
   } catch (err: unknown) {
@@ -135,78 +128,77 @@ const Docs = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-5xl mx-auto flex flex-col md:flex-row gap-6">
-     
+      <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-6">
 
-        {/* Right: Documents */}
-      <div className="bg-white rounded-xl shadow-md p-6 max-w-2xl mx-auto">
-  <h1 className="text-2xl font-bold text-gray-900 mb-4">Documents uploaded</h1>
+        {/* Documents Section */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 w-full">
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Uploaded Documents</h1>
 
-  {userDocs.length > 0 ? (
-    <ul className="space-y-3 max-h-96 overflow-y-auto">
-      {userDocs.map((doc) => (
-        <li key={`${doc.id}-${doc.document_name}`}>
-          {doc.document_url ? (
-            <div
-              onClick={() => setPreviewUrl(doc.document_url)}
-              className="cursor-pointer block p-3 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium shadow-sm transition select-none"
-            >
-              📄 {doc.document_name}
-            </div>
+          {userDocs.length > 0 ? (
+            <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[80vh] overflow-y-auto">
+              {userDocs.map((doc) => (
+                <li key={`${doc.id}-${doc.document_name}`}>                  
+                  {doc.document_url ? (
+                    <div
+                      onClick={() => setPreviewUrl(doc.document_url)}
+                      className="cursor-pointer p-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium shadow-sm transition flex items-center gap-2 select-none"
+                    >
+                      📄 {doc.document_name}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-gray-100 text-gray-500 font-medium select-none">
+                      {doc.document_name}: Not Uploaded
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
           ) : (
-            <div className="block p-3 rounded-md bg-gray-100 text-gray-500 font-medium select-none">
-              {doc.document_name}: Not Uploaded
+            <p className="text-gray-500">No documents found.</p>
+          )}
+
+          {/* Preview Modal */}
+          {previewUrl && (
+            <div
+              className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+              onClick={() => setPreviewUrl(null)}
+            >
+              <div
+                className="bg-white rounded-2xl w-full max-w-5xl max-h-[85vh] p-6 relative overflow-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setPreviewUrl(null)}
+                  className="absolute top-3 right-3 text-gray-600 hover:text-gray-900 font-bold text-2xl"
+                  aria-label="Close preview"
+                >
+                  &times;
+                </button>
+                {previewUrl.match(/\.(jpeg|jpg|png)$/i) ? (
+                  <div className="relative w-full h-[75vh] mx-auto rounded">
+                    <Image
+                      src={previewUrl}
+                      alt="Document Preview"
+                      layout="fill"
+                      objectFit="contain"
+                      className="rounded"
+                      unoptimized
+                      onError={(e) => console.error("Failed to load document image:", e)}
+                    />
+                  </div>
+                ) : (
+                  <iframe
+                    src={previewUrl}
+                    title="Document Preview"
+                    className="w-full h-[75vh] rounded"
+                    frameBorder="0"
+                    onError={(e) => console.error("Failed to load document iframe:", e)}
+                  />
+                )}
+              </div>
             </div>
           )}
-        </li>
-      ))}
-    </ul>
-  ) : (
-    <p className="text-gray-500">No documents found.</p>
-  )}
-
-  {/* Preview Modal */}
-  {previewUrl && (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
-      onClick={() => setPreviewUrl(null)}
-    >
-      <div
-        className="bg-white rounded-lg w-full max-w-4xl max-h-[80vh] p-4 relative overflow-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          onClick={() => setPreviewUrl(null)}
-          className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 font-bold text-xl"
-          aria-label="Close preview"
-        >
-          &times;
-        </button>
-        {previewUrl.match(/\.(jpeg|jpg|png)$/i) ? (
-          <div className="relative w-full h-[75vh] mx-auto rounded">
-            <Image
-              src={previewUrl}
-              alt="Document Preview"
-              layout="fill"
-              objectFit="contain"
-              className="rounded"
-              unoptimized
-              onError={(e) => console.error("Failed to load document image:", e)}
-            />
-          </div>
-        ) : (
-          <iframe
-            src={previewUrl}
-            title="Document Preview"
-            className="w-full h-[75vh]"
-            frameBorder="0"
-            onError={(e) => console.error("Failed to load document iframe:", e)}
-          />
-        )}
-      </div>
-    </div>
-  )}
-</div>
+        </div>
       </div>
     </div>
   );
