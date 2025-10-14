@@ -351,7 +351,7 @@ export default function Profile() {
         width={96}
         height={96}
         className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
-        unoptimized={localProfilePic || user.profile_picture?.startsWith("http")}
+        unoptimized={!!localProfilePic || user.profile_picture?.startsWith("http")}
         onError={(e) => console.error("Failed to load profile picture:", e)}
       />
     </div>
