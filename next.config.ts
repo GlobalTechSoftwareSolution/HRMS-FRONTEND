@@ -10,7 +10,8 @@ const nextConfig: NextConfig = {
       "127.0.0.1",       
       "localhost",       
       "globaltechsoftwaresolutions.cloud",
-      "194.238.19.109"
+      "194.238.19.109",
+      "minio.globaltechsoftwaresolutions.cloud"
     ],
   },
   async rewrites() {

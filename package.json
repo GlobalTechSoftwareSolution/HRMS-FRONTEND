@@ -20,6 +20,7 @@
     "@nhost/nextjs": "^2.3.1",
     "@nhost/nhost-js": "^3.3.1",
     "@pdf-lib/fontkit": "^1.1.1",
+    "@tailwindcss/forms": "^0.5.10",
     "axios": "^1.12.2",
     "chart.js": "^4.5.0",
     "date-fns": "^4.1.0",

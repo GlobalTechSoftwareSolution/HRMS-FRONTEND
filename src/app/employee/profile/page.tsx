@@ -333,62 +333,53 @@ export default function Profile() {
           </div>
         )}
         {/* Profile Picture Section */}
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-700 mb-2">Profile Picture</h2>
-          <div className="flex items-center gap-6">
-            <div className="relative flex-shrink-0 group">
-              {(() => {
-                let profileSrc = "";
-                // Prefer local preview if available
-                if (localProfilePic) {
-                  profileSrc = localProfilePic;
-                } else if (user.profile_picture && user.profile_picture !== "null") {
-                  profileSrc = user.profile_picture.replace(/^"|"$/g, "").replace(/@/g, "%40");
-                }
-                return (
-                  <>
-                    {profileSrc ? (
-                      <Image
-                        src={profileSrc}
-                        alt={user.fullname || "Profile"}
-                        width={96}
-                        height={96}
-                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
-                        unoptimized={profileSrc.startsWith("http")}
-                        onError={(e) => console.error("Failed to load profile picture:", e)}
-                      />
-                    ) : null}
-                    {isEditing && (
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-                        type="button"
-                        aria-label="Edit profile picture"
-                        tabIndex={0}
-                      >
-                        <span className="flex flex-col items-center text-white">
-                          <FiCamera size={22} />
-                          <span className="text-xs mt-1">Change</span>
-                        </span>
-                      </button>
-                    )}
-                  </>
-                );
-              })()}
-              {isEditing && (
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={fileInputRef}
-                  onChange={handleImageUpload}
-                  className="hidden"
-                  tabIndex={-1}
-                />
-              )}
-            </div>
-          </div>
-        </section>
+      {/* Profile Picture Section */}
+<section className="mb-8">
+  <h2 className="text-lg font-semibold text-gray-700 mb-2">Profile Picture</h2>
+  <div className="flex items-center gap-6">
+    <div className="relative flex-shrink-0">
+      {/* Profile image */}
+      <Image
+        src={
+          localProfilePic
+            ? localProfilePic
+            : user.profile_picture && user.profile_picture !== "null"
+            ? user.profile_picture.replace(/^"|"$/g, "").replace(/@/g, "%40")
+            : "/default-profile.png"
+        }
+        alt={user.fullname || "Profile"}
+        width={96}
+        height={96}
+        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
+        unoptimized={localProfilePic || user.profile_picture?.startsWith("http")}
+        onError={(e) => console.error("Failed to load profile picture:", e)}
+      />
+    </div>
+
+    {/* Edit button */}
+    {isEditing && (
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        className="flex items-center gap-1 px-3 py-2 text-sm font-medium bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition"
+      >
+        <FiCamera size={16} />
+        Edit
+      </button>
+    )}
+
+    {/* Hidden file input */}
+    <input
+      type="file"
+      accept="image/*"
+      ref={fileInputRef}
+      onChange={handleImageUpload}
+      className="hidden"
+    />
+  </div>
+</section>
         {/* Personal Information */}
+
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-gray-700 mb-2">Personal Information</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

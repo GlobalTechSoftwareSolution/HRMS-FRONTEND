@@ -32,6 +32,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Projects", path: "/ceo/projects" },
     { name: "Notice", path: "/ceo/notice" },
     { name: "Calender", path: "/ceo/calender" },
+    { name: "Tickets", path: "/ceo/ceo_tickets" },
     { name: "Profile", path: "/ceo/profile" },
   ],
   manager: [
@@ -42,6 +43,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Attendence", path: "/manager/attendence" },
     { name: "Notice", path: "/manager/notice" },
     { name: "Calender", path: "/manager/calender" },
+    { name: "Tickets", path: "/manager/manager_tickets" },
     { name: "Profile", path: "/manager/profile" },
   ],
   hr: [
@@ -53,6 +55,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Offboarding", path: "/hr/offboardinng" },
     { name: "Calender", path: "/hr/calender" },
     { name: "Notice", path: "/hr/notice" },
+    { name: "Tickets", path: "/hr/hr_tickets" },
     { name: "Profile", path: "/hr/profile" },
   ],
   employee: [
@@ -64,6 +67,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Calender", path: "/employee/calender" },
     { name: "Notice", path: "/employee/notice" },
     { name: "KRA & KPA", path: "/employee/Kra&Kpa" },
+    { name: "Tickets", path: "/employee/employee_tickets" },
     { name: "Profile", path: "/employee/profile" },
     
   ],
@@ -73,6 +77,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "System Settings", path: "/admin/system-settings" },
     { name: "Calender", path: "/admin/calender" },
     { name: "Notice", path: "/admin/notice" },
+    { name: "Tickets", path: "/admin/admin_tickets" },
     { name: "Profile", path: "/admin/profile" },
 
   ],
