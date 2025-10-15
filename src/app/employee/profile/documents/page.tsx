@@ -298,14 +298,44 @@ export default function DocumentsPage() {
             >
               <FiXCircle size={28} />
             </button>
+
+            {/* Image preview */}
             {/\.(jpg|jpeg|png|gif|bmp|svg)$/i.test(previewUrl) ? (
-              <Image src={previewUrl} alt={previewTitle} width={800} height={800} className="object-contain max-h-[80vh]" />
+              <Image
+                src={previewUrl}
+                alt={previewTitle}
+                width={800}
+                height={800}
+                className="object-contain max-h-[80vh]"
+              />
+
+            /* PDF download */ 
             ) : /\.(pdf)$/i.test(previewUrl) ? (
-              <iframe src={previewUrl} title={previewTitle} className="w-full h-[80vh]" />
+              <div className="flex flex-col items-center justify-center w-full h-[80vh] bg-gray-50 rounded p-6">
+                <p className="text-gray-600 mb-4">
+                  PDF preview not available. Click below to download.
+                </p>
+                <a
+                  href={previewUrl}
+                  download
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                >
+                  Download PDF
+                </a>
+              </div>
+
+            /* Unsupported file type */
             ) : (
               <div className="p-4 text-gray-700">
                 <p>Preview not available for this file type.</p>
-                <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline mt-2 block">Open in new tab</a>
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline mt-2 block"
+                >
+                  Open in new tab
+                </a>
               </div>
             )}
           </div>

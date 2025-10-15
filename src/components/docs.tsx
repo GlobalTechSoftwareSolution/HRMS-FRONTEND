@@ -174,26 +174,38 @@ const Docs = () => {
                 >
                   &times;
                 </button>
-                {previewUrl.match(/\.(jpeg|jpg|png)$/i) ? (
-                  <div className="relative w-full h-[75vh] mx-auto rounded">
-                    <Image
+                {/\.(jpeg|jpg|png|gif|webp)$/i.test(previewUrl) ? (
+                  <div className="flex justify-center items-center w-full h-[75vh] bg-gray-50 rounded">
+                    <img
                       src={previewUrl}
                       alt="Document Preview"
-                      layout="fill"
-                      objectFit="contain"
-                      className="rounded"
-                      unoptimized
-                      onError={(e) => console.error("Failed to load document image:", e)}
+                      className="max-h-full max-w-full object-contain rounded"
+                      onError={(e) => {
+                        console.error("Image failed to load:", previewUrl);
+                      }}
+                    />
+                  </div>
+                ) : previewUrl.toLowerCase().endsWith(".pdf") ? (
+                  <div className="relative w-full h-[75vh] rounded bg-gray-50 flex justify-center items-center">
+                    <div id="pdf-loader" className="absolute flex justify-center items-center w-full h-full">
+                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                    </div>
+                    <iframe
+                      src={`https://docs.google.com/gview?url=${encodeURIComponent(previewUrl)}&embedded=true`}
+                      title="PDF Preview"
+                      className="w-full h-[75vh] rounded relative z-10"
+                      frameBorder="0"
+                      allowFullScreen
+                      onLoad={() => {
+                        const loader = document.getElementById('pdf-loader');
+                        if (loader) loader.style.display = 'none';
+                      }}
                     />
                   </div>
                 ) : (
-                  <iframe
-                    src={previewUrl}
-                    title="Document Preview"
-                    className="w-full h-[75vh] rounded"
-                    frameBorder="0"
-                    onError={(e) => console.error("Failed to load document iframe:", e)}
-                  />
+                  <div className="flex flex-col items-center justify-center w-full h-[75vh] bg-gray-50 rounded">
+                    <p className="text-gray-600 mb-4">Unable to preview this document type.</p>
+                  </div>
                 )}
               </div>
             </div>
