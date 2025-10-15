@@ -49,7 +49,6 @@ const DocumentPage = () => {
   const fetchUsers = async () => {
     try {
       const endpoints = [
-        { url: '/api/accounts/users/', role: 'user' },
         { url: '/api/accounts/employees/', role: 'employee' },
         { url: '/api/accounts/hrs/', role: 'hr' },
         { url: '/api/accounts/managers/', role: 'manager' },
@@ -219,7 +218,7 @@ const DocumentPage = () => {
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2">
-            {[  'employee', 'hr', 'manager', 'admin','all','user'].map(r => (
+            {[  'employee', 'hr', 'manager', 'admin','all'].map(r => (
               <button
                 key={r}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${

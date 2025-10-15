@@ -3,6 +3,7 @@ import React from "react";
 import { Navbar } from "@/components/Navbar";
 import  Mainpage  from "@/app/mainpage/page";
 import  Footer  from "@/components/footer";
+import Chatbot from '@/components/chatbot'
 import Services from '@/app/services/page'
 import Hrstandout from '@/app/hrstandout/page'
 import Hrmodules from '@/app/hrmodules/page'
@@ -25,6 +26,7 @@ export default function HomePage() {
       <Goodwill />
       <Modules />
       <Faqs />
+      <Chatbot />
       <Footer />
     </div>
   );

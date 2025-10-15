@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import DashboardLayout from "@/components/DashboardLayout";
 import {
   FiCalendar,
   FiAlertCircle,
@@ -44,21 +43,22 @@ export default function NoticeDashboard() {
       );
       if (!res.ok) throw new Error("Failed to fetch notices");
       const data = await res.json();
-
-      // get the logged-in user's email
-      const userEmail = localStorage.getItem("user_email");
-
-      const noticesWithDefaults = (data.notices || [])
-        // only show notices assigned to the user
-        .filter((notice: Notice) => notice.notice_to === userEmail)
-        .map((notice: Notice) => ({
-          ...notice,
-          is_read: notice.is_read || false,
-          category: notice.category || "General",
-        }));
-
-      setNotices(noticesWithDefaults);
-      setFilteredNotices(noticesWithDefaults);
+      const userEmail =
+        typeof window !== "undefined" && localStorage.getItem("user_email")
+          ? localStorage.getItem("user_email")
+          : null;
+      const noticesWithDefaults = (data.notices || []).map((notice: Notice) => ({
+        ...notice,
+        is_read: notice.is_read || false,
+        category: notice.category || "General",
+      }));
+      // Filter by user email if available
+      const filteredByEmail =
+        userEmail != null
+          ? noticesWithDefaults.filter((notice) => notice.email === userEmail)
+          : [];
+      setNotices(filteredByEmail);
+      setFilteredNotices(filteredByEmail);
     } catch (error) {
       console.error("Error fetching notices:", error);
     } finally {
@@ -139,7 +139,6 @@ export default function NoticeDashboard() {
     });
 
   return (
-    <DashboardLayout role="employee">
       <div className="min-h-screen bg-white text-black p-4 md:p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
@@ -303,6 +302,5 @@ export default function NoticeDashboard() {
           </div>
         )}
       </div>
-    </DashboardLayout>
   );
 }
