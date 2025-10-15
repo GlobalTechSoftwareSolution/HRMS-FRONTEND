@@ -6,6 +6,7 @@ import  Footer  from "@/components/footer";
 import Services from '@/app/services/page'
 import Hrstandout from '@/app/hrstandout/page'
 import Hrmodules from '@/app/hrmodules/page'
+import Goodwill from '@/app/goodwill/page'
 import Faqs from '@/app/faqs/page'
 import Modules from '@/app/modules/page'
 
@@ -19,6 +20,7 @@ export default function HomePage() {
       <Hrstandout />
       <Hrmodules />
       <Services />
+      <Goodwill />
       <Modules />
       <Faqs />
       <Footer />

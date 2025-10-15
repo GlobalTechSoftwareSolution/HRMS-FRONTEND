@@ -3,11 +3,24 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import axios from 'axios';
+import { 
+  Users, 
+  FileText, 
+  Mail, 
+  Phone, 
+  Briefcase, 
+  Building, 
+  Download,
+  Upload,
+  X,
+  Filter,
+  UserCheck
+} from 'lucide-react';
 
 type User = {
-  id: number;
-  fullname: string;
-  email: string;
+  id?: number; // ID may be missing
+  fullname?: string;
+  email?: string;
   phone?: string;
   department?: string;
   designation?: string;
@@ -17,18 +30,20 @@ type User = {
 };
 
 type Document = {
-  id: number;
+  id?: number;
   title: string;
   file_url: string;
   email: string;
+  [key: string]: any;
 };
 
 const DocumentPage = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>('all');
+  const [filter, setFilter] = useState<string>('employee'); // default to employee
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Fetch users
   const fetchUsers = async () => {
@@ -68,206 +83,380 @@ const DocumentPage = () => {
     Promise.all([fetchUsers(), fetchDocuments()]).finally(() => setLoading(false));
   }, []);
 
-  const filteredUsers = filter === 'all' ? users : users.filter(u => u.role === filter);
+  const filteredUsers = filter === 'all' 
+    ? users 
+    : users.filter(u => u.role === filter);
+
+  const searchedUsers = filteredUsers.filter(user =>
+    (user.fullname?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+    (user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
+  );
+
+  const getRoleColor = (role: string) => {
+    const colors = {
+      admin: 'bg-purple-100 text-purple-800 border-purple-200',
+      hr: 'bg-blue-100 text-blue-800 border-blue-200',
+      manager: 'bg-green-100 text-green-800 border-green-200',
+      employee: 'bg-orange-100 text-orange-800 border-orange-200',
+      user: 'bg-gray-100 text-gray-800 border-gray-200'
+    };
+    return colors[role as keyof typeof colors] || colors.user;
+  };
+
+  const getRoleIcon = (role: string) => {
+    const icons = {
+      admin: '👑',
+      hr: '💼',
+      manager: '👔',
+      employee: '👷',
+      user: '👤'
+    };
+    return icons[role as keyof typeof icons] || icons.user;
+  };
 
   if (loading) {
     return (
       <DashboardLayout role="hr">
-        <div className="text-center py-20 text-gray-500">Loading dashboard...</div>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading dashboard...</p>
+          </div>
+        </div>
       </DashboardLayout>
     );
   }
 
   return (
     <DashboardLayout role="hr">
-      <div className="p-6">
+      <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">HR Dashboard</h1>
-          <span className="text-lg font-medium">PAVAN REDDY</span>
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">HR Dashboard</h1>
+            <p className="text-gray-600 mt-1">Manage employees and their documents</p>
+          </div>
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+              PR
+            </div>
+            <span className="font-medium text-gray-900">Pavan Reddy</span>
+          </div>
         </div>
 
-        {/* Filters */}
-        <div className="mb-6 flex gap-2 flex-wrap">
-          {['all', 'user', 'employee', 'hr', 'manager', 'admin'].map(r => (
-            <button
-              key={r}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${
-                filter === r
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-              onClick={() => setFilter(r)}
-            >
-              {r.charAt(0).toUpperCase() + r.slice(1)}
-            </button>
-          ))}
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Users</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{users.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Documents</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{documents.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
+                <FileText className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active Filter</p>
+                <p className="text-lg font-bold text-gray-900 mt-1 capitalize">
+                  {filter === 'all' ? 'All Roles' : filter}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
+                <Filter className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Showing</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {searchedUsers.length} / {users.length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
+                <UserCheck className="w-6 h-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filteredUsers.map(user => (
+        {/* Filters and Search */}
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search users by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {[  'employee', 'hr', 'manager', 'admin','all','user'].map(r => (
+              <button
+                key={r}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
+                  filter === r
+                    ? 'bg-blue-500 text-white shadow-md'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                }`}
+                onClick={() => setFilter(r)}
+              >
+                <span>{getRoleIcon(r)}</span>
+                {r.charAt(0).toUpperCase() + r.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* User Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {searchedUsers.map((user, index) => (
             <div
-              key={user.id}
-              className="border border-gray-200 rounded-lg shadow p-4 hover:shadow-lg transition cursor-pointer flex flex-col items-center text-center gap-2"
-              onClick={() => setSelectedUser(user)}
+              key={user.id ?? `${user.email ?? 'user'}-${index}`} // fallback key
+              className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden group"
+              onClick={() => setSelectedUser(user)} // modal opens even if no ID
             >
-              {user.profile_picture ? (
-                <img
-                  src={user.profile_picture}
-                  alt={user.fullname}
-                  className="w-20 h-20 rounded-full object-cover mb-2"
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center mb-2 text-gray-500">No Pic</div>
-              )}
-              <h2 className="text-lg font-semibold">{user.fullname}</h2>
-              <p className="text-gray-600 text-sm">Email: {user.email}</p>
-              {user.phone && <p className="text-gray-600 text-sm">Phone: {user.phone}</p>}
-              <p className="text-xs font-medium text-blue-500">Role: {user.role}</p>
+              <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+                {user.profile_picture ? (
+                  <img
+                    src={user.profile_picture}
+                    alt={user.fullname || 'User'}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-lg border-2 border-white shadow-md">
+                    {user.fullname?.split(' ').map(n => n[0]).join('') || 'U'}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition">
+                    {user.fullname || 'Unknown User'}
+                  </h3>
+                  <p className="text-sm text-gray-500 truncate">{user.email || 'No Email'}</p>
+
+                  {/* Additional Info */}
+                  <div className="mt-4 space-y-2">
+                    {user.phone && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Phone className="w-4 h-4" />
+                        <span>{user.phone}</span>
+                      </div>
+                    )}
+                    {user.department && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Building className="w-4 h-4" />
+                        <span className="truncate">{user.department}</span>
+                      </div>
+                    )}
+                    {user.designation && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Briefcase className="w-4 h-4" />
+                        <span className="truncate">{user.designation}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Role Badge */}
+                  <div className={`inline-flex items-center gap-2 px-3 py-1 mt-2 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
+                    <span>{getRoleIcon(user.role)}</span>
+                    {user.role.toUpperCase()}
+                  </div>
+                </div>
+              </div>
             </div>
           ))}
         </div>
 
-        {/* Modal */}
+        {searchedUsers.length === 0 && (
+          <div className="text-center py-12">
+            <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+              <Users className="w-10 h-10 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
+            <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+          </div>
+        )}
+{/* Modal */}
         {selectedUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative overflow-y-auto max-h-[90vh]">
-              <button
-                className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 font-bold text-lg"
-                onClick={() => setSelectedUser(null)}
-              >
-                ×
-              </button>
-              <div className="flex flex-col items-center gap-4 mb-4">
-                {selectedUser.profile_picture && (
-                  <img
-                    src={selectedUser.profile_picture}
-                    alt={selectedUser.fullname}
-                    className="w-24 h-24 rounded-full object-cover"
-                  />
-                )}
-                <h2 className="text-xl font-bold">{selectedUser.fullname}</h2>
-                <p className="text-gray-600">{selectedUser.email}</p>
-                {selectedUser.phone && <p className="text-gray-600">Phone: {selectedUser.phone}</p>}
-                <p className="text-xs font-medium text-blue-500">Role: {selectedUser.role}</p>
-              </div>
-
-              {/* Full Info */}
-              <div className="flex flex-col gap-2 mb-4">
-                {Object.entries(selectedUser).map(([key, value]) => (
-                  key !== 'profile_picture' && key !== 'id' && key !== 'role' && (
-                    <p key={key} className="text-gray-700 text-sm">
-                      <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span> {value?.toString()}
-                    </p>
-                  )
-                ))}
-              </div>
-
-              {/* Documents */}
-              <div className="mt-4">
-                <h3 className="text-md font-semibold mb-2">Documents</h3>
-                {documents
-                  .filter(doc => doc.email === selectedUser.email)
-                  .map((doc, idx) => {
-                    const docEntries = Object.entries(doc)
-                      .filter(([key, value]) => key !== 'id' && key !== 'email' && value !== null);
-                    return docEntries.length > 0 ? (
-                      <ul key={idx} className="list-disc list-inside text-gray-700 text-sm">
-                        {docEntries.map(([key, value]) => (
-                          <li key={key}>
-                            <a
-                              href={value as string}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-500 hover:underline"
-                            >
-                              {key.replace(/_/g, ' ')}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p key={idx} className="text-gray-500 text-sm">No documents found.</p>
-                    );
-                  })}
-              </div>
-
-              {/* Manage Documents */}
-              <div className="mt-4">
-                <h3 className="text-md font-semibold mb-2">Documents</h3>
-                {selectedUser && (
-                  <div className="flex flex-col gap-2">
-                    {[
-                      "resume",
-                      "appointment_letter",
-                      "offer_letter",
-                      "releaving_letter",
-                      "resignation_letter",
-                      "id_proof",
-                      "achievement_crt",
-                      "bonafide_crt",
-                      "marks_card",
-                      "certificates",
-                      "tenth",
-                      "twelth",
-                      "degree",
-                      "masters",
-                      "award",
-                    ].map((docType) => {
-                      const docValue = documents.find(doc => doc.email === selectedUser.email)?.[docType];
-                      const isIssueDoc = ["appointment_letter", "offer_letter", "bonafide_crt", "releaving_letter"].includes(docType);
-                      return (
-                        <div key={docType} className="flex items-center gap-2">
-                          <span className="text-sm capitalize w-40">{docType.replace(/_/g, " ")}:</span>
-                          {docValue ? (
-                            <a
-                              href={docValue}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-500 hover:underline"
-                            >
-                              View
-                            </a>
-                          ) : (
-                            <span className="text-gray-500 text-sm">Not issued</span>
-                          )}
-                          {isIssueDoc && (
-                            <>
-                              <input
-                                type="file"
-                                id={`file-${docType}`}
-                                className="hidden"
-                                onChange={async (e) => {
-                                  if (!e.target.files?.[0]) return;
-                                  const formData = new FormData();
-                                  formData.append(docType, e.target.files[0]);
-                                  try {
-                                    await axios.patch(
-                                      `https://globaltechsoftwaresolutions.cloud/api/accounts/list_documents/${selectedUser.id}/`,
-                                      formData,
-                                      { headers: { "Content-Type": "multipart/form-data" } }
-                                    );
-                                    alert(`${docType} issued successfully!`);
-                                  } catch (err) {
-                                    console.error(err);
-                                    alert(`Failed to issue ${docType}`);
-                                  }
-                                }}
-                              />
-                              <button
-                                onClick={() => document.getElementById(`file-${docType}`)?.click()}
-                                className="px-2 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-                              >
-                                Issue
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
+                <div className="flex items-center gap-4">
+                  {selectedUser.profile_picture ? (
+                    <img
+                      src={selectedUser.profile_picture}
+                      alt={selectedUser.fullname}
+                      className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-md"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-xl border-4 border-white shadow-md">
+                      {selectedUser.fullname.split(' ').map(n => n[0]).join('')}
+                    </div>
+                  )}
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">{selectedUser.fullname}</h2>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium border ${getRoleColor(selectedUser.role)}`}>
+                        <span>{getRoleIcon(selectedUser.role)}</span>
+                        {selectedUser.role.toUpperCase()}
+                      </div>
+                      <div className="flex items-center gap-1 text-gray-500">
+                        <Mail className="w-4 h-4" />
+                        <span className="text-sm">{selectedUser.email}</span>
+                      </div>
+                    </div>
                   </div>
-                )}
+                </div>
+                <button
+                  className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition shadow-sm"
+                  onClick={() => setSelectedUser(null)}
+                >
+                  <X className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-6 space-y-6">
+                  {/* Personal Information */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        <UserCheck className="w-5 h-5 text-blue-600" />
+                        Personal Information
+                      </h3>
+                      <div className="space-y-3">
+                        {Object.entries(selectedUser)
+                          .filter(([key]) => !['id', 'role', 'profile_picture'].includes(key))
+                          .map(([key, value]) => (
+                            <div key={key} className="flex justify-between items-center py-2 border-b border-gray-100">
+                              <span className="font-medium text-gray-700 capitalize">
+                                {key.replace(/_/g, ' ')}:
+                              </span>
+                              <span className="text-gray-900 text-right">
+                                {value?.toString() || 'Not provided'}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    {/* Document Management */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-green-600" />
+                        Document Management
+                      </h3>
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {[
+                          "resume",
+                          "appointment_letter",
+                          "offer_letter",
+                          "releaving_letter",
+                          "resignation_letter",
+                          "id_proof",
+                          "achievement_crt",
+                          "bonafide_crt",
+                          "marks_card",
+                          "certificates",
+                          "tenth",
+                          "twelth",
+                          "degree",
+                          "masters",
+                          "award",
+                        ].map((docType) => {
+                          const docValue = documents.find(doc => doc.email === selectedUser.email)?.[docType];
+                          const isIssueDoc = ["appointment_letter", "offer_letter", "bonafide_crt", "releaving_letter"].includes(docType);
+                          
+                          return (
+                            <div key={docType} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-gray-700 text-sm capitalize block">
+                                  {docType.replace(/_/g, ' ')}
+                                </span>
+                                {docValue ? (
+                                  <a
+                                    href={docValue}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1 mt-1"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    View Document
+                                  </a>
+                                ) : (
+                                  <span className="text-gray-500 text-sm">Not uploaded</span>
+                                )}
+                              </div>
+                              {isIssueDoc && (
+                                <>
+                                  <input
+                                    type="file"
+                                    id={`file-${docType}-${selectedUser.id}`}
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                      if (!e.target.files?.[0]) return;
+                                      const formData = new FormData();
+                                      formData.append(docType, e.target.files[0]);
+                                      try {
+                                        await axios.patch(
+                                          `https://globaltechsoftwaresolutions.cloud/api/accounts/list_documents/${selectedUser.id}/`,
+                                          formData,
+                                          { headers: { "Content-Type": "multipart/form-data" } }
+                                        );
+                                        alert(`${docType.replace(/_/g, ' ')} issued successfully!`);
+                                        fetchDocuments();
+                                      } catch (err) {
+                                        console.error(err);
+                                        alert(`Failed to issue ${docType.replace(/_/g, ' ')}`);
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={() => document.getElementById(`file-${docType}-${selectedUser.id}`)?.click()}
+                                    className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition flex items-center gap-2 shadow-sm"
+                                  >
+                                    <Upload className="w-4 h-4" />
+                                    Issue
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

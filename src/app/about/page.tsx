@@ -23,7 +23,7 @@ export default function AboutPage() {
         <div className="container mx-auto px-6 relative z-10 flex flex-col items-center">
           <h1 className="text-5xl font-bold mb-6 text-center">About HR Global Tech</h1>
           <p className="text-xl max-w-3xl text-center">
-            Empowering businesses with innovative HR solutions since 2010
+            Empowering businesses with innovative HR solutions since 2025
           </p>
         </div>
       </section>

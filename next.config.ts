@@ -1,24 +1,22 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  images: {
-    domains: [
-      "ui-avatars.com",
-      "ejanftgxxtlbadbqzdib.supabase.co",
-      "images.unsplash.com",
-      "hrms-6qja.onrender.com",
-      "127.0.0.1",       
-      "localhost",       
-      "globaltechsoftwaresolutions.cloud",
-      "194.238.19.109",
-      "minio.globaltechsoftwaresolutions.cloud"
-    ],
-  },
+images: {
+  remotePatterns: [
+    { protocol: "https", hostname: "cdn.britannica.com", pathname: "/**" },
+    { protocol: "https", hostname: "minio.globaltechsoftwaresolutions.cloud", port: "9000", pathname: "/hrms-media/**" },
+    { protocol: "https", hostname: "ui-avatars.com", pathname: "/**" },
+    { protocol: "https", hostname: "ejanftgxxtlbadbqzdib.supabase.co", pathname: "/**" },
+    { protocol: "https", hostname: "images.unsplash.com", pathname: "/**" },
+    { protocol: "https", hostname: "hrms-6qja.onrender.com", pathname: "/**" },
+  ],
+},
+
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        destination: 'https://hrms-6qja.onrender.com/api/:path*', // Proxy to backend
+        source: "/api/:path*",
+        destination: "https://hrms-6qja.onrender.com/api/:path*", // Proxy to backend
       },
     ];
   },
