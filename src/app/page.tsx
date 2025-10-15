@@ -9,6 +9,7 @@ import Hrmodules from '@/app/hrmodules/page'
 import Goodwill from '@/app/goodwill/page'
 import Faqs from '@/app/faqs/page'
 import Modules from '@/app/modules/page'
+import Someone from '@/app/someone/page'
 
 export default function HomePage() {
   return (
@@ -19,6 +20,7 @@ export default function HomePage() {
       </main>
       <Hrstandout />
       <Hrmodules />
+      <Someone />
       <Services />
       <Goodwill />
       <Modules />

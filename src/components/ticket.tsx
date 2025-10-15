@@ -1,37 +1,96 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, Plus, Calendar, User, AlertCircle, CheckCircle, Clock, X } from 'lucide-react';
 
 export interface Ticket {
   id: string;
+  subject?: string;
   title: string;
   description: string;
   status: 'open' | 'in-progress' | 'resolved' | 'closed';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   email: string;
-  createdAt: string;
-  updatedAt: string;
-  assignee?: string;
+  created_at: string;
+  updated_at: string;
+  assigned_to?: string | null;
 }
 
 interface TicketProps {
-  tickets?: Ticket[];
   email?: string;
   statusFilter?: string;
   priorityFilter?: string;
   showCreateButton?: boolean;
-  onCreateTicket?: () => void;
 }
 
 const Ticket: React.FC<TicketProps> = ({
-  tickets = defaultTickets,
   email,
   statusFilter,
   priorityFilter,
   showCreateButton = true,
-  onCreateTicket
 }) => {
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  // ------------------------------
+  // Modal State & Handlers
+  // ------------------------------
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editFields, setEditFields] = useState<{
+    status: Ticket['status'];
+  }>({ status: 'open' });
+
+  // Open modal and set selected ticket
+  const openModal = (ticket: Ticket) => {
+    setSelectedTicket(ticket);
+    setEditFields({
+      status: ticket.status,
+    });
+    setShowModal(true);
+  };
+
+  // Close modal
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedTicket(null);
+  };
+
+  // PATCH update ticket (only status)
+  const updateTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTicket) return;
+    try {
+      const patchPayload = {
+        status: editFields.status,
+      };
+      const response = await fetch(
+        `https://globaltechsoftwaresolutions.cloud/api/accounts/tickets/${selectedTicket.id}/`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patchPayload),
+        }
+      );
+      if (!response.ok) {
+        throw new Error('Failed to update ticket');
+      }
+      const updatedTicket = await response.json();
+      setTickets(prev =>
+        prev.map(t =>
+          t.id === updatedTicket.id
+            ? {
+              ...t,
+              ...updatedTicket,
+              status: updatedTicket.status.toLowerCase(),
+              priority: updatedTicket.priority.toLowerCase(),
+            }
+            : t
+        )
+      );
+      closeModal();
+    } catch (error) {
+      console.error('Error updating ticket:', error);
+    }
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     status: statusFilter || '',
@@ -39,6 +98,71 @@ const Ticket: React.FC<TicketProps> = ({
     email: email || ''
   });
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    fetchTickets();
+  }, [email]);
+
+  const fetchTickets = async () => {
+    try {
+      const userEmail = email || localStorage.getItem('user_email') || '';
+      const response = await fetch('https://globaltechsoftwaresolutions.cloud/api/accounts/tickets/');
+      if (!response.ok) {
+        throw new Error('Failed to fetch tickets');
+      }
+      const data = await response.json();
+
+      // Filter tickets: assigned_to is null OR matches userEmail (case-insensitive)
+      const filteredData = data
+        .filter((ticket: any) =>
+          ticket.assigned_to === null || (userEmail && ticket.assigned_to.toLowerCase() === userEmail.toLowerCase())
+        )
+        .map((ticket: any) => ({
+          ...ticket,
+          status: ticket.status.toLowerCase(),
+          priority: ticket.priority.toLowerCase(),
+        }));
+
+      console.log('Filtered Tickets:', filteredData);
+      setTickets(filteredData);
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+      setTickets([]);
+    }
+  };
+
+  const createTicket = async () => {
+    try {
+      const newTicketPayload = {
+        title: 'New Ticket',
+        description: 'Description of the new ticket',
+        status: 'open',
+        priority: 'medium',
+        email: email || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        assigned_to: null,
+      };
+
+      const response = await fetch('https://globaltechsoftwaresolutions.cloud/api/accounts/tickets/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newTicketPayload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create ticket');
+      }
+
+      // Optionally get the created ticket from response and add to state
+      const createdTicket = await response.json();
+      setTickets(prevTickets => [...prevTickets, createdTicket]);
+    } catch (error) {
+      console.error('Error creating ticket:', error);
+    }
+  };
 
   // Filter tickets based on search term and filters
   const filteredTickets = tickets.filter(ticket => {
@@ -88,10 +212,36 @@ const Ticket: React.FC<TicketProps> = ({
     setSearchTerm('');
   };
 
+  // Close Ticket function
+  const closeTicket = async (ticketId: string) => {
+    try {
+      const response = await fetch(
+        `https://globaltechsoftwaresolutions.cloud/api/accounts/tickets/${ticketId}/`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "closed" }),
+        }
+      );
+      if (!response.ok) throw new Error("Failed to close ticket");
+      const updatedTicket = await response.json();
+      setTickets(prev =>
+        prev.map(t =>
+          t.id === updatedTicket.id ? { ...t, status: updatedTicket.status.toLowerCase() } : t
+        )
+      );
+      closeModal();
+    } catch (error) {
+      console.error("Error closing ticket:", error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 text-black">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+        {/* ------------------------------
+ Header / Create Ticket
+ ------------------------------ */}
         <div className="mb-8">
           <div className="flex justify-between items-center">
             <div>
@@ -100,7 +250,7 @@ const Ticket: React.FC<TicketProps> = ({
             </div>
             {showCreateButton && (
               <button
-                onClick={onCreateTicket}
+                onClick={createTicket}
                 className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
               >
                 <Plus className="w-5 h-5" />
@@ -110,7 +260,9 @@ const Ticket: React.FC<TicketProps> = ({
           </div>
         </div>
 
-        {/* Search and Filter Bar */}
+        {/* ------------------------------
+ Search and Filters
+ ------------------------------ */}
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Search */}
@@ -124,7 +276,6 @@ const Ticket: React.FC<TicketProps> = ({
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-
             {/* Filter Toggle */}
             <button
               onClick={() => setShowFilters(!showFilters)}
@@ -139,7 +290,6 @@ const Ticket: React.FC<TicketProps> = ({
               )}
             </button>
           </div>
-
           {/* Expanded Filters */}
           {showFilters && (
             <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
@@ -161,7 +311,6 @@ const Ticket: React.FC<TicketProps> = ({
                     <option value="closed">Closed</option>
                   </select>
                 </div>
-
                 {/* Priority Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -179,7 +328,6 @@ const Ticket: React.FC<TicketProps> = ({
                     <option value="urgent">Urgent</option>
                   </select>
                 </div>
-
                 {/* Email Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -194,7 +342,6 @@ const Ticket: React.FC<TicketProps> = ({
                   />
                 </div>
               </div>
-
               {/* Clear Filters */}
               {(filters.status || filters.priority || filters.email || searchTerm) && (
                 <div className="mt-4 flex justify-end">
@@ -211,7 +358,9 @@ const Ticket: React.FC<TicketProps> = ({
           )}
         </div>
 
-        {/* Tickets Grid */}
+        {/* ------------------------------
+ Tickets Grid
+ ------------------------------ */}
         <div className="grid gap-6">
           {filteredTickets.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg shadow-sm border">
@@ -223,22 +372,21 @@ const Ticket: React.FC<TicketProps> = ({
             filteredTickets.map((ticket) => (
               <div
                 key={ticket.id}
-                className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow p-6"
+                className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow p-6 cursor-pointer"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-3">
-                      <h3 className="text-lg font-semibold text-gray-900">{ticket.title}</h3>
+                      <div className="text-2xl font-semibold text-gray-900">{ticket.title}</div>
+                      <div className="text-xl text-gray-800">{ticket.subject}</div>
                       <div className="flex items-center gap-2">
                         {getStatusIcon(ticket.status)}
-                        <span className="text-sm font-medium capitalize text-gray-700">
+                        <span className="font-bold text-medium capitalize text-gray-700">
                           {ticket.status.replace('-', ' ')}
                         </span>
                       </div>
                     </div>
-                    
                     <p className="text-gray-600 mb-4 line-clamp-2">{ticket.description}</p>
-                    
                     <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                       <div className="flex items-center gap-1">
                         <User className="w-4 h-4" />
@@ -246,16 +394,18 @@ const Ticket: React.FC<TicketProps> = ({
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
-                        <span>{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                        <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
                       </div>
                       <div>
                         {getPriorityBadge(ticket.priority)}
                       </div>
                     </div>
                   </div>
-                  
                   <div className="flex sm:flex-col gap-2">
-                    <button className="px-4 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
+                    <button
+                      className="px-4 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
+                      onClick={() => openModal(ticket)}
+                    >
                       View Details
                     </button>
                     <button className="px-4 py-2 text-sm bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
@@ -268,80 +418,119 @@ const Ticket: React.FC<TicketProps> = ({
           )}
         </div>
 
-        {/* Stats */}
+        {/* ------------------------------
+ Stats
+ ------------------------------ */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white p-4 rounded-lg border">
-            <div className="text-2xl font-bold text-gray-900">{tickets.length}</div>
+            <div className="text-2xl font-bold text-gray-900">{filteredTickets.length}</div>
             <div className="text-gray-600">Total Tickets</div>
           </div>
           <div className="bg-white p-4 rounded-lg border">
             <div className="text-2xl font-bold text-red-600">
-              {tickets.filter(t => t.status === 'open').length}
+              {filteredTickets.filter(t => t.status.toLowerCase() === 'open').length}
             </div>
             <div className="text-gray-600">Open</div>
           </div>
           <div className="bg-white p-4 rounded-lg border">
             <div className="text-2xl font-bold text-blue-600">
-              {tickets.filter(t => t.status === 'in-progress').length}
+              {filteredTickets.filter(t => t.status.toLowerCase() === 'in-progress').length}
             </div>
             <div className="text-gray-600">In Progress</div>
           </div>
           <div className="bg-white p-4 rounded-lg border">
             <div className="text-2xl font-bold text-green-600">
-              {tickets.filter(t => t.status === 'resolved').length}
+              {filteredTickets.filter(t => t.status.toLowerCase() === 'resolved').length}
             </div>
             <div className="text-gray-600">Resolved</div>
           </div>
         </div>
+
+        {/* ------------------------------
+ Modal (ticket details + update)
+ ------------------------------ */}
+        {showModal && selectedTicket && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+            <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
+              {/* Close button */}
+              <button
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                onClick={closeModal}
+                aria-label="Close"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <h2 className="text-2xl font-bold mb-2">{selectedTicket.title}</h2>
+              <div className="mb-4 text-gray-600">{selectedTicket.description}</div>
+              <div className="mb-2 flex flex-wrap gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Status:</span>{' '}
+                  <span className="capitalize">{selectedTicket.status.replace('-', ' ')}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Priority:</span>{' '}
+                  <span className="capitalize">{selectedTicket.priority}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Assigned To:</span>{' '}
+                  {selectedTicket.assigned_to || <span className="italic text-gray-400">Unassigned</span>}
+                </div>
+                <div>
+                  <span className="font-medium">Email:</span> {selectedTicket.email}
+                </div>
+                <div>
+                  <span className="font-medium">Created At:</span>{' '}
+                  {new Date(selectedTicket.created_at).toLocaleString()}
+                </div>
+                <div>
+                  <span className="font-medium">Updated At:</span>{' '}
+                  {new Date(selectedTicket.updated_at).toLocaleString()}
+                </div>
+              </div>
+              <hr className="my-4" />
+              <form onSubmit={updateTicket}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1">Status</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                    value={editFields.status}
+                    onChange={e => setEditFields(f => ({ ...f, status: e.target.value as Ticket['status'] }))}
+                  >
+                    <option value="open">Open</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                    onClick={closeModal}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    onClick={() => selectedTicket && closeTicket(selectedTicket.id)}
+                  >
+                    Close Ticket
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Update Status
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
-
-// Default sample data
-const defaultTickets: Ticket[] = [
-  {
-    id: '1',
-    title: 'Login issue',
-    description: 'Unable to login to the dashboard, getting authentication error.',
-    status: 'open',
-    priority: 'high',
-    email: 'user1@example.com',
-    createdAt: '2024-01-15T10:00:00Z',
-    updatedAt: '2024-01-15T10:00:00Z'
-  },
-  {
-    id: '2',
-    title: 'Payment failure',
-    description: 'Payment transaction is failing at the last step with error code 500.',
-    status: 'in-progress',
-    priority: 'urgent',
-    email: 'user2@example.com',
-    createdAt: '2024-01-14T15:30:00Z',
-    updatedAt: '2024-01-15T09:00:00Z',
-    assignee: 'Support Agent 1'
-  },
-  {
-    id: '3',
-    title: 'Feature request',
-    description: 'Would like to request dark mode for the mobile application.',
-    status: 'open',
-    priority: 'low',
-    email: 'user3@example.com',
-    createdAt: '2024-01-13T11:20:00Z',
-    updatedAt: '2024-01-13T11:20:00Z'
-  },
-  {
-    id: '4',
-    title: 'Bug report',
-    description: 'The calendar widget is not displaying events properly on Safari browser.',
-    status: 'resolved',
-    priority: 'medium',
-    email: 'user1@example.com',
-    createdAt: '2024-01-12T14:15:00Z',
-    updatedAt: '2024-01-15T08:45:00Z',
-    assignee: 'Dev Team'
-  }
-];
 
 export default Ticket;

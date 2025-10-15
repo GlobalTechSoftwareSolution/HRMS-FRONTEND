@@ -26,10 +26,10 @@ const Page = () => {
       >
         <div className="relative w-72 h-72 rounded-2xl overflow-hidden shadow-2xl border-4 border-[#0026FF]/10">
           <Image
-            src="/images/ratan-tata.webp"
+            src="/images/ratan.jpg"
             alt="Ratan Tata"
             fill
-            className="object-[10%_0%]"
+            className="object-cover "
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
         </div>
