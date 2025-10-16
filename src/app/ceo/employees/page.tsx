@@ -70,7 +70,7 @@ type DocumentRecord = {
 export default function EmployeesPage() {
   // employees + documents
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [documents, setDocuments, ] = useState<DocumentRecord[]>([]);
 
   // UI state
   const [loading, setLoading] = useState<boolean>(true);
@@ -175,6 +175,14 @@ export default function EmployeesPage() {
     return documents.find((d) => d.email === email) ?? null;
   };
 
+  const getDocumentURL = (docValue: string | undefined) => {
+  if (!docValue) return "";
+  // If it's already absolute (starts with http), return as is
+  if (docValue.startsWith("http")) return docValue;
+  // Otherwise, prepend API base
+  return `${API_BASE}${docValue.startsWith("/") ? "" : "/"}${docValue}`;
+};
+
   const getRoleColor = (role?: string) => {
     if (!role) return "bg-gray-100 text-gray-700";
     switch (role.toLowerCase()) {
@@ -236,7 +244,6 @@ export default function EmployeesPage() {
       alert(`Failed to issue ${docType.replace(/_/g, " ")}`);
     }
   };
-
   // ---------- Render ----------
   return (
     <DashboardLayout role="ceo">
@@ -503,7 +510,7 @@ export default function EmployeesPage() {
                           </div>
                         </div>
 
-                        {/* Documents */}
+                   {/* Documents */}
 <div className="space-y-4">
   <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
     <FileText className="w-5 h-5 text-gray-600" />
@@ -537,20 +544,27 @@ export default function EmployeesPage() {
 
       const handleView = () => {
         if (!docValue) return;
+
+        // Set loading state
         setPreviewDocs((prev) => ({
           ...prev,
-          [docType]: { viewing: !isViewing, loading: !isViewing ? true : false },
+          [docType]: { viewing: false, loading: true },
         }));
 
-        if (!isViewing) {
-          // simulate fetching file if needed
-          setTimeout(() => {
-            setPreviewDocs((prev) => ({
-              ...prev,
-              [docType]: { viewing: true, loading: false },
-            }));
-          }, 500); // small delay to show loading state
-        }
+        // Simulate load delay or network fetch
+        setTimeout(() => {
+          setPreviewDocs((prev) => ({
+            ...prev,
+            [docType]: { viewing: true, loading: false },
+          }));
+        }, 1200); // 1.2s loading effect
+      };
+
+      const handleHide = () => {
+        setPreviewDocs((prev) => ({
+          ...prev,
+          [docType]: { viewing: false, loading: false },
+        }));
       };
 
       return (
@@ -562,12 +576,36 @@ export default function EmployeesPage() {
           {docValue ? (
             <div className="flex items-center gap-3 mt-1">
               <button
-                onClick={handleView}
-                className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1 font-medium px-2 py-1 border rounded"
+                onClick={isViewing ? handleHide : handleView}
+                className={`px-3 py-1 text-sm rounded-md border font-medium flex items-center gap-2 transition-all
+                  ${isLoading ? "bg-gray-200 text-gray-600 cursor-not-allowed" :
+                    "text-blue-600 hover:text-blue-700 hover:border-blue-400 border-gray-300"}`}
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <span className="animate-pulse">Loading...</span>
+                  <>
+                    <svg
+                      className="animate-spin h-4 w-4 text-blue-600"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      ></path>
+                    </svg>
+                    Loading...
+                  </>
                 ) : isViewing ? (
                   "Hide"
                 ) : (
@@ -588,32 +626,50 @@ export default function EmployeesPage() {
           )}
 
           {/* Inline Preview */}
-          {isViewing && docValue && !isLoading && (
-            <div className="mt-2">
-              {docValue.endsWith(".pdf") ? (
-                <iframe
-                  src={docValue}
-                  className="w-full h-60 border"
-                  title={docType}
-                />
-              ) : docValue.match(/\.(jpeg|jpg|gif|png)$/i) ? (
-                <img
-                  src={docValue}
-                  alt={docType}
-                  className="w-full h-60 object-contain border"
-                />
-              ) : (
-                <div className="p-4 border rounded bg-gray-100 text-gray-600 text-sm text-center">
-                  Preview not available for this file type
-                </div>
-              )}
-            </div>
-          )}
+       {isViewing && docValue && !isLoading && (
+  <div className="mt-3">
+    {(() => {
+      const fileType = docValue.split(".").pop()?.toLowerCase();
+
+      // Images
+      if (["png", "jpg", "jpeg", "gif", "webp"].includes(fileType!)) {
+        return (
+          <img
+            src={docValue}
+            alt={docType}
+            className="w-full h-[500px] object-contain rounded-lg border"
+          />
+        );
+      }
+
+
+      // PDFs
+      if (fileType === "pdf") {
+        return (
+          <iframe
+            src={docValue}
+            className="w-full h-[500px] border rounded-lg"
+            title={docType}
+          />
+        );
+      }
+
+      // Fallback
+      return (
+        <div className="p-4 border rounded bg-gray-100 text-gray-600 text-sm text-center">
+          Preview not available for this file type
+        </div>
+      );
+    })()}
+  </div>
+)}
+
         </div>
       );
     })}
   </div>
 </div>
+
 
                       </div>
 

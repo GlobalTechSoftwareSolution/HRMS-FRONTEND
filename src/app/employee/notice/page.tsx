@@ -48,12 +48,16 @@ export default function NoticeDashboard() {
       // get the logged-in user's email
       const userEmail = localStorage.getItem("user_email");
 
+      // get read notices from localStorage
+      const readNoticesStr = localStorage.getItem("read_notices");
+      const readNotices: number[] = readNoticesStr ? JSON.parse(readNoticesStr) : [];
+
       const noticesWithDefaults = (data.notices || [])
         // only show notices assigned to the user
         .filter((notice: Notice) => notice.notice_to === userEmail)
         .map((notice: Notice) => ({
           ...notice,
-          is_read: notice.is_read || false,
+          is_read: readNotices.includes(notice.id) ? true : notice.is_read || false,
           category: notice.category || "General",
         }));
 
@@ -110,6 +114,13 @@ export default function NoticeDashboard() {
       setNotices((prev) =>
         prev.map((n) => (n.id === notice.id ? { ...n, is_read: true } : n))
       );
+      // update localStorage to persist read state
+      const readNoticesStr = localStorage.getItem("read_notices");
+      const readNotices: number[] = readNoticesStr ? JSON.parse(readNoticesStr) : [];
+      if (!readNotices.includes(notice.id)) {
+        const updatedReadNotices = [...readNotices, notice.id];
+        localStorage.setItem("read_notices", JSON.stringify(updatedReadNotices));
+      }
     }
   };
 
@@ -123,6 +134,9 @@ export default function NoticeDashboard() {
 
   const markAllAsRead = () => {
     setNotices((prev) => prev.map((notice) => ({ ...notice, is_read: true })));
+    // update localStorage to mark all as read
+    const allNoticeIds = notices.map((notice) => notice.id);
+    localStorage.setItem("read_notices", JSON.stringify(allNoticeIds));
   };
 
   const isBookmarked = (noticeId: number) => bookmarkedNotices.includes(noticeId);

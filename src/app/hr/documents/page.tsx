@@ -3,13 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import axios from 'axios';
-import { 
-  Users, 
-  FileText, 
-  Mail, 
-  Phone, 
-  Briefcase, 
-  Building, 
+import {
+  Users,
+  FileText,
+  Mail,
+  Phone,
+  Briefcase,
+  Building,
   Download,
   Upload,
   X,
@@ -44,6 +44,14 @@ const DocumentPage = () => {
   const [filter, setFilter] = useState<string>('employee'); // default to employee
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  // Modal state for issue doc messages
+  const [issueMessage, setIssueMessage] = useState<{
+    open: boolean,
+    type: 'success' | 'error',
+    message: string,
+    docType?: string,
+    link?: string
+  }>({ open: false, type: 'success', message: '' });
 
   // Fetch users
   const fetchUsers = async () => {
@@ -82,8 +90,13 @@ const DocumentPage = () => {
     Promise.all([fetchUsers(), fetchDocuments()]).finally(() => setLoading(false));
   }, []);
 
-  const filteredUsers = filter === 'all' 
-    ? users 
+  // State to track loading status for issuing documents
+  const [loadingDocs, setLoadingDocs] = useState<Record<string, boolean>>({});
+  // State for confirmation modal
+  const [confirmIssue, setConfirmIssue] = useState<{ open: boolean, docType?: string, endpoint?: string }>({ open: false });
+
+  const filteredUsers = filter === 'all'
+    ? users
     : users.filter(u => u.role === filter);
 
   const searchedUsers = filteredUsers.filter(user =>
@@ -113,6 +126,36 @@ const DocumentPage = () => {
     return icons[role as keyof typeof icons] || icons.user;
   };
 
+  // Helper to actually issue document
+  const issueDocument = async (docType: string, endpoint: string) => {
+    setLoadingDocs(prev => ({ ...prev, [docType]: true }));
+    try {
+      const res = await axios.post(
+        `https://globaltechsoftwaresolutions.cloud${endpoint}`,
+        { email: selectedUser?.email }
+      );
+      setIssueMessage({
+        open: true,
+        type: 'success',
+        message: res.data?.message || `${docType.replace(/_/g, ' ')} issued successfully!`,
+        docType,
+        link: res.data?.file_url,
+      });
+      await fetchDocuments();
+    } catch (err: any) {
+      setIssueMessage({
+        open: true,
+        type: 'error',
+        message:
+          err?.response?.data?.message ||
+          `Failed to issue ${docType.replace(/_/g, ' ')}`,
+        docType,
+      });
+    } finally {
+      setLoadingDocs(prev => ({ ...prev, [docType]: false }));
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout role="hr">
@@ -137,9 +180,9 @@ const DocumentPage = () => {
           </div>
           <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
             <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-              PR
+              {typeof window !== "undefined" ? (localStorage.getItem('user_name')?.charAt(0).toUpperCase()) : 'U'}
             </div>
-            <span className="font-medium text-gray-900">Pavan Reddy</span>
+            <span className="font-medium text-gray-900">{typeof window !== "undefined" ? (localStorage.getItem('user_email') || 'User') : 'User'}</span>
           </div>
         </div>
 
@@ -218,14 +261,13 @@ const DocumentPage = () => {
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2">
-            {[  'employee', 'hr', 'manager', 'admin','all'].map(r => (
+            {['employee', 'hr', 'manager', 'admin', 'all'].map(r => (
               <button
                 key={r}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
-                  filter === r
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${filter === r
                     ? 'bg-blue-500 text-white shadow-md'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
+                  }`}
                 onClick={() => setFilter(r)}
               >
                 <span>{getRoleIcon(r)}</span>
@@ -303,7 +345,7 @@ const DocumentPage = () => {
             <p className="text-gray-500">Try adjusting your search or filter criteria</p>
           </div>
         )}
-{/* Modal */}
+        {/* Modal */}
         {selectedUser && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -394,8 +436,33 @@ const DocumentPage = () => {
                           "award",
                         ].map((docType) => {
                           const docValue = documents.find(doc => doc.email === selectedUser.email)?.[docType];
-                          const isIssueDoc = ["appointment_letter", "offer_letter", "bonafide_crt", "releaving_letter"].includes(docType);
-                          
+                          // Allow bonafide_crt to be issued like others
+                          const isIssueDoc =
+                            ["appointment_letter", "offer_letter", "bonafide_crt", "releaving_letter"].includes(docType);
+
+                          // Map docType to API endpoint
+                          const issueEndpoints: Record<string, string> = {
+                            appointment_letter: "/api/accounts/appointment_letter/",
+                            offer_letter: "/api/accounts/offer_letter/",
+                            releaving_letter: "/api/accounts/releaving_letter/",
+                            bonafide_crt: "/api/accounts/bonafide_certificate/",
+                          };
+
+                          const handleIssueDoc = async (docType: string) => {
+                            const endpoint = issueEndpoints[docType];
+                            if (!endpoint) return;
+
+                            const docValue = documents.find(doc => doc.email === selectedUser.email)?.[docType];
+
+                            if (docValue) {
+                              // Open confirmation modal instead of alert
+                              setConfirmIssue({ open: true, docType, endpoint });
+                              return;
+                            }
+
+                            await issueDocument(docType, endpoint);
+                          };
+
                           return (
                             <div key={docType} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                               <div className="flex-1 min-w-0">
@@ -417,37 +484,40 @@ const DocumentPage = () => {
                                 )}
                               </div>
                               {isIssueDoc && (
-                                <>
-                                  <input
-                                    type="file"
-                                    id={`file-${docType}-${selectedUser.id}`}
-                                    className="hidden"
-                                    onChange={async (e) => {
-                                      if (!e.target.files?.[0]) return;
-                                      const formData = new FormData();
-                                      formData.append(docType, e.target.files[0]);
-                                      try {
-                                        await axios.patch(
-                                          `https://globaltechsoftwaresolutions.cloud/api/accounts/list_documents/${selectedUser.id}/`,
-                                          formData,
-                                          { headers: { "Content-Type": "multipart/form-data" } }
-                                        );
-                                        alert(`${docType.replace(/_/g, ' ')} issued successfully!`);
-                                        fetchDocuments();
-                                      } catch (err) {
-                                        console.error(err);
-                                        alert(`Failed to issue ${docType.replace(/_/g, ' ')}`);
-                                      }
-                                    }}
-                                  />
-                                  <button
-                                    onClick={() => document.getElementById(`file-${docType}-${selectedUser.id}`)?.click()}
-                                    className="px-3 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition flex items-center gap-2 shadow-sm"
-                                  >
-                                    <Upload className="w-4 h-4" />
-                                    Issue
-                                  </button>
-                                </>
+                                <button
+                                  onClick={() => handleIssueDoc(docType)}
+                                  className={`px-3 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition ${loadingDocs[docType]
+                                      ? "opacity-70 cursor-not-allowed"
+                                      : "hover:bg-blue-600"
+                                    }`}
+                                  disabled={!!loadingDocs[docType]}
+                                >
+                                  {loadingDocs[docType] ? (
+                                    <>
+                                      <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                                        <circle
+                                          className="opacity-25"
+                                          cx="12"
+                                          cy="12"
+                                          r="10"
+                                          stroke="currentColor"
+                                          strokeWidth="4"
+                                        ></circle>
+                                        <path
+                                          className="opacity-75"
+                                          fill="currentColor"
+                                          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                                        ></path>
+                                      </svg>
+                                      Issuing...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Upload className="w-4 h-4" />
+                                      Issue
+                                    </>
+                                  )}
+                                </button>
                               )}
                             </div>
                           );
@@ -461,6 +531,81 @@ const DocumentPage = () => {
           </div>
         )}
       </div>
+      {/* Issue Doc Modal */}
+      {issueMessage.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">{issueMessage.docType?.replace(/_/g, ' ') || 'Document'}</h3>
+              <button className="text-gray-500 hover:text-gray-700" onClick={() => setIssueMessage({ ...issueMessage, open: false })}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className={`text-sm ${issueMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{issueMessage.message}</p>
+            {issueMessage.link && (
+              <a href={issueMessage.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline mt-2 inline-block">
+                View Document
+              </a>
+            )}
+            <div className="mt-4 text-right">
+              <button className="px-4 py-2 bg-blue-500 text-white rounded-lg" onClick={() => setIssueMessage({ ...issueMessage, open: false })}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Confirmation Modal for re-issue */}
+      {confirmIssue.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">{confirmIssue.docType?.replace(/_/g, ' ')}</h3>
+            <p className="text-sm text-gray-700 mb-4">Document already exists. Do you want to regenerate/issue again?</p>
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 bg-gray-300 rounded-lg"
+                onClick={() => setConfirmIssue({ open: false })}
+              >
+                Cancel
+              </button>
+              <button
+                className={`px-4 py-2 bg-blue-500 text-white rounded-lg flex items-center gap-2 shadow-sm transition ${confirmIssue.docType && loadingDocs[confirmIssue.docType] ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-600'
+                  }`}
+                disabled={confirmIssue.docType ? !!loadingDocs[confirmIssue.docType] : false}
+                onClick={async () => {
+                  if (!selectedUser || !confirmIssue.docType || !confirmIssue.endpoint) return;
+                  // Set loading
+                  setLoadingDocs(prev => ({ ...prev, [confirmIssue.docType!]: true }));
+                  await issueDocument(confirmIssue.docType, confirmIssue.endpoint);
+                  setLoadingDocs(prev => ({ ...prev, [confirmIssue.docType!]: false }));
+                  setConfirmIssue({ open: false });
+                }}
+              >
+                {confirmIssue.docType && loadingDocs[confirmIssue.docType] ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                      ></path>
+                    </svg>
+                    Issuing...
+                  </>
+                ) : (
+                  'Issue Again'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 };
