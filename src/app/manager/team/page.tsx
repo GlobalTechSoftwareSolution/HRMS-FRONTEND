@@ -1,8 +1,11 @@
+
+
+
 "use client";
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Briefcase, Eye, X, Mail, Phone, Building, User, Clock } from "lucide-react";
+import { Users, Briefcase, Eye, X, Phone, Building, User, Clock } from "lucide-react";
 import Image from "next/image";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
@@ -37,7 +40,6 @@ export default function TeamReport() {
   const [loading, setLoading] = useState(false);
   const [selectedEmp, setSelectedEmp] = useState<Employee | null>(null);
 
-  // Document viewer state
   const [docs, setDocs] = useState<DocumentData | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
   const [docLoading, setDocLoading] = useState(false);
@@ -83,7 +85,6 @@ export default function TeamReport() {
       emp.fullname || emp.email
     )}&background=0D8ABC&color=fff`;
 
-  // Fetch documents for a selected employee
   const fetchDocuments = async (email: string) => {
     setDocLoading(true);
     setDocError("");
@@ -98,8 +99,9 @@ export default function TeamReport() {
       if (!record || Object.keys(record).length === 0) throw new Error("No records found");
 
       setDocs(record);
-    } catch (err: any) {
-      setDocError(err.message || "Something went wrong");
+    } catch (err) {
+      const error = err as Error;
+      setDocError(error.message || "Something went wrong");
     } finally {
       setDocLoading(false);
     }
@@ -126,10 +128,13 @@ export default function TeamReport() {
 
     if (["png", "jpg", "jpeg", "gif", "webp"].includes(fileType!)) {
       return (
-        <img
+        <Image
           src={url}
           alt="Document"
+          width={800}
+          height={500}
           className="w-full h-[500px] object-contain rounded-lg"
+          style={{ objectFit: "contain" }}
         />
       );
     }
@@ -149,21 +154,21 @@ export default function TeamReport() {
 
   return (
     <DashboardLayout role="manager">
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Team Report</h1>
-            <p className="text-gray-600">Manage and view team member information and documents</p>
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">Team Report</h1>
+            <p className="text-gray-600 text-sm sm:text-base">Manage and view team member information and documents</p>
           </div>
 
           {/* Tabs */}
-          <div className="bg-white rounded-lg border border-gray-200 p-1 mb-8 inline-flex">
+          <div className="bg-white rounded-lg border border-gray-200 p-1 mb-6 inline-flex flex-wrap gap-1">
             {tabs.map((tab) => (
               <button
                 key={tab.value}
                 onClick={() => setView(tab.value)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors duration-200 ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-md font-medium text-sm sm:text-base transition-colors duration-200 ${
                   view === tab.value
                     ? "bg-blue-600 text-white"
                     : "text-gray-600 hover:text-gray-900"
@@ -175,7 +180,7 @@ export default function TeamReport() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="text-sm text-gray-600 mb-1">Total Employees</div>
               <div className="text-2xl font-bold text-gray-900">{employees.length}</div>
@@ -193,7 +198,7 @@ export default function TeamReport() {
           {/* Data list */}
           {loading ? (
             <div className="flex justify-center items-center py-12">
-              <div className="animate-pulse text-gray-500">Loading {view} data...</div>
+              <div className="animate-pulse text-gray-500 text-sm sm:text-base">Loading {view} data...</div>
             </div>
           ) : list.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
@@ -202,7 +207,7 @@ export default function TeamReport() {
             </div>
           ) : (
             <AnimatePresence>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {list.map((emp, idx) => (
                   <motion.div
                     key={emp.email || idx}
@@ -210,9 +215,9 @@ export default function TeamReport() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.3 }}
-                    className="bg-white rounded-lg border border-gray-200 p-5 hover:border-gray-300 transition-colors duration-200"
+                    className="bg-white rounded-lg border border-gray-200 p-4 sm:p-5 hover:border-gray-300 transition-colors duration-200 flex flex-col"
                   >
-                    <div className="flex items-center gap-4 mb-4">
+                    <div className="flex items-center gap-3 mb-3 sm:mb-4">
                       <Image
                         src={getAvatar(emp)}
                         alt={emp.fullname || "Profile"}
@@ -221,37 +226,23 @@ export default function TeamReport() {
                         className="rounded-full object-cover border border-gray-200"
                       />
                       <div className="min-w-0 flex-1">
-                        <h2 className="text-lg font-semibold text-gray-900 truncate">
-                          {emp.fullname || "Unknown"}
-                        </h2>
-                        <p className="text-sm text-gray-500 truncate">{emp.email}</p>
+                        <h2 className="text-md sm:text-lg font-semibold text-gray-900 truncate">{emp.fullname || "Unknown"}</h2>
+                        <p className="text-xs sm:text-sm text-gray-500 truncate">{emp.email}</p>
                       </div>
                     </div>
 
-                    <div className="space-y-2 text-sm text-gray-700">
+                    <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm text-gray-700">
                       {emp.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-4 h-4 text-gray-400" />
-                          <span>{emp.phone}</span>
-                        </div>
+                        <div className="flex items-center gap-1 sm:gap-2"><Phone className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />{emp.phone}</div>
                       )}
                       {emp.department && (
-                        <div className="flex items-center gap-2">
-                          <Building className="w-4 h-4 text-gray-400" />
-                          <span>{emp.department}</span>
-                        </div>
+                        <div className="flex items-center gap-1 sm:gap-2"><Building className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />{emp.department}</div>
                       )}
                       {emp.designation && (
-                        <div className="flex items-center gap-2">
-                          <Briefcase className="w-4 h-4 text-gray-400" />
-                          <span>{emp.designation}</span>
-                        </div>
+                        <div className="flex items-center gap-1 sm:gap-2"><Briefcase className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />{emp.designation}</div>
                       )}
                       {emp.employment_type && (
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-gray-400" />
-                          <span>{emp.employment_type}</span>
-                        </div>
+                        <div className="flex items-center gap-1 sm:gap-2"><Clock className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />{emp.employment_type}</div>
                       )}
                     </div>
 
@@ -260,9 +251,9 @@ export default function TeamReport() {
                         setSelectedEmp(emp);
                         fetchDocuments(emp.email);
                       }}
-                      className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
+                      className="mt-3 sm:mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
                     >
-                      <Eye className="w-4 h-4" /> View Documents
+                      <Eye className="w-3 h-3 sm:w-4 sm:h-4" /> View Documents
                     </button>
                   </motion.div>
                 ))}

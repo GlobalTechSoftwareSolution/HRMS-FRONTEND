@@ -130,7 +130,7 @@ export default function Profile() {
         };
         setUser(loadedUser);
         setOriginalUser(loadedUser);
-      } catch (error: unknown) {
+      } catch {
         setSaveMessage({ type: "error", text: "Failed to load profile data." });
       }
     };
@@ -271,10 +271,10 @@ export default function Profile() {
      // Clear localProfilePic on successful save
      setLocalProfilePic(null);
 
-   } catch (error: unknown) {
+   } catch (e: unknown) {
      setSaveMessage({
        type: "error",
-       text: error instanceof Error ? error.message : "Failed to save profile",
+       text: e instanceof Error ? e.message : "Failed to save profile",
      });
    } finally {
      setIsSaving(false);

@@ -165,7 +165,7 @@ const Docs = () => {
             >
               <div
                 className="bg-white rounded-2xl w-full max-w-5xl max-h-[85vh] p-6 relative overflow-auto"
-                onClick={(e) => e.stopPropagation()}
+                onClick={() => {}}
               >
                 <button
                   onClick={() => setPreviewUrl(null)}
@@ -176,11 +176,13 @@ const Docs = () => {
                 </button>
                 {/\.(jpeg|jpg|png|gif|webp)$/i.test(previewUrl) ? (
                   <div className="flex justify-center items-center w-full h-[75vh] bg-gray-50 rounded">
-                    <img
+                    <Image
                       src={previewUrl}
                       alt="Document Preview"
+                      width={1000}
+                      height={1000}
                       className="max-h-full max-w-full object-contain rounded"
-                      onError={(e) => {
+                      onError={() => {
                         console.error("Image failed to load:", previewUrl);
                       }}
                     />

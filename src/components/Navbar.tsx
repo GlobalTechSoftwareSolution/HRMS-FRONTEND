@@ -8,11 +8,9 @@ import { Menu, X, Home, User, Mail, LogIn, FileText, Users } from "lucide-react"
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const pathname = usePathname();
 
   const toggleMenu = () => setIsOpen(!isOpen);
-  const toggleModal = () => setIsModalOpen(!isModalOpen);
 
   const navLinks = [
     { id: "home", label: "Home", href: "/", icon: <Home size={18} /> },

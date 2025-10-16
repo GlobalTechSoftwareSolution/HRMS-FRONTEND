@@ -143,7 +143,7 @@ const Page = () => {
 
         {/* Famous Quote */}
         <blockquote className="text-center italic text-xl text-[#0026FF] font-semibold py-6 border-t border-b border-gray-200 mb-8">
-          “I don't believe in taking the right decisions.  
+          “I don&apos;t believe in taking the right decisions.  
           I take decisions and then make them right.”
         </blockquote>
 

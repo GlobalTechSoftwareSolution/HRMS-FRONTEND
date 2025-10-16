@@ -21,6 +21,7 @@ type Notice = {
   attachment?: string | null;
   category?: string;
   is_read?: boolean;
+  notice_to?: string;
 };
 
 type FilterType = "all" | "unread" | "important" | "with-attachments";
@@ -54,7 +55,7 @@ export default function NoticeDashboard() {
 
       const noticesWithDefaults = (data.notices || [])
         // only show notices assigned to the user
-        .filter((notice: Notice) => notice.notice_to === userEmail)
+        .filter((notice: Notice) => notice.notice_to?.toString() === userEmail)
         .map((notice: Notice) => ({
           ...notice,
           is_read: readNotices.includes(notice.id) ? true : notice.is_read || false,

@@ -11,7 +11,6 @@ export default function AttendancePage() {
   const [longitude, setLongitude] = useState<number | null>(null);
   const [mapUrl, setMapUrl] = useState<string>("https://www.google.com/maps?q=0,0&z=15&output=embed");
   const [mounted, setMounted] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
   const [canvasVisible, setCanvasVisible] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanLine, setScanLine] = useState(0);

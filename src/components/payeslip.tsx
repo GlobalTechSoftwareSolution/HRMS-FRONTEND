@@ -159,7 +159,7 @@ const Payslip = () => {
 };
 
 // Update PayslipComponent to accept a data prop of type PayslipData
-const PayslipComponent: React.FC<{ data: PayslipData }> = ({ data }) => {
+const PayslipComponent: React.FC<{ data: PayslipData }> = () => {
   // grossEarnings and grossDeductions were unused, so removed to avoid ESLint errors
   return (
     <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">

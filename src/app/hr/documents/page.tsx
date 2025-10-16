@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import DashboardLayout from '@/components/DashboardLayout';
 import axios from 'axios';
 import {
@@ -18,15 +19,15 @@ import {
 } from 'lucide-react';
 
 type User = {
-  id?: number; // ID may be missing
+  id?: number;
   fullname?: string;
   email?: string;
   phone?: string;
   department?: string;
   designation?: string;
   profile_picture?: string;
-  role: string;
-  [key: string]: any;
+  role: 'employee' | 'hr' | 'manager' | 'admin' | 'user' | string;
+  [key: string]: string | number | undefined;
 };
 
 type Document = {
@@ -34,7 +35,22 @@ type Document = {
   title: string;
   file_url: string;
   email: string;
-  [key: string]: any;
+  resume?: string;
+  appointment_letter?: string;
+  offer_letter?: string;
+  releaving_letter?: string;
+  resignation_letter?: string;
+  id_proof?: string;
+  achievement_crt?: string;
+  bonafide_crt?: string;
+  marks_card?: string;
+  certificates?: string;
+  tenth?: string;
+  twelth?: string;
+  degree?: string;
+  masters?: string;
+  award?: string;
+  [key: string]: string | number | undefined;
 };
 
 const DocumentPage = () => {
@@ -57,16 +73,16 @@ const DocumentPage = () => {
   const fetchUsers = async () => {
     try {
       const endpoints = [
-        { url: '/api/accounts/employees/', role: 'employee' },
-        { url: '/api/accounts/hrs/', role: 'hr' },
-        { url: '/api/accounts/managers/', role: 'manager' },
-        { url: '/api/accounts/admins/', role: 'admin' },
+        { url: '/api/accounts/employees/', role: 'employee' as const },
+        { url: '/api/accounts/hrs/', role: 'hr' as const },
+        { url: '/api/accounts/managers/', role: 'manager' as const },
+        { url: '/api/accounts/admins/', role: 'admin' as const },
       ];
 
       const results = await Promise.all(
         endpoints.map(async (endpoint) => {
-          const res = await axios.get(`https://globaltechsoftwaresolutions.cloud${endpoint.url}`);
-          return res.data.map((item: any) => ({ ...item, role: endpoint.role }));
+          const res = await axios.get<User[]>(`https://globaltechsoftwaresolutions.cloud${endpoint.url}`);
+          return res.data.map((item) => ({ ...item, role: endpoint.role }));
         })
       );
 
@@ -79,7 +95,7 @@ const DocumentPage = () => {
   // Fetch documents
   const fetchDocuments = async () => {
     try {
-      const res = await axios.get('https://globaltechsoftwaresolutions.cloud/api/accounts/list_documents/');
+      const res = await axios.get<Document[]>('https://globaltechsoftwaresolutions.cloud/api/accounts/list_documents/');
       setDocuments(res.data);
     } catch (err) {
       console.error('Error fetching documents', err);
@@ -130,7 +146,7 @@ const DocumentPage = () => {
   const issueDocument = async (docType: string, endpoint: string) => {
     setLoadingDocs(prev => ({ ...prev, [docType]: true }));
     try {
-      const res = await axios.post(
+      const res = await axios.post<{ message?: string; file_url?: string }>(
         `https://globaltechsoftwaresolutions.cloud${endpoint}`,
         { email: selectedUser?.email }
       );
@@ -142,13 +158,15 @@ const DocumentPage = () => {
         link: res.data?.file_url,
       });
       await fetchDocuments();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      let msg = `Failed to issue ${docType.replace(/_/g, ' ')}`;
+      if (axios.isAxiosError(err)) {
+        msg = err.response?.data?.message || msg;
+      }
       setIssueMessage({
         open: true,
         type: 'error',
-        message:
-          err?.response?.data?.message ||
-          `Failed to issue ${docType.replace(/_/g, ' ')}`,
+        message: msg,
         docType,
       });
     } finally {
@@ -281,16 +299,18 @@ const DocumentPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {searchedUsers.map((user, index) => (
             <div
-              key={user.id ?? `${user.email ?? 'user'}-${index}`} // fallback key
+              key={user.id ?? `${user.email ?? 'user'}-${index}`}
               className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden group"
-              onClick={() => setSelectedUser(user)} // modal opens even if no ID
+              onClick={() => setSelectedUser(user)}
             >
               <div className="p-6 flex flex-col sm:flex-row sm:items-center gap-4">
                 {user.profile_picture ? (
-                  <img
+                  <Image
                     src={user.profile_picture}
                     alt={user.fullname || 'User'}
                     className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
+                    width={64}
+                    height={64}
                   />
                 ) : (
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-lg border-2 border-white shadow-md">
@@ -353,14 +373,16 @@ const DocumentPage = () => {
               <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
                 <div className="flex items-center gap-4">
                   {selectedUser.profile_picture ? (
-                    <img
+                    <Image
                       src={selectedUser.profile_picture}
-                      alt={selectedUser.fullname}
+                      alt={selectedUser.fullname || 'User'}
                       className="w-16 h-16 rounded-full object-cover border-4 border-white shadow-md"
+                      width={64}
+                      height={64}
                     />
                   ) : (
                     <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-xl border-4 border-white shadow-md">
-                      {selectedUser.fullname.split(' ').map(n => n[0]).join('')}
+                      {selectedUser.fullname?.split(' ').map(n => n[0]).join('') || 'U'}
                     </div>
                   )}
                   <div>
@@ -471,7 +493,7 @@ const DocumentPage = () => {
                                 </span>
                                 {docValue ? (
                                   <a
-                                    href={docValue}
+                                    href={String(docValue)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1 mt-1"

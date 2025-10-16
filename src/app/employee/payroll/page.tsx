@@ -138,21 +138,6 @@ export default function PayrollDashboard() {
   const formatCurrency = (v: number | string) =>
     Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // Try to fetch logo and return Uint8Array or undefined
-  const fetchLogoBytes = async (url?: string | null) => {
-    try {
-      const logoUrl = url || process.env.NEXT_PUBLIC_COMPANY_LOGO || null;
-      if (!logoUrl) return undefined;
-
-      const res = await fetch(logoUrl);
-      if (!res.ok) return undefined;
-      const buffer = await res.arrayBuffer();
-      return new Uint8Array(buffer);
-    } catch (e) {
-      console.warn("Failed to fetch logo for PDF:", e);
-      return undefined;
-    }
-  };
 
 // Improved and aligned PDF generator using pdf-lib
 const downloadPayrollPDF = async (record: PayrollRecord) => {
@@ -202,6 +187,10 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
 
     // --- Helper: embed logo (handles PNG & JPG) ---
     async function embedLogo(url: string) {
+      if (!url) {
+        // If the URL is empty, skip fetching and return null
+        return null;
+      }
       try {
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch logo");
@@ -232,7 +221,7 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
     });
 
     // --- Header ---
-    const logoImage = await embedLogo(payslip.logoUrl);
+    const logoImage = await embedLogo(payslip.logoUrl || "");
     if (logoImage) {
       const imgDims = logoImage.scale(0.25);
       page.drawImage(logoImage, {
@@ -443,7 +432,7 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
 
     // --- Save & download ---
     const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;

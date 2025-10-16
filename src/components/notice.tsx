@@ -71,11 +71,13 @@ export default function NoticeDashboard() {
       // Filter notices by notice_to field only
       const filteredByEmail =
         userEmail != null
-          ? noticesWithDefaults.filter((notice: any) => notice.notice_to === userEmail)
+          ? noticesWithDefaults.filter(
+              (notice: Notice & { notice_to?: string }) => notice.notice_to === userEmail
+            )
           : [];
 
       // Merge readNoticeIds to mark notices as read
-      const mergedNotices = filteredByEmail.map((notice) => ({
+      const mergedNotices = filteredByEmail.map((notice: Notice) => ({
         ...notice,
         is_read: readNoticeIds.includes(notice.id),
       }));

@@ -1,19 +1,11 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import Image from "next/image";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import "react-calendar/dist/Calendar.css";
 
-// API response type for mark_attendance endpoint
-type APIResponse = {
-    status?: string;
-    message?: string;
-    username?: string;
-    email?: string;
-};
 
 type AttendanceRecord = {
     id: string;
@@ -52,46 +44,22 @@ type Leave = {
 export default function AttendancePortal() {
     const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
     const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-    const [scanning, setScanning] = useState(false);
-    const [currentTime, setCurrentTime] = useState(new Date());
-    const [modalOpen, setModalOpen] = useState(false);
-    const [recognizedName, setRecognizedName] = useState<string | null>(null);
-    const [recognizedStatus, setRecognizedStatus] = useState<string | null>(null);
-    const [recognizedEmail, setRecognizedEmail] = useState<string | null>(null);
-    const [attendanceCompleted, setAttendanceCompleted] = useState(false);
-    const [capturedImage, setCapturedImage] = useState<string | null>(null);
-
     const [fetchedAttendance, setFetchedAttendance] = useState<AttendanceRecord[]>([]);
     const [loadingFetchedAttendance, setLoadingFetchedAttendance] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
-    
     // New state for calendar and selection
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [holidays, setHolidays] = useState<Holiday[]>([]);
     const [leaves, setLeaves] = useState<Leave[]>([]);
-    const [apiResponse, setApiResponse] = useState<APIResponse | null>(null);
     // Approved leaves count state
     const [approvedLeavesCount, setApprovedLeavesCount] = useState<number>(0);
 
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-
-    const today = new Date();
-
     // ------------------------- TIMERS & STORAGE -------------------------
-    useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-        return () => clearInterval(timer);
-    }, []);
+    // Removed unused timer effect for currentTime
 
     useEffect(() => {
         const stored = localStorage.getItem("attendance");
         if (stored) setAttendance(JSON.parse(stored));
-    }, []);
-
-    useEffect(() => {
-        const storedImage = localStorage.getItem("capturedImage");
-        if (storedImage) setCapturedImage(storedImage);
     }, []);
 
     useEffect(() => {

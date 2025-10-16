@@ -54,56 +54,6 @@ const Ticket: React.FC<TicketProps> = ({
  setSelectedTicket(null);
  };
 
- // PATCH update ticket (only status) - always use localStorage.user_email for PATCH
- const updateTicket = async (e: React.FormEvent) => {
- e.preventDefault();
- if (!selectedTicket) return;
- const userEmail = localStorage.getItem('user_email') || '';
- if (
- !selectedTicket.assigned_to ||
- selectedTicket.assigned_to.toLowerCase() !== userEmail.toLowerCase()
- ) {
- console.warn("Cannot update ticket: Not assigned to this user");
- return;
- }
- try {
- const patchPayload = { id: selectedTicket.id, status: editFields.status };
- const patchUrl = `https://globaltechsoftwaresolutions.cloud/api/accounts/tickets/${userEmail}/`;
- console.log("🔹 PATCH URL:", patchUrl);
- console.log("🔹 PATCH Payload:", patchPayload);
- const response = await fetch(
- patchUrl,
- {
- method: 'PATCH',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify(patchPayload),
- }
- );
- console.log("🔹 PATCH Response Status:", response.status);
- if (!response.ok) {
- const text = await response.text();
- console.error("❌ PATCH Error Response:", text);
- throw new Error('Failed to update ticket');
- }
- const updatedTicket = await response.json();
- console.log("✅ Updated Ticket:", updatedTicket);
- setTickets(prev =>
- prev.map(t =>
- t.id === updatedTicket.id
- ? {
- ...t,
- ...updatedTicket,
- status: updatedTicket.status.toLowerCase(),
- priority: updatedTicket.priority.toLowerCase(),
- }
- : t
- )
- );
- closeModal();
- } catch (error) {
- console.error('🔥 Error updating ticket:', error);
- }
- };
  const [searchTerm, setSearchTerm] = useState('');
  const [filters, setFilters] = useState({
  status: statusFilter || '',
@@ -114,7 +64,6 @@ const Ticket: React.FC<TicketProps> = ({
 
  useEffect(() => {
  fetchTickets();
- // eslint-disable-next-line
  }, []);
 
  // Always use localStorage.user_email for filtering
@@ -127,12 +76,12 @@ const Ticket: React.FC<TicketProps> = ({
  }
  const data = await response.json();
  // Filter tickets: assigned_to is null OR matches userEmail (case-insensitive)
- const filteredData = data
- .filter((ticket: any) =>
+ const filteredData: Ticket[] = data
+ .filter((ticket: Ticket) =>
  ticket.assigned_to === null ||
  (userEmail && ticket.assigned_to && ticket.assigned_to.toLowerCase() === userEmail.toLowerCase())
  )
- .map((ticket: any) => ({
+ .map((ticket: Ticket) => ({
  ...ticket,
  status: ticket.status.toLowerCase(),
  priority: ticket.priority.toLowerCase(),
@@ -277,31 +226,6 @@ const Ticket: React.FC<TicketProps> = ({
  setSearchTerm('');
  };
 
- // Close Ticket function
- const closeTicket = async (ticketId: string) => {
- try {
- // Use selectedTicket.email for PATCH endpoint as per requirement
- if (!selectedTicket) return;
- const response = await fetch(
- `https://globaltechsoftwaresolutions.cloud/api/accounts/tickets/${selectedTicket.email}/`,
- {
- method: "PATCH",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ status: "closed" }),
- }
- );
- if (!response.ok) throw new Error("Failed to close ticket");
- const updatedTicket = await response.json();
- setTickets(prev =>
- prev.map(t =>
- t.id === updatedTicket.id ? { ...t, status: updatedTicket.status.toLowerCase() } : t
- )
- );
- closeModal();
- } catch (error) {
- console.error("Error closing ticket:", error);
- }
- };
 
 return (
 <div className="min-h-screen bg-gray-50 py-8 text-black">

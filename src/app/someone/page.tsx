@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion, useInView, useAnimation, AnimatePresence } from "framer-motion";
+import { motion, useInView, useAnimation, Easing } from "framer-motion";
 import { 
   CheckCircle, 
   Clock, 
@@ -17,13 +17,9 @@ import {
   Zap
 } from "lucide-react";
 
-type FeatureProps = {
-  imgSrc: string;
-};
-
-const AttendanceFeature: React.FC<FeatureProps> = ({ imgSrc }) => {
+const AttendanceFeature: React.FC = () => {
   const containerRef = useRef(null);
-  const isInView = useInView(containerRef, { once: false, threshold: 0.1 });
+  const isInView = useInView(containerRef, { once: false });
   const controls = useAnimation();
 
   const features = [
@@ -87,6 +83,8 @@ const AttendanceFeature: React.FC<FeatureProps> = ({ imgSrc }) => {
     }
   };
 
+  const itemEase: Easing = [0.42, 0, 0.58, 1]; // cubic-bezier easing
+
   const itemVariants = {
     hidden: { y: 50, opacity: 0 },
     visible: {
@@ -94,10 +92,12 @@ const AttendanceFeature: React.FC<FeatureProps> = ({ imgSrc }) => {
       opacity: 1,
       transition: {
         duration: 0.6,
-        ease: "easeOut"
+        ease: itemEase
       }
     }
   };
+
+  const imageEase: Easing = [0.42, 0, 0.58, 1]; // cubic-bezier for easeOut
 
   const imageVariants = {
     hidden: { scale: 0.8, opacity: 0, rotateY: -15 },
@@ -107,17 +107,19 @@ const AttendanceFeature: React.FC<FeatureProps> = ({ imgSrc }) => {
       rotateY: 0,
       transition: {
         duration: 1,
-        ease: "easeOut"
+        ease: imageEase
       }
     }
   };
+
+  const floatingEase: Easing = [0.42, 0, 0.58, 1]; // cubic-bezier for easeInOut
 
   const floatingAnimation = {
     y: [-10, 10, -10],
     transition: {
       duration: 4,
       repeat: Infinity,
-      ease: "easeInOut"
+      ease: floatingEase,
     }
   };
 
@@ -270,7 +272,7 @@ const AttendanceFeature: React.FC<FeatureProps> = ({ imgSrc }) => {
               transition={{ duration: 0.8, delay: 0.2 }}
               className="grid grid-cols-1 md:grid-cols-2 gap-6"
             >
-              {features.map((feature, index) => (
+              {features.map((feature) => (
                 <motion.div
                   key={feature.title}
                   variants={itemVariants}

@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import Image from "next/image";
 
 const Chatbot: React.FC = () => {
   // Function to open chatbot in a popup window
@@ -27,9 +28,11 @@ const Chatbot: React.FC = () => {
         onClick={openChatbot}
         className="fixed bottom-6 right-6 z-50 cursor-pointer flex items-center justify-center bg-blue-600 hover:bg-blue-700 transition rounded-full shadow-lg w-16 h-16"
       >
-        <img
+        <Image
           src="https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
           alt="AI Chat"
+          width={40}
+          height={40}
           className="w-10 h-10"
         />
       </div>

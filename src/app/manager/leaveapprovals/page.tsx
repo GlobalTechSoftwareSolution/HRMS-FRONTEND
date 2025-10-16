@@ -1,3 +1,5 @@
+
+
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -46,14 +48,13 @@ const StatusBadge = ({ status }: { status?: string }) => {
   );
 };
 
-export default function ManagerDashboard() {
+export default function ManagerLeaveApproval() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [filter, setFilter] = useState<"Pending" | "Approved" | "Rejected" | "All">("All");
 
-  // Unique key for each leave (no id)
   const getLeaveKey = (leave: LeaveRequest) =>
     `${leave.email}-${leave.start_date}-${leave.end_date}-${leave.leave_type}`;
 
@@ -135,8 +136,8 @@ export default function ManagerDashboard() {
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Leave Management Dashboard</h1>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            {[
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {[ 
               { label: "Total Requests", value: stats.total, icon: <FiCalendar />, color: "blue" },
               { label: "Pending", value: stats.pending, icon: <FiClock />, color: "yellow" },
               { label: "Approved", value: stats.approved, icon: <FiCheckCircle />, color: "green" },
@@ -187,7 +188,7 @@ export default function ManagerDashboard() {
               <p className="text-gray-500">{filter !== "All" ? `No ${filter.toLowerCase()} leave requests.` : "No leave requests submitted yet."}</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
               <AnimatePresence>
                 {filteredLeaves.map((lr) => {
                   const emp = getEmployee(lr.email);
@@ -200,60 +201,47 @@ export default function ManagerDashboard() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -50 }}
                       transition={{ duration: 0.3 }}
-                      className="bg-white p-4 md:p-6 rounded-xl shadow border border-gray-100 hover:shadow-lg transition-shadow"
+                      className="bg-white p-4 md:p-6 rounded-xl shadow border border-gray-100 hover:shadow-lg transition-shadow flex flex-col"
                     >
-                      <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between mb-2">
-                            <h3 className="font-bold text-gray-800 text-lg">{emp.fullname}</h3>
-                            <StatusBadge status={lr.status} />
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-start justify-between">
+                          <h3 className="font-bold text-gray-800 text-lg">{emp.fullname}</h3>
+                        </div>
+
+                        <div className="m-2"><StatusBadge status={lr.status} /></div>
+                         
+                        <div className="grid grid-cols-1 gap-2 text-sm text-gray-600">
+                          <div className="flex items-center"><FiMail className="mr-2 text-gray-400" /> {lr.email}</div>
+                          <div className="flex items-center"><FiBriefcase className="mr-2 text-gray-400" /> {emp.designation || "N/A"}</div>
+                          <div className="flex items-center"><FiUser className="mr-2 text-gray-400" /> {emp.department || "N/A"}</div>
+                          <div className="flex items-center"><FiCalendar className="mr-2 text-gray-400" /> Applied on: {new Date(lr.applied_on).toLocaleDateString()}</div>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-1 gap-2">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Leave Details</p>
+                            <p className="text-sm text-gray-600">{lr.leave_type} leave from {new Date(lr.start_date).toLocaleDateString()} to {new Date(lr.end_date).toLocaleDateString()}</p>
                           </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
-                            <div className="flex items-center">
-                              <FiMail className="mr-2 text-gray-400" /> {lr.email}
-                            </div>
-                            <div className="flex items-center">
-                              <FiBriefcase className="mr-2 text-gray-400" /> {emp.designation || "N/A"}
-                            </div>
-                            <div className="flex items-center">
-                              <FiUser className="mr-2 text-gray-400" /> {emp.department || "N/A"}
-                            </div>
-                            <div className="flex items-center">
-                              <FiCalendar className="mr-2 text-gray-400" /> Applied on: {new Date(lr.applied_on).toLocaleDateString()}
-                            </div>
-                          </div>
-                          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">Leave Details</p>
-                              <p className="text-sm text-gray-600">
-                                {lr.leave_type} leave from {new Date(lr.start_date).toLocaleDateString()} to {new Date(lr.end_date).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">Reason</p>
-                              <p className="text-sm text-gray-600">{lr.reason}</p>
-                            </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Reason</p>
+                            <p className="text-sm text-gray-600">{lr.reason}</p>
                           </div>
                         </div>
 
                         {lr.status === "Pending" && (
-                          <div className="flex flex-col gap-2 md:items-end mt-2 md:mt-0">
-                            <div className="flex gap-2">
+                          <div className="flex flex-col gap-2 mt-2">
+                            <div className="flex gap-2 flex-wrap">
                               <button
                                 onClick={() => updateLeaveStatus(lr, "Approved")}
                                 disabled={updatingKey === lr.id}
-                                className={`px-4 py-2 rounded-lg text-white ${
-                                  updatingKey === lr.id ? "bg-green-400" : "bg-green-600 hover:bg-green-700"
-                                }`}
+                                className={`px-4 py-2 rounded-lg text-white ${updatingKey === lr.id ? "bg-green-400" : "bg-green-600 hover:bg-green-700"}`}
                               >
                                 Approve
                               </button>
                               <button
                                 onClick={() => updateLeaveStatus(lr, "Rejected")}
                                 disabled={updatingKey === lr.id}
-                                className={`px-4 py-2 rounded-lg text-white ${
-                                  updatingKey === lr.id ? "bg-red-400" : "bg-red-600 hover:bg-red-700"
-                                }`}
+                                className={`px-4 py-2 rounded-lg text-white ${updatingKey === lr.id ? "bg-red-400" : "bg-red-600 hover:bg-red-700"}`}
                               >
                                 Reject
                               </button>

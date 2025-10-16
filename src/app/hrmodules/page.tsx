@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Easing, Variants } from "framer-motion";
 import Image from "next/image";
 import { 
   ChevronLeft, 
@@ -24,7 +25,7 @@ const HRModulesCarousel: React.FC = () => {
   const modules = [
     {
       label: "Attendance",
-      // link: "/docs/attendance/",
+      link: "/docs/attendance/",
       icon: UserCheck,
       color: "from-blue-500 to-cyan-500",
       features: [
@@ -45,7 +46,7 @@ const HRModulesCarousel: React.FC = () => {
     },
     {
       label: "Recruitment",
-      // link: "/docs/recruitment/",
+      link: "/docs/recruitment/",
       icon: Search,
       color: "from-green-500 to-emerald-500",
       features: [
@@ -66,7 +67,7 @@ const HRModulesCarousel: React.FC = () => {
     },
     {
       label: "Employee",
-      // link: "/docs/employee/",
+      link: "/docs/employee/",
       icon: Users,
       color: "from-purple-500 to-pink-500",
       features: [
@@ -87,7 +88,7 @@ const HRModulesCarousel: React.FC = () => {
     },
     {
       label: "Payroll",
-      // link: "/docs/payroll/",
+      link: "/docs/payroll/",
       icon: DollarSign,
       color: "from-orange-500 to-red-500",
       features: [
@@ -108,7 +109,7 @@ const HRModulesCarousel: React.FC = () => {
     },
     {
       label: "Performance",
-      // link: "/docs/performance/",
+      link: "/docs/performance/",
       icon: TrendingUp,
       color: "from-indigo-500 to-blue-500",
       features: [
@@ -129,7 +130,7 @@ const HRModulesCarousel: React.FC = () => {
     },
     {
       label: "Training",
-      // link: "/docs/training/",
+      link: "/docs/training/",
       icon: GraduationCap,
       color: "from-teal-500 to-green-500",
       features: [
@@ -175,26 +176,29 @@ const HRModulesCarousel: React.FC = () => {
     return () => clearInterval(interval);
   }, [isPlaying, isHovering, totalItems]);
 
-  const containerVariants = {
+  // Framer Motion variants, fully TypeScript-safe
+  const containerVariants: Variants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.1
-      }
-    }
+        staggerChildren: 0.1, // stagger children safely
+      },
+    },
   };
 
-  const itemVariants = {
+  const customEase: Easing = [0.42, 0, 0.58, 1]; // cubic-bezier easing
+
+  const itemVariants: Variants = {
     hidden: { y: 20, opacity: 0 },
     visible: {
       y: 0,
       opacity: 1,
       transition: {
         duration: 0.5,
-        ease: "easeOut"
-      }
-    }
+        ease: customEase,
+      },
+    },
   };
 
   return (
@@ -293,10 +297,17 @@ const HRModulesCarousel: React.FC = () => {
                       className="bg-gradient-to-r from-gray-900 to-gray-700 text-white px-6 py-3 rounded-xl font-bold text-lg shadow-lg"
                       whileHover={{ scale: 1.05 }}
                     >
-                      <a href={modules[currentIndex].link} className="flex items-center gap-2">
-                        {modules[currentIndex].label}
-                        <ChevronRight className="w-4 h-4" />
-                      </a>
+                      {modules[currentIndex].link ? (
+                        <a href={modules[currentIndex].link} className="flex items-center gap-2">
+                          {modules[currentIndex].label}
+                          <ChevronRight className="w-4 h-4" />
+                        </a>
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          {modules[currentIndex].label}
+                          <ChevronRight className="w-4 h-4" />
+                        </span>
+                      )}
                     </motion.span>
                   </motion.div>
 
@@ -332,21 +343,38 @@ const HRModulesCarousel: React.FC = () => {
                   </motion.ul>
 
                   {/* CTA Button */}
-                  <motion.a
-                    href={modules[currentIndex].link}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8 }}
-                    className="inline-flex items-center gap-2 mt-4 text-blue-600 font-bold text-lg hover:text-blue-700 transition-colors group"
-                  >
-                    Explore {modules[currentIndex].label} Module
-                    <motion.div
-                      animate={{ x: [0, 5, 0] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
+                  {modules[currentIndex].link ? (
+                    <motion.a
+                      href={modules[currentIndex].link}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.8 }}
+                      className="inline-flex items-center gap-2 mt-4 text-blue-600 font-bold text-lg hover:text-blue-700 transition-colors group"
                     >
-                      <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    </motion.div>
-                  </motion.a>
+                      Explore {modules[currentIndex].label} Module
+                      <motion.div
+                        animate={{ x: [0, 5, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      >
+                        <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                      </motion.div>
+                    </motion.a>
+                  ) : (
+                    <motion.span
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.8 }}
+                      className="inline-flex items-center gap-2 mt-4 text-blue-600 font-bold text-lg group"
+                    >
+                      Explore {modules[currentIndex].label} Module
+                      <motion.div
+                        animate={{ x: [0, 5, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      >
+                        <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                      </motion.div>
+                    </motion.span>
+                  )}
                 </div>
 
                 {/* Right Image */}

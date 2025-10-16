@@ -9,13 +9,9 @@ import {
   X,
   UserCheck,
   FileText,
-  Download,
-  Upload,
   Briefcase,
   User,
   Award,
-  Phone,
-  Building,
   Search,
   Filter,
   Calendar,
@@ -44,7 +40,7 @@ type Employee = {
   phone: string;
   salary: number;
   picture?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 type EmployeeAPIResponse = {
@@ -58,19 +54,19 @@ type EmployeeAPIResponse = {
   phone?: string;
   salary?: number;
   profile_picture?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 type DocumentRecord = {
   id?: number;
   email: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export default function EmployeesPage() {
   // employees + documents
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [documents, setDocuments, ] = useState<DocumentRecord[]>([]);
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
 
   // UI state
   const [loading, setLoading] = useState<boolean>(true);
@@ -85,13 +81,11 @@ export default function EmployeesPage() {
   const API_BASE = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
 
   // ---------- Document preview state ----------
-  const [previewDocs, setPreviewDocs] = useState<{ [key: string]: boolean }>({});
-
-  const togglePreview = (docType: string) => {
-    setPreviewDocs((prev) => ({ ...prev, [docType]: !prev[docType] }));
+  type PreviewDocState = {
+    [docType: string]: { viewing: boolean; loading: boolean };
   };
+  const [previewDocs, setPreviewDocs] = useState<PreviewDocState>({});
 
-  // ---------- Fetch employees ----------
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
@@ -100,13 +94,13 @@ export default function EmployeesPage() {
         const res = await fetch(`${API_BASE}/api/accounts/employees/`);
         if (!res.ok) throw new Error(`Failed to fetch employees (${res.status})`);
         const data: EmployeeAPIResponse[] = await res.json();
-        const mapped: Employee[] = (data || []).map((emp, idx) => ({
+        const mapped: Employee[] = (data || []).map((emp: EmployeeAPIResponse, idx: number) => ({
           id: emp.id ?? idx + 1,
           name: emp.fullname ?? `${emp.email_id ?? "Unknown"}`,
           role: emp.designation ?? "Employee",
           department: emp.department ?? "General",
           email: emp.email_id ?? "unknown@example.com",
-          status: (emp.status as any) ?? "active",
+          status: (emp.status as Employee["status"]) ?? "active",
           joinDate: emp.join_date ?? new Date().toISOString(),
           phone: emp.phone ?? "",
           salary: emp.salary ?? 0,
@@ -137,6 +131,7 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     fetchDocuments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [API_BASE]);
 
   // ---------- derived lists ----------
@@ -174,14 +169,6 @@ export default function EmployeesPage() {
     if (!email) return null;
     return documents.find((d) => d.email === email) ?? null;
   };
-
-  const getDocumentURL = (docValue: string | undefined) => {
-  if (!docValue) return "";
-  // If it's already absolute (starts with http), return as is
-  if (docValue.startsWith("http")) return docValue;
-  // Otherwise, prepend API base
-  return `${API_BASE}${docValue.startsWith("/") ? "" : "/"}${docValue}`;
-};
 
   const getRoleColor = (role?: string) => {
     if (!role) return "bg-gray-100 text-gray-700";
@@ -227,23 +214,6 @@ export default function EmployeesPage() {
   };
 
   // ---------- Document upload (issue) ----------
-  const handleIssueDocument = async (docType: string, file: File, emp: Employee) => {
-    if (!emp || !emp.id) {
-      alert("Invalid user");
-      return;
-    }
-    try {
-      const fd = new FormData();
-      fd.append(docType, file);
-      const patchUrl = `${API_BASE}/api/accounts/list_documents/${emp.id}/`;
-      await axios.patch(patchUrl, fd, { headers: { "Content-Type": "multipart/form-data" } });
-      alert(`${docType.replace(/_/g, " ")} issued successfully!`);
-      await fetchDocuments();
-    } catch (err) {
-      console.error("Issue doc failed", err);
-      alert(`Failed to issue ${docType.replace(/_/g, " ")}`);
-    }
-  };
   // ---------- Render ----------
   return (
     <DashboardLayout role="ceo">
@@ -270,7 +240,7 @@ export default function EmployeesPage() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="space-y-1">
                 <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
-                <p className="text-gray-600">Manage your organization's employees</p>
+                <p className="text-gray-600">Manage your organization&apos;s employees</p>
               </div>
               <div className="bg-white px-4 py-3 rounded-lg border border-gray-200">
                 <div className="text-sm text-gray-600">Total Employees</div>
@@ -363,7 +333,7 @@ export default function EmployeesPage() {
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">No employees found</h3>
                   <p className="text-gray-600 max-w-md mx-auto">
-                    Try adjusting your search criteria or filters to find what you're looking for.
+                    Try adjusting your search criteria or filters to find what you&apos;re looking for.
                   </p>
                 </div>
               ) : (
@@ -440,10 +410,13 @@ export default function EmployeesPage() {
                       <div className="flex items-center gap-4">
                         <div className="relative">
                           {selectedUser.picture ? (
-                            <img
+                            <Image
                               src={getValidImage(selectedUser.picture, selectedUser.name)}
                               alt={selectedUser.name}
+                              width={64}
+                              height={64}
                               className="w-16 h-16 rounded-lg object-cover border border-gray-200"
+                              unoptimized
                             />
                           ) : (
                             <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 font-semibold text-lg border border-gray-200">
@@ -614,7 +587,7 @@ export default function EmployeesPage() {
               </button>
 
               <a
-                href={docValue}
+                href={String(docValue)}
                 download
                 className="text-sm text-gray-600 hover:text-gray-800 font-medium"
               >
@@ -629,25 +602,30 @@ export default function EmployeesPage() {
        {isViewing && docValue && !isLoading && (
   <div className="mt-3">
     {(() => {
-      const fileType = docValue.split(".").pop()?.toLowerCase();
+      // Ensure docValue is always a string
+      const docValueStr = typeof docValue === "string" ? docValue : String(docValue);
+      // Type guard for fileType extraction
+      const fileType = typeof docValueStr === "string" ? docValueStr.split(".").pop()?.toLowerCase() : undefined;
 
       // Images
-      if (["png", "jpg", "jpeg", "gif", "webp"].includes(fileType!)) {
+      if (fileType && ["png", "jpg", "jpeg", "gif", "webp"].includes(fileType)) {
         return (
-          <img
-            src={docValue}
+          <Image
+            src={docValueStr}
             alt={docType}
+            width={800}
+            height={500}
             className="w-full h-[500px] object-contain rounded-lg border"
+            unoptimized
           />
         );
       }
-
 
       // PDFs
       if (fileType === "pdf") {
         return (
           <iframe
-            src={docValue}
+            src={docValueStr}
             className="w-full h-[500px] border rounded-lg"
             title={docType}
           />
