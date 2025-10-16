@@ -98,7 +98,7 @@ export default function DashboardLayout({ children, role }: Props) {
     if (typeof window !== "undefined") {
       setCurrentPath(window.location.pathname);
     }
-  }, [router.asPath]);
+  }, []);
 
   // Load user info from localStorage & listen for updates
   useEffect(() => {

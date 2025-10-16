@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 
 type Task = {
@@ -32,11 +32,7 @@ export default function TasksDashboard() {
     const [reportContent, setReportContent] = useState<string>("");
     const [reportStatus, setReportStatus] = useState<Task["status"]>("Pending");
 
-    useEffect(() => {
-        fetchTasks();
-    }, []);
-
-    const fetchTasks = async () => {
+    const fetchTasks = useCallback(async () => {
         setIsLoading(true);
         try {
             const response = await fetch(
@@ -60,16 +56,26 @@ export default function TasksDashboard() {
 
             const userEmail = typeof window !== "undefined" ? localStorage.getItem("user_email") : null;
             if (userEmail) {
-                const formattedTasks = (tasksArr as any[])
-                    .filter((t) => t.email === userEmail)
-                    .map((t) => ({
+                type RawTask = {
+                    task_id: number;
+                    title: string;
+                    description: string;
+                    due_date?: string;
+                    created_at?: string;
+                    priority?: string;
+                    status: "Pending" | "In Progress" | "Completed";
+                    email?: string;
+                };
+                const formattedTasks: Task[] = (tasksArr as RawTask[])
+                    .filter((t: RawTask) => t.email === userEmail)
+                    .map((t: RawTask) => ({
                         ...t,
-                        dueDate: t.due_date,
-                        createdAt: t.created_at,
+                        dueDate: t.due_date || "",
+                        createdAt: t.created_at || "",
                         priority: t.priority
-                            ? t.priority.charAt(0).toUpperCase() + t.priority.slice(1).toLowerCase()
+                            ? (t.priority.charAt(0).toUpperCase() + t.priority.slice(1).toLowerCase()) as Task["priority"]
                             : "Low",
-                        completed: t.status.toLowerCase() === "completed", // add this line
+                        completed: t.status.toLowerCase() === "completed",
                     }));
 
                 setTasks(formattedTasks);
@@ -82,7 +88,11 @@ export default function TasksDashboard() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchTasks();
+    }, [fetchTasks]);
 
     useEffect(() => {
         const now = new Date();

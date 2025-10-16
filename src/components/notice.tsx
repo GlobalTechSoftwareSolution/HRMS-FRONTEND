@@ -115,7 +115,7 @@ export default function NoticeDashboard() {
         category: "General",
       };
       const response = await fetch(
-        "https://globaltechsoftwaresolutions.cloud/api/accounts/create_notice/",
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/create_notice/`,
         {
           method: "POST",
           headers: {

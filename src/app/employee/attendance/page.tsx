@@ -488,14 +488,14 @@ function AttendanceRecordsWithDatePicker({
         // Accepts HH:mm:ss or HH:mm
         const match = /^(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/.exec(timeStr);
         if (!match) return timeStr;
-        let [_, hour, min, sec] = match;
+        const [, hour, min, sec] = match;
         let h = parseInt(hour, 10);
         let m = parseInt(min, 10);
-        let s = sec !== undefined ? parseInt(sec, 10) : 0;
+        const s = sec !== undefined ? parseInt(sec, 10) : 0;
         // Round to nearest minute
         if (s >= 30) {
             m += 1;
-            if (m === 60) {
+            if (m >= 60) {
                 m = 0;
                 h = (h + 1) % 24;
             }

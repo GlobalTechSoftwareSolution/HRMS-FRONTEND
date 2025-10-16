@@ -70,7 +70,7 @@ const Ticket: React.FC<TicketProps> = ({
  const fetchTickets = async () => {
    try {
      const userEmail = localStorage.getItem('user_email') || '';
-     const response = await fetch('https://globaltechsoftwaresolutions.cloud/api/accounts/tickets/');
+     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/tickets/`);
      if (!response.ok) {
        throw new Error('Failed to fetch tickets');
      }
@@ -140,7 +140,7 @@ const Ticket: React.FC<TicketProps> = ({
 
  console.log("🔹 CREATE Ticket Payload:", payload);
 
- const response = await fetch('https://globaltechsoftwaresolutions.cloud/api/accounts/tickets/', {
+ const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/tickets/`, {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify(payload),
@@ -508,7 +508,7 @@ return (
  'closed': 'Closed'
  };
  const patchPayload = { id: selectedTicket.id, status: statusMap[newStatus] };
- const patchUrl = `https://globaltechsoftwaresolutions.cloud/api/accounts/tickets/${userEmail}/`;
+ const patchUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/tickets/${userEmail}/`;
  console.log("🔹 PATCH URL:", patchUrl);
  console.log("🔹 PATCH Payload:", patchPayload);
  try {

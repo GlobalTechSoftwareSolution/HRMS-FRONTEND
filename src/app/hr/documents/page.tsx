@@ -81,7 +81,7 @@ const DocumentPage = () => {
 
       const results = await Promise.all(
         endpoints.map(async (endpoint) => {
-          const res = await axios.get<User[]>(`https://globaltechsoftwaresolutions.cloud${endpoint.url}`);
+          const res = await axios.get<User[]>(`${process.env.NEXT_PUBLIC_API_URL}${endpoint.url}`);
           return res.data.map((item) => ({ ...item, role: endpoint.role }));
         })
       );
@@ -95,7 +95,7 @@ const DocumentPage = () => {
   // Fetch documents
   const fetchDocuments = async () => {
     try {
-      const res = await axios.get<Document[]>('https://globaltechsoftwaresolutions.cloud/api/accounts/list_documents/');
+      const res = await axios.get<Document[]>(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_documents/`);
       setDocuments(res.data);
     } catch (err) {
       console.error('Error fetching documents', err);
@@ -147,7 +147,7 @@ const DocumentPage = () => {
     setLoadingDocs(prev => ({ ...prev, [docType]: true }));
     try {
       const res = await axios.post<{ message?: string; file_url?: string }>(
-        `https://globaltechsoftwaresolutions.cloud${endpoint}`,
+        `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
         { email: selectedUser?.email }
       );
       setIssueMessage({
