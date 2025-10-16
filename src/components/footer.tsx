@@ -33,7 +33,7 @@ export const Footer: React.FC = () => {
           {/* Social Media Icons */}
           <div className="flex items-center gap-4 mt-4">
             <a
-              href="https://www.instagram.com/"
+              href="https://www.instagram.com/globaltechsoftwaresolutions00/?next=%2F"
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-300 hover:text-pink-500 transition-colors"
@@ -41,7 +41,7 @@ export const Footer: React.FC = () => {
               <Instagram size={24} />
             </a>
             <a
-              href="https://www.facebook.com/"
+              href="https://www.facebook.com/profile.php?id=61576624472044"
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-300 hover:text-blue-500 transition-colors"
@@ -49,7 +49,7 @@ export const Footer: React.FC = () => {
               <Facebook size={24} />
             </a>
             <a
-              href="https://www.youtube.com/"
+              href="https://www.youtube.com/@Globaltech-softwaresolutions"
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-300 hover:text-red-600 transition-colors"
@@ -118,7 +118,7 @@ export const Footer: React.FC = () => {
 
       {/* Bottom bar */}
       <div className="border-t border-white/20 mt-8 py-5 text-center text-xs text-gray-400">
-        © {new Date().getFullYear()} HRMS. All rights reserved.
+        ©️ {new Date().getFullYear()} HRMS. All rights reserved.
       </div>
     </footer>
   );

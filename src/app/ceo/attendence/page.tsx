@@ -189,14 +189,23 @@ export default function ManagerDashboard() {
       };
     }
   });
+  console.log("Computed dateAttendance for", effectiveDate, ":", dateAttendance);
   // Filtered attendance for KPI cards click
   const filteredDateAttendance = attendanceFilter === "checked-in"
     ? dateAttendance.filter((a) => a.check_in)
     : attendanceFilter === "absent"
     ? dateAttendance.filter((a) => !a.check_in)
     : dateAttendance;
-  const checkedIn = dateAttendance.filter((a) => a.check_in).length;
-  const absent = totalEmployees - checkedIn;
+  // Calculate checked-in and absent safely to prevent negative values
+  const employeesForDate = employees.filter(emp =>
+    dateAttendance.some(a => a.email === emp.email && a.date <= today)
+  );
+
+  const checkedIn = employeesForDate.filter(emp =>
+    dateAttendance.find(a => a.email === emp.email && a.date <= today)?.check_in
+  ).length;
+
+  const absent = Math.max(employeesForDate.length - checkedIn, 0); // ensure not negative
 
   const totalHoursForDate = dateAttendance.reduce(
     (acc, a) => acc + (a.hours.hrs * 3600 + a.hours.mins * 60 + a.hours.secs),
@@ -550,69 +559,55 @@ const calendarEvents = [
         </motion.div>
 
         {/* Charts Section */}
-        {(() => {
-          // For selected date, do not render charts if all employees are absent or it's a weekend
-          let skipCharts = false;
-          if (selectedDate) {
-            const dayOfWeek = new Date(selectedDate).getDay();
-            const allAbsent = dateAttendance.every(a => !a.check_in);
-            if (allAbsent || dayOfWeek === 0 || dayOfWeek === 6) {
-              skipCharts = true;
-            }
-          }
-          if (skipCharts) {
-            return null;
-          }
-          return (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-              {/* Pie Chart - Attendance Distribution */}
-              <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
-                <h3 className="text-lg font-semibold text-gray-700 mb-4">Attendance Distribution</h3>
-                <div className="w-full h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={attendancePieData}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        label={(props) => {
-                          const { name, percent } = props as unknown as { name: string; percent: number };
-                          return `${name} (${(percent * 100).toFixed(0)}%)`;
-                        }}
-                      >
-                        {attendancePieData.map((entry, idx) => {
-                          return <Cell key={`cell-${entry.name}`} fill={pieColors[idx % pieColors.length]} />;
-                        })}
-                      </Pie>
-                      <RechartsTooltip />
-                      <RechartsLegend verticalAlign="bottom" />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              {/* Bar Chart - Hours Worked per Employee */}
-              <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
-                <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                  Hours Worked Per Employee ({selectedDate ? formatDate(selectedDate) : "Today"})
-                </h3>
-                <div className="w-full h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barChartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis label={{ value: "Hours", angle: -90, position: "insideLeft", fontSize: 12 }} />
-                      <RechartsTooltip />
-                      <Bar dataKey="hours" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+        {/* Charts Section */}
+        {/* Always show charts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+          {/* Pie Chart - Attendance Distribution */}
+          <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
+            <h3 className="text-lg font-semibold text-gray-700 mb-4">Attendance Distribution</h3>
+            <div className="w-full h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={attendancePieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={(props) => {
+                      const { name, percent } = props as unknown as { name: string; percent: number };
+                      return `${name} (${(percent * 100).toFixed(0)}%)`;
+                    }}
+                  >
+                    {attendancePieData.map((entry, idx) => {
+                      return <Cell key={`cell-${entry.name}`} fill={pieColors[idx % pieColors.length]} />;
+                    })}
+                  </Pie>
+                  <RechartsTooltip />
+                  <RechartsLegend verticalAlign="bottom" />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
-          );
-        })()}
+          </div>
+          {/* Bar Chart - Hours Worked per Employee */}
+          <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
+            <h3 className="text-lg font-semibold text-gray-700 mb-4">
+              Hours Worked Per Employee ({selectedDate ? formatDate(selectedDate) : "Today"})
+            </h3>
+            <div className="w-full h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis label={{ value: "Hours", angle: -90, position: "insideLeft", fontSize: 12 }} />
+                  <RechartsTooltip />
+                  <Bar dataKey="hours" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
 
         {/* Today's/Selected Date Attendance + Download PDF */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">

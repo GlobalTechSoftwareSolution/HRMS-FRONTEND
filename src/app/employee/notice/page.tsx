@@ -60,6 +60,7 @@ export default function NoticeDashboard() {
           ...notice,
           is_read: readNotices.includes(notice.id) ? true : notice.is_read || false,
           category: notice.category || "General",
+          important: notice.important === true || notice.important === "true",
         }));
 
       setNotices(noticesWithDefaults);
@@ -97,7 +98,7 @@ export default function NoticeDashboard() {
         result = result.filter((notice) => !notice.is_read);
         break;
       case "important":
-        result = result.filter((notice) => notice.important);
+        result = result.filter((notice) => notice.important === true || notice.important === "true");
         break;
       case "with-attachments":
         result = result.filter((notice) => notice.attachment);
@@ -141,8 +142,8 @@ export default function NoticeDashboard() {
   };
 
   const isBookmarked = (noticeId: number) => bookmarkedNotices.includes(noticeId);
-  const unreadCount = notices.filter((notice) => !notice.is_read).length;
-  const importantCount = notices.filter((notice) => notice.important).length;
+  const unreadCount = filteredNotices.filter((notice) => !notice.is_read).length;
+  const importantCount = filteredNotices.filter((notice) => notice.important === true || notice.important === "true").length;
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleString("en-IN", {
@@ -280,9 +281,9 @@ export default function NoticeDashboard() {
               >
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-semibold text-black">
-                    {notice.important && (
+                    {notice.important === true || notice.important === "true" ? (
                       <FiAlertCircle className="inline text-red-500 mr-1" />
-                    )}
+                    ) : null}
                     {notice.title}
                   </h3>
                   <FiBookmark

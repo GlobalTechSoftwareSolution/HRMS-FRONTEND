@@ -108,7 +108,7 @@ const Approvalpage: React.FC = () => {
             {pendingUsers.length === 0 && <p className="text-gray-500 col-span-full text-center">No users pending approval.</p>}
             {pendingUsers.map((user, index) => (
               <div key={`pending-${index}`} className="bg-white border border-gray-200 rounded-lg shadow-md p-4 md:p-6 flex flex-col justify-between hover:shadow-xl transition-shadow duration-300">
-                <p><span className="font-medium">Email:</span> {user.email}</p>
+                <p className="break-all overflow-hidden text-ellipsis"><span className="font-medium">Email:</span> {user.email}</p>
                 <p><span className="font-medium">Role:</span> {user.role}</p>
                 <p><span className="font-medium">Staff:</span> {user.is_staff ? "Yes" : "No"}</p>
                 <p><span className="font-medium">Superuser:</span> {user.is_superuser ? "Yes" : "No"}</p>
@@ -140,7 +140,7 @@ const Approvalpage: React.FC = () => {
             {approvedUsers.length === 0 && <p className="text-gray-500 col-span-full text-center">No approved users.</p>}
             {approvedUsers.map((user, index) => (
               <div key={`approved-${index}`} className="bg-white border border-gray-200 rounded-lg shadow-md p-4 md:p-6 flex flex-col justify-between">
-                <p><span className="font-medium">Email:</span> {user.email}</p>
+                <p className="break-all overflow-hidden text-ellipsis"><span className="font-medium">Email:</span> {user.email}</p>
                 <p><span className="font-medium">Role:</span> {user.role}</p>
                 <p><span className="font-medium">Staff:</span> {user.is_staff ? "Yes" : "No"}</p>
                 <p><span className="font-medium">Superuser:</span> {user.is_superuser ? "Yes" : "No"}</p>

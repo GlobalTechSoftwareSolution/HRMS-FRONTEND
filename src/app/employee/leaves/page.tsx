@@ -69,8 +69,12 @@ export default function LeaveSection() {
     setLoading(true);
 
     try {
+      // Only send valid query params (no start_date_lte, end_date_gte, etc.)
+      const queryParams: Record<string, string> = { email };
+      const queryString = new URLSearchParams(queryParams).toString();
+
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/?email=${email}`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/?${queryString}`
       );
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
@@ -139,7 +143,7 @@ export default function LeaveSection() {
 
     try {
       const appliedOnDate = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-
+      // Only send valid backend fields; do not send _lte/_gte fields
       const payload = {
         email: userEmail,
         department: userDepartment,
@@ -150,7 +154,7 @@ export default function LeaveSection() {
         status: "Pending",
         applied_on: appliedOnDate,
       };
-
+      // No extra/legacy fields sent in payload
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/apply_leave/`,
         {

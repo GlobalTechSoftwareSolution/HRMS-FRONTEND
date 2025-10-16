@@ -32,7 +32,7 @@ type Employee = {
   department: string;
 };
 
-export default function ManagerDashboard() {
+export default function ManagerAttendenceDashboard() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);

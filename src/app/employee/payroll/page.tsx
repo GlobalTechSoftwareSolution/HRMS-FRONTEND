@@ -79,7 +79,11 @@ export default function PayrollDashboard() {
           )}/`
         );
 
-        if (!response.ok) throw new Error(`Failed to fetch payrolls: ${response.status}`);
+        if (!response.ok) {
+          // Treat all errors (404, etc.) as "no payroll records"
+          setPayrollData([]);
+          return;
+        }
 
         const data: { payroll?: PayrollAPIItem; payrolls?: PayrollAPIItem[] } =
           await response.json();
@@ -99,9 +103,8 @@ export default function PayrollDashboard() {
 
         setPayrollData(mappedData.filter((item) => item.email === userEmail));
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        console.error("Error fetching payroll data:", message);
-        setError(message);
+        console.error("Error fetching payroll data:", err);
+        setPayrollData([]); // show friendly empty state instead of error
       } finally {
         setLoading(false);
       }
@@ -581,8 +584,18 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500 text-sm">
-                      No payroll records found for the selected filters.
+                    <td colSpan={6} className="px-6 py-16 text-center text-gray-400">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <span className="text-4xl">💸</span>
+                        <h3 className="text-lg font-semibold">No payroll records yet</h3>
+                        <p className="text-sm text-gray-500">It looks like your payroll data is not available at the moment.</p>
+                        <button
+                          onClick={() => window.location.reload()}
+                          className="mt-3 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                        >
+                          Refresh
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -619,7 +632,17 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-center">No payroll records found for the selected filters.</p>
+              <div className="flex flex-col items-center justify-center gap-3 py-10 bg-gray-50 rounded-xl shadow-sm">
+                <span className="text-5xl">💸</span>
+                <h3 className="text-lg font-semibold text-gray-700">No payrolls yet!</h3>
+                <p className="text-sm text-gray-500 text-center">Your payroll history will appear here once available.</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-3 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                >
+                  Refresh
+                </button>
+              </div>
             )}
           </div>
         </div>

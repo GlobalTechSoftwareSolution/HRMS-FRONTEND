@@ -249,21 +249,6 @@ const LoginPage = () => {
             </div>
 
             <div className="flex items-center justify-between text-sm text-gray-700">
-              <label className="flex items-center space-x-2">
-                <input
-                  className="h-4 w-4 text-green-600 border-gray-300 rounded"
-                  type="checkbox"
-                />
-                <span>
-                  I agree to the{" "}
-                  <a
-                    className="text-blue-600 hover:text-blue-700 font-medium underline"
-                    href="/terms"
-                  >
-                    Terms &amp; Policy
-                  </a>
-                </span>
-              </label>
 
               <button
                 type="button"

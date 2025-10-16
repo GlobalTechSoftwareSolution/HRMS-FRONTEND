@@ -68,30 +68,32 @@ const Ticket: React.FC<TicketProps> = ({
 
  // Always use localStorage.user_email for filtering
  const fetchTickets = async () => {
- try {
- const userEmail = localStorage.getItem('user_email') || '';
- const response = await fetch('https://globaltechsoftwaresolutions.cloud/api/accounts/tickets/');
- if (!response.ok) {
- throw new Error('Failed to fetch tickets');
- }
- const data = await response.json();
- // Filter tickets: assigned_to is null OR matches userEmail (case-insensitive)
- const filteredData: Ticket[] = data
- .filter((ticket: Ticket) =>
- ticket.assigned_to === null ||
- (userEmail && ticket.assigned_to && ticket.assigned_to.toLowerCase() === userEmail.toLowerCase())
- )
- .map((ticket: Ticket) => ({
- ...ticket,
- status: ticket.status.toLowerCase(),
- priority: ticket.priority.toLowerCase(),
- }));
- console.log('Filtered Tickets:', filteredData);
- setTickets(filteredData);
- } catch (error) {
- console.error('Error fetching tickets:', error);
- setTickets([]);
- }
+   try {
+     const userEmail = localStorage.getItem('user_email') || '';
+     const response = await fetch('https://globaltechsoftwaresolutions.cloud/api/accounts/tickets/');
+     if (!response.ok) {
+       throw new Error('Failed to fetch tickets');
+     }
+     const data = await response.json();
+     // Normalize status: lowercase and replace spaces with hyphens
+     const normalizeStatus = (status: string) => status.toLowerCase().replace(' ', '-');
+     // Filter tickets: assigned_to is null OR matches userEmail (case-insensitive)
+     const filteredData: Ticket[] = data
+       .filter((ticket: Ticket) =>
+         ticket.assigned_to === null ||
+         (userEmail && ticket.assigned_to && ticket.assigned_to.toLowerCase() === userEmail.toLowerCase())
+       )
+       .map((ticket: Ticket) => ({
+         ...ticket,
+         status: normalizeStatus(ticket.status),
+         priority: ticket.priority.toLowerCase(),
+       }));
+     console.log('Filtered Tickets:', filteredData);
+     setTickets(filteredData);
+   } catch (error) {
+     console.error('Error fetching tickets:', error);
+     setTickets([]);
+   }
  };
 
  // ------------------------------

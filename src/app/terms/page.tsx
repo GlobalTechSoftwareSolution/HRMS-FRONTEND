@@ -354,7 +354,7 @@ const TermsPrivacy: React.FC = () => {
                 <div>
                   <p className="font-medium text-gray-700">Email</p>
                   <p className="text-gray-600">
-                    tech@globaltechsoftwaresolutions.com{" "}
+                    hrglobaltechsoftwaresolutions@gmail.com{" "}
                   </p>
                 </div>
               </div>

@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "globaltechsoftwaresolutions.cloud", pathname: "/images/**" },
       // Optional: also allow https for the same host if some images use https
       { protocol: "https", hostname: "globaltechsoftwaresolutions.cloud", pathname: "/images/**" },
+      { protocol: "https", hostname: "cdn-icons-png.flaticon.com", pathname: "/**" },
     ],
   },
 

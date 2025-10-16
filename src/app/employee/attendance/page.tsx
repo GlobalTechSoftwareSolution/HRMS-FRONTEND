@@ -356,7 +356,7 @@ dayCellClassNames={(arg) => {
                 {/* Quick Stats */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                     <div className="bg-white rounded-xl p-4 shadow-md border-l-4 border-blue-500">
-                        <div className="text-sm text-gray-500">Total Present Days</div>
+                        <div className="text-sm text-gray-500">Total Present Days from Joining</div>
                         <div className="text-2xl font-bold text-gray-800">
                             {fetchedAttendance.filter(record => 
                                 record.email === loggedInEmail && 
@@ -366,7 +366,7 @@ dayCellClassNames={(arg) => {
                         </div>
                     </div>
                     <div className="bg-white rounded-xl p-4 shadow-md border-l-4 border-green-500">
-                        <div className="text-sm text-gray-500">This Month</div>
+                        <div className="text-sm text-gray-500">This Month present days</div>
                         <div className="text-2xl font-bold text-gray-800">
                             {fetchedAttendance.filter(record => 
                                 record.email === loggedInEmail && 
@@ -482,6 +482,31 @@ function AttendanceRecordsWithDatePicker({
     selectedDate,
     onDateChange,
 }: AttendanceRecordsWithDatePickerProps) {
+    // Helper to format time (HH:mm:ss or HH:mm) - rounds seconds to nearest minute and returns 12-hour time with AM/PM
+    function formatTime(timeStr: string | null | undefined): string {
+        if (!timeStr || timeStr === "-") return "-";
+        // Accepts HH:mm:ss or HH:mm
+        const match = /^(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/.exec(timeStr);
+        if (!match) return timeStr;
+        let [_, hour, min, sec] = match;
+        let h = parseInt(hour, 10);
+        let m = parseInt(min, 10);
+        let s = sec !== undefined ? parseInt(sec, 10) : 0;
+        // Round to nearest minute
+        if (s >= 30) {
+            m += 1;
+            if (m === 60) {
+                m = 0;
+                h = (h + 1) % 24;
+            }
+        }
+        // Format as 12-hour with AM/PM
+        const period = h >= 12 ? "PM" : "AM";
+        let displayHour = h % 12;
+        if (displayHour === 0) displayHour = 12;
+        const mm = m.toString().padStart(2, "0");
+        return `${displayHour}:${mm} ${period}`;
+    }
     // Compute today and yesterday in YYYY-MM-DD format
     const todayObj = new Date();
     const todayStr = todayObj.toISOString().split("T")[0];
@@ -559,8 +584,16 @@ function AttendanceRecordsWithDatePicker({
                                     if (record.checkOut && record.checkOut !== "-") {
                                         const checkInDate = new Date(`${record.date}T${record.checkIn}`);
                                         const checkOutDate = new Date(`${record.date}T${record.checkOut}`);
-                                        const hours = ((checkOutDate.getTime() - checkInDate.getTime()) / 3600000).toFixed(2);
-                                        hoursWorked = `${hours}h`;
+                                        let diffMs = checkOutDate.getTime() - checkInDate.getTime();
+                                        // If negative (crossed midnight), add 24h
+                                        if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
+                                        // Extract seconds for proper rounding
+                                        let totalMinutes = Math.floor(diffMs / 60000);
+                                        const leftoverMs = diffMs % 60000;
+                                        if (leftoverMs >= 30000) totalMinutes += 1; // round up if >= 30s
+                                        const hoursPart = Math.floor(totalMinutes / 60);
+                                        const minutesPart = totalMinutes % 60;
+                                        hoursWorked = `${hoursPart}h ${minutesPart}m`;
                                         status = "Present";
                                         statusColor = "bg-green-100 text-green-700";
                                     } else {
@@ -601,11 +634,11 @@ function AttendanceRecordsWithDatePicker({
                                         <div className="space-y-3">
                                             <div className="flex justify-between items-center">
                                                 <span className="text-sm text-gray-600">Check-in:</span>
-                                                <span className="font-medium">{record.checkIn}</span>
+                                                <span className="font-medium">{formatTime(record.checkIn)}</span>
                                             </div>
                                             <div className="flex justify-between items-center">
                                                 <span className="text-sm text-gray-600">Check-out:</span>
-                                                <span className="font-medium">{record.checkOut || "-"}</span>
+                                                <span className="font-medium">{formatTime(record.checkOut)}</span>
                                             </div>
                                             <div className="flex justify-between items-center pt-2 border-t border-gray-100">
                                                 <span className="text-sm text-gray-600">Hours worked:</span>

@@ -90,6 +90,16 @@ export default function DashboardLayout({ children, role }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
+  // Track current path for active link highlighting (survive SSR, refresh, and mobile)
+  const [currentPath, setCurrentPath] = useState<string>("");
+
+  useEffect(() => {
+    // Only run on client
+    if (typeof window !== "undefined") {
+      setCurrentPath(window.location.pathname);
+    }
+  }, [router.asPath]);
+
   // Load user info from localStorage & listen for updates
   useEffect(() => {
     const loadUserInfo = () => {
@@ -195,7 +205,9 @@ export default function DashboardLayout({ children, role }: Props) {
             <Link
               href={link.path}
               key={link.name}
-              className="px-4 py-2 rounded-lg hover:bg-blue-500 hover:shadow-md transition-all font-medium"
+              className={`px-4 py-2 rounded-lg transition-all font-medium ${
+                currentPath.startsWith(link.path) ? "bg-blue-500 shadow-md" : "hover:bg-blue-500 hover:shadow-md"
+              }`}
             >
               {link.name}
             </Link>
@@ -248,7 +260,9 @@ export default function DashboardLayout({ children, role }: Props) {
                   href={link.path}
                   key={link.name}
                   onClick={() => setMenuOpen(false)}
-                  className="px-3 py-2 rounded-lg hover:bg-blue-500 hover:shadow-md transition-all font-medium text-sm truncate"
+                  className={`px-3 py-2 rounded-lg transition-all font-medium text-sm truncate ${
+                    currentPath.startsWith(link.path) ? "bg-blue-500 shadow-md" : "hover:bg-blue-500 hover:shadow-md"
+                  }`}
                 >
                   {link.name}
                 </Link>
