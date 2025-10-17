@@ -331,7 +331,7 @@ const handleSendTask = async () => {
                       <div className="flex items-center">
                         <FiUser className="mr-1" />
                         <span className="font-medium">{task.email}</span>
-                        <span className="font-medium">{task.department}</span>
+                        <span className="font-medium">{task.department || "N/A"}</span>
                       </div>
 
                       <div className="mt-2 md:mt-0">

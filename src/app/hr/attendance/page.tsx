@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -32,7 +33,7 @@ type Employee = {
   department: string;
 };
 
-export default function ManagerDashboard() {
+export default function HrAttendencePage() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -116,84 +117,113 @@ export default function ManagerDashboard() {
   })();
 
   // ---------------- PDF Generation ----------------
-  const downloadPDF = async () => {
-    const jsPDFModule = (await import("jspdf")).default;
-    const autoTableModule = (await import("jspdf-autotable")).default;
+ const downloadPDF = async () => {
+  const jsPDFModule = (await import("jspdf")).default;
+  const autoTableModule = (await import("jspdf-autotable")).default;
 
-    const doc = new jsPDFModule({
-      orientation: "portrait",
-      unit: "pt",
-      format: "A4",
-    });
+  const doc = new jsPDFModule({
+    orientation: "portrait",
+    unit: "pt",
+    format: "A4",
+  });
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text(
-      "Today's Attendance Report",
-      doc.internal.pageSize.getWidth() / 2,
-      40,
-      { align: "center" }
+  // --- ADD COMPANY LOGO AND NAME ---
+  const companyName = "Global Tech Software Solutions";
+  const logoUrl = "/logo/Global.jpg"; // replace with your image path or URL
+
+  // Load image as base64
+  const imgData = await fetch(logoUrl)
+    .then((res) => res.blob())
+    .then(
+      (blob) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        })
     );
 
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    const todayStr = new Date().toLocaleDateString();
-    doc.text(`Date: ${todayStr}`, doc.internal.pageSize.getWidth() / 2, 60, {
-      align: "center",
-    });
+  // Draw logo (left-top corner)
+  doc.addImage(imgData, "PNG", 40, 20, 50, 50);
 
-    const tableColumn = [
-      "ID",
-      "Employee Name",
-      "Email",
-      "Department",
-      "Check-in",
-      "Check-out",
-      "Hours",
-    ];
-    const tableRows: (string | number)[][] = [];
+  // Draw company name (centered at top)
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text(companyName, doc.internal.pageSize.getWidth() / 2, 50, {
+    align: "center",
+  });
 
-    todaysAttendance.forEach((rec, idx) => {
-      tableRows.push([
-        idx + 1,
-        rec.fullname || "Unknown",
-        rec.email || "-",
-        rec.department || "-",
-        rec.check_in
-          ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
-          : "Pending",
-        rec.check_out
-          ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
-          : "Pending",
-        `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`,
-      ]);
-    });
+  // --- ATTENDANCE REPORT TITLE ---
+  doc.setFontSize(20);
+  doc.text(
+    "Today's Attendance Report",
+    doc.internal.pageSize.getWidth() / 2,
+    90,
+    { align: "center" }
+  );
 
-    autoTableModule(doc, {
-      startY: 90,
-      head: [tableColumn],
-      body: tableRows,
-      theme: "striped",
-      headStyles: {
-        fillColor: [41, 128, 185],
-        textColor: [255, 255, 255],
-        fontSize: 12,
-      },
-      bodyStyles: {
-        fontSize: 10,
-        cellPadding: 6,
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245],
-      },
-      styles: {
-        lineColor: [44, 62, 80],
-        lineWidth: 0.2,
-      },
-    });
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "normal");
+  const todayStr = new Date().toLocaleDateString();
+  doc.text(`Date: ${todayStr}`, doc.internal.pageSize.getWidth() / 2, 110, {
+    align: "center",
+  });
 
-    doc.save(`Attendance-Report-${todayStr}.pdf`);
-  };
+  // --- TABLE ---
+  const tableColumn = [
+    "ID",
+    "Employee Name",
+    "Email",
+    "Department",
+    "Check-in",
+    "Check-out",
+    "Hours",
+  ];
+  const tableRows: (string | number)[][] = [];
+
+  todaysAttendance.forEach((rec, idx) => {
+    tableRows.push([
+      idx + 1,
+      rec.fullname || "Unknown",
+      rec.email || "-",
+      rec.department || "-",
+      rec.check_in
+        ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
+        : "Pending",
+      rec.check_out
+        ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
+        : "Pending",
+      `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`,
+    ]);
+  });
+
+  autoTableModule(doc, {
+    startY: 130,
+    head: [tableColumn],
+    body: tableRows,
+    theme: "striped",
+    headStyles: {
+      fillColor: [41, 128, 185],
+      textColor: [255, 255, 255],
+      fontSize: 12,
+    },
+    bodyStyles: {
+      fontSize: 10,
+      cellPadding: 6,
+    },
+    alternateRowStyles: {
+      fillColor: [245, 245, 245],
+    },
+    styles: {
+      lineColor: [44, 62, 80],
+      lineWidth: 0.2,
+    },
+  });
+
+  doc.save(`Attendance-Report-${todayStr}.pdf`);
+};
+
 
   return (
     <DashboardLayout role="hr">
@@ -204,7 +234,7 @@ export default function ManagerDashboard() {
           transition={{ duration: 0.5 }}
           className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 text-gray-800"
         >
-          Manager Dashboard 📋
+          HR Attendance Dashboard 
         </motion.h1>
 
         {/* KPI Cards */}

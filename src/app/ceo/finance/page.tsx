@@ -40,15 +40,16 @@ interface Employee {
 }
 
 interface PayrollItem {
-  id?: number;
-  email?: string;
-  name?: string;
-  net_salary?: number;
-  salary?: number;
-  status?: "Credited" | "Pending";
-  pay_date?: string;
-  date?: string;
-  department?: string;
+  email: string;
+  basic_salary: string;
+  month: string;
+  year: number;
+  status: "Paid" | "Pending";
+  pay_date: string;
+}
+
+interface ApiResponse {
+  payrolls: PayrollItem[];
 }
 
 const FinanceDashboard: React.FC = () => {
@@ -61,7 +62,6 @@ const FinanceDashboard: React.FC = () => {
   };
 
   const [employees, setEmployees] = useState<Employee[]>([]);
-
   const [financeData, setFinanceData] = useState({
     totalPayroll: 0,
     salaryCredited: 0,
@@ -83,20 +83,18 @@ const FinanceDashboard: React.FC = () => {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_payrolls/`);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
-        const data: PayrollItem[] | { results?: PayrollItem[]; payrolls?: PayrollItem[] } = await res.json();
+        const data: ApiResponse = await res.json();
+        const payrolls: PayrollItem[] = data.payrolls || [];
 
-        const payrolls: PayrollItem[] = Array.isArray(data)
-          ? data
-          : data.results || data.payrolls || [];
-
+        // Map the API response to Employee interface
         const mapped: Employee[] = payrolls.map((item, idx) => ({
-          id: item.id ?? idx + 1,
-          email: item.email ?? `employee${idx + 1}@company.com`,
-          name: item.name ?? (item.email ? item.email.split("@")[0] : `Employee ${idx + 1}`),
-          salary: Number(item.net_salary ?? item.salary ?? 0),
-          status: item.status ?? "Pending",
-          date: item.pay_date ?? item.date ?? new Date().toISOString(),
-          department: item.department ?? "General"
+          id: idx + 1,
+          email: item.email,
+          name: item.email.split("@")[0], // Use email prefix as name
+          salary: Number(item.basic_salary),
+          status: item.status === "Paid" ? "Credited" : "Pending", // Map "Paid" to "Credited"
+          date: item.pay_date,
+          department: "General" // Default department since it's not in API
         }));
 
         setEmployees(mapped);
@@ -104,15 +102,24 @@ const FinanceDashboard: React.FC = () => {
         // --------------------- FINANCE CALCULATIONS ---------------------
         const totalPayroll = mapped.reduce((acc, emp) => acc + emp.salary, 0);
         const salaryCredited = mapped
-          .filter(emp => emp.status === "Paid" || emp.status === "Credited")
+          .filter(emp => emp.status === "Credited")
           .reduce((acc, emp) => acc + emp.salary, 0);
         const salaryPending = totalPayroll - salaryCredited;
 
-        const monthlyTrend: number[] = [0, 0, 0, 0, 0, 0];
+        // Monthly trend calculation based on pay_date
+        const monthlyTrend: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         mapped.forEach(emp => {
           const month = new Date(emp.date).getMonth();
-          if (month < 6) monthlyTrend[month] += emp.salary;
+          monthlyTrend[month] += emp.salary;
         });
+
+        // Get last 6 months for trend
+        const currentMonth = new Date().getMonth();
+        const lastSixMonths = [];
+        for (let i = 5; i >= 0; i--) {
+          const monthIndex = (currentMonth - i + 12) % 12;
+          lastSixMonths.push(monthlyTrend[monthIndex]);
+        }
 
         const deptDist: Record<string, number> = {};
         mapped.forEach(emp => {
@@ -124,7 +131,7 @@ const FinanceDashboard: React.FC = () => {
           totalPayroll,
           salaryCredited,
           salaryPending,
-          monthlyTrend,
+          monthlyTrend: lastSixMonths,
           departmentDistribution: deptDist,
           formattedTotalPayroll: totalPayroll.toLocaleString('en-IN', { style: 'currency', currency: 'INR' }),
           formattedSalaryCredited: salaryCredited.toLocaleString('en-IN', { style: 'currency', currency: 'INR' }),
@@ -165,52 +172,58 @@ const FinanceDashboard: React.FC = () => {
     <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md border border-gray-100 mb-8">
       <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">{title}</h2>
 
-      {/* Responsive Table */}
-      <div className="overflow-x-auto hidden sm:block">
-        <table className="w-full text-sm text-left text-gray-600">
-          <thead className="bg-gray-100 text-gray-700 text-xs uppercase">
-            <tr>
-              <th className="px-4 py-3">Employee</th>
-              <th className="px-4 py-3">Department</th>
-              <th className="px-4 py-3">Salary</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Date</th>
-            </tr>
-          </thead>
-          <tbody>
+      {payrolls.length === 0 ? (
+        <p className="text-gray-500 text-center py-4">No payroll records found for this period.</p>
+      ) : (
+        <>
+          {/* Responsive Table */}
+          <div className="overflow-x-auto hidden sm:block">
+            <table className="w-full text-sm text-left text-gray-600">
+              <thead className="bg-gray-100 text-gray-700 text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-3">Employee</th>
+                  <th className="px-4 py-3">Department</th>
+                  <th className="px-4 py-3">Salary</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payrolls.map(emp => (
+                  <tr key={emp.id} className="border-b hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-900">{emp.name}</td>
+                    <td className="px-4 py-3">{emp.department}</td>
+                    <td className="px-4 py-3">{emp.salary.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-3 py-1 text-xs font-medium rounded-full ${emp.status === "Credited" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
+                        {emp.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">{formatDate(emp.date)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Cards for small devices */}
+          <div className="sm:hidden flex flex-col gap-4">
             {payrolls.map(emp => (
-              <tr key={emp.id} className="border-b hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">{emp.name}</td>
-                <td className="px-4 py-3">{emp.department}</td>
-                <td className="px-4 py-3">{emp.salary.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-3 py-1 text-xs font-medium rounded-full ${emp.status === "Credited" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
+              <div key={emp.id} className="p-4 rounded-xl shadow-md border border-gray-200 bg-white">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-semibold text-gray-800">{emp.name}</h3>
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${emp.status === "Credited" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
                     {emp.status}
                   </span>
-                </td>
-                <td className="px-4 py-3">{formatDate(emp.date)}</td>
-              </tr>
+                </div>
+                <p className="text-gray-500 text-sm">Department: {emp.department}</p>
+                <p className="text-gray-500 text-sm">Salary: {emp.salary.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</p>
+                <p className="text-gray-500 text-sm">Date: {formatDate(emp.date)}</p>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Cards for small devices */}
-      <div className="sm:hidden flex flex-col gap-4">
-        {payrolls.map(emp => (
-          <div key={emp.id} className="p-4 rounded-xl shadow-md border border-gray-200 bg-white">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-semibold text-gray-800">{emp.name}</h3>
-              <span className={`px-2 py-1 text-xs font-medium rounded-full ${emp.status === "Credited" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
-                {emp.status}
-              </span>
-            </div>
-            <p className="text-gray-500 text-sm">Department: {emp.department}</p>
-            <p className="text-gray-500 text-sm">Salary: {emp.salary.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</p>
-            <p className="text-gray-500 text-sm">Date: {formatDate(emp.date)}</p>
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   );
 

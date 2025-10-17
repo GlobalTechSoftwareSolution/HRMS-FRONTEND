@@ -6,7 +6,6 @@ import DashboardLayout from "@/components/DashboardLayout";
 import {
   FiDollarSign,
   FiTrendingUp,
-  FiTrendingDown,
   FiChevronDown,
   FiFilter,
 } from "react-icons/fi";
@@ -134,12 +133,12 @@ export default function PayrollDashboard() {
     return matchesYear && matchesStatus;
   });
 
-  const totalNetPay = filteredData.reduce((acc, rec) => acc + calculateNetPay(rec), 0);
-  const averageNetPay = filteredData.length > 0 ? totalNetPay / filteredData.length : 0;
+  // Calculate overall net pay till date (across all payroll records)
+  const overallNetPay = payrollData.reduce((acc, rec) => acc + calculateNetPay(rec), 0);
 
-  // Helper: format currency INR
+  // Helper: format currency INR (omit paise/decimals, show only whole INR)
   const formatCurrency = (v: number | string) =>
-    Number(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    Math.round(Number(v || 0)).toLocaleString("en-IN");
 
 
 // Improved and aligned PDF generator using pdf-lib
@@ -149,32 +148,32 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
     const payslip: PayslipData = {
       companyName: process.env.NEXT_PUBLIC_COMPANY_NAME || "Global Tech Software Solutions",
       logoUrl: process.env.NEXT_PUBLIC_COMPANY_LOGO || "/logo/Global.jpg",
-      period: record.month || "October 2025",
+      period: record.month,
       employeeName: record.email.split("@")[0] || "Employee",
       employeeId: `EMP-${String(record.id).padStart(4, "0")}`,
-      bank: "State Bank of India",
+      bank: "NA",
       bankAccount: "XXXXXXXX" + String(Math.floor(Math.random() * 9000) + 1000),
-      doj: "2023-01-15",
+      doj: "NA",
       lopDays: 0,
-      pfNumber: "PF1234567",
+      pfNumber: "NA",
       stdDays: 0,
       location: "Bangalore",
       workedDays: 30,
-      department: "Engineering",
-      managementLevel: "L2",
+      department: "NA",
+      managementLevel: "NA",
       facility: "Bengaluru Office",
-      entity: "Acme Holdings",
-      pfUan: "UAN12345678",
+      entity: "NA",
+      pfUan: "NA",
       earnings: {
         BASIC: record.basicSalary,
-        "HOUSE RENT ALLOWANCE": Number(record.basicSalary) * 0.2,
-        "PERSONAL ALLOWANCE": Number(record.basicSalary) * 0.05,
+        "HOUSE RENT ALLOWANCE": 0,
+        "PERSONAL ALLOWANCE": 0,
         "OTHER ALLOWANCE": 0,
       },
       deductions: {
-        "PROVIDENT FUND": Number(record.basicSalary) * 0.12,
+        "PROVIDENT FUND": 1800,
         "PROFESSIONAL TAX": 200,
-        "ESPP CONTRIBUTION DEDUCTION": 0,
+        "ESPP CONTRIBUTION ": 0,
       },
     };
 
@@ -190,10 +189,7 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
 
     // --- Helper: embed logo (handles PNG & JPG) ---
     async function embedLogo(url: string) {
-      if (!url) {
-        // If the URL is empty, skip fetching and return null
-        return null;
-      }
+      if (!url) return null;
       try {
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to fetch logo");
@@ -201,7 +197,6 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
         const header = Array.from(bytes.slice(0, 8))
           .map(b => b.toString(16).padStart(2, "0"))
           .join("");
-
         if (header.startsWith("89504e47")) {
           return await pdfDoc.embedPng(bytes);
         } else {
@@ -290,53 +285,55 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
       ["Entity", payslip.entity],
       ["PF - UAN", payslip.pfUan],
     ];
-
     for (let i = 0; i < Math.ceil(infoPairs.length / 2); i++) {
       const left = infoPairs[i * 2];
       const right = infoPairs[i * 2 + 1];
       const rowY = y - i * (rowH + 2);
       page.drawText(left[0] + ":", { x: leftX, y: rowY, size: 9, font: boldFont });
       page.drawText(String(left[1]), { x: leftX + 100, y: rowY, size: 9, font });
-
       if (right) {
         page.drawText(right[0] + ":", { x: rightX, y: rowY, size: 9, font: boldFont });
         page.drawText(String(right[1]), { x: rightX + 100, y: rowY, size: 9, font });
       }
     }
-
     y -= Math.ceil(infoPairs.length / 2) * (rowH + 2) + 25;
 
-    // --- Earnings & Deductions ---
-    const colWidths = [170, 80, 170, 80];
+    // --- Earnings & Deductions Table: Improved layout ---
+    // Wider columns and more spacing between earnings and deductions
+    const colWidths = [140, 70, 50, 140, 70]; // [Earnings, Amount, Spacer, Deductions, Amount]
     const startX = margin;
     const totalWidth = colWidths.reduce((a, b) => a + b, 0);
     let tableY = y;
 
+    // Draw header row
     page.drawRectangle({
       x: startX,
       y: tableY,
       width: totalWidth,
-      height: 20,
+      height: 22,
       color: rgb(0.95, 0.98, 1),
     });
+    // Draw column headers
+    const headers = ["Earnings", "Amount (Rs.)", "", "Deductions", "Amount (Rs.)"];
+    let xOffset = startX;
+    for (let i = 0; i < headers.length; i++) {
+      if (headers[i]) {
+        page.drawText(headers[i], {
+          x: xOffset + 6,
+          y: tableY + 7,
+          size: 10,
+          font: boldFont,
+          color: rgb(0.07, 0.2, 0.4),
+        });
+      }
+      xOffset += colWidths[i];
+    }
 
-    const headers = ["Earnings", "Amount (Rs.)", "Deductions", "Amount (Rs.)"];
-    headers.forEach((h, i) => {
-      const offset = colWidths.slice(0, i).reduce((a, b) => a + b, 0) + 5;
-      page.drawText(h, {
-        x: startX + offset,
-        y: tableY + 6,
-        size: 10,
-        font: boldFont,
-        color: rgb(0.07, 0.2, 0.4),
-      });
-    });
-
+    // Draw rows for earnings and deductions
     const earnings = Object.entries(payslip.earnings);
     const deductions = Object.entries(payslip.deductions);
     const rows = Math.max(earnings.length, deductions.length);
-    tableY -= 20;
-
+    tableY -= 22;
     for (let i = 0; i < rows; i++) {
       const rowY = tableY - i * 18;
       if (i % 2 === 0) {
@@ -348,21 +345,25 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
           color: rgb(0.985, 0.99, 1),
         });
       }
+      // Earnings columns
       if (earnings[i]) {
         const [label, val] = earnings[i];
         page.drawText(label, { x: startX + 6, y: rowY, size: 9, font });
         page.drawText(formatCurrency(val), {
-          x: startX + colWidths[0] + 50,
+          x: startX + colWidths[0] + 6,
           y: rowY,
           size: 9,
           font,
         });
       }
+      // Deductions columns (with proper spacing)
       if (deductions[i]) {
         const [label, val] = deductions[i];
-        page.drawText(label, { x: startX + 260, y: rowY, size: 9, font });
+        // Deductions start after earnings and spacer columns
+        const dedX = startX + colWidths[0] + colWidths[1] + colWidths[2];
+        page.drawText(label, { x: dedX + 6, y: rowY, size: 9, font });
         page.drawText(formatCurrency(val), {
-          x: startX + 260 + colWidths[2] + 40,
+          x: dedX + colWidths[3] + 6,
           y: rowY,
           size: 9,
           font,
@@ -370,38 +371,48 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
       }
     }
 
-    // --- Totals ---
+    // --- Totals row ---
     const grossEarnings = earnings.reduce((a, [, v]) => a + Number(v), 0);
     const grossDeductions = deductions.reduce((a, [, v]) => a + Number(v), 0);
     const netPay = grossEarnings - grossDeductions;
-
     const totalsY = tableY - rows * 18 - 8;
     page.drawRectangle({
       x: startX,
       y: totalsY,
       width: totalWidth,
-      height: 20,
+      height: 22,
       color: rgb(0.94, 0.94, 0.94),
     });
-
-    page.drawText("GROSS EARNINGS", { x: startX + 6, y: totalsY + 6, size: 10, font: boldFont });
+    // GROSS EARNINGS
+    page.drawText("GROSS EARNINGS", {
+      x: startX + 6,
+      y: totalsY + 7,
+      size: 10,
+      font: boldFont,
+    });
     page.drawText(formatCurrency(grossEarnings), {
-      x: startX + colWidths[0] + 50,
-      y: totalsY + 6,
+      x: startX + colWidths[0] + 6,
+      y: totalsY + 7,
       size: 10,
       font: boldFont,
     });
-
-    page.drawText("GROSS DEDUCTIONS", { x: startX + 260, y: totalsY + 6, size: 10, font: boldFont });
+    // GROSS DEDUCTIONS
+    const dedX = startX + colWidths[0] + colWidths[1] + colWidths[2];
+    page.drawText("GROSS DEDUCTIONS", {
+      x: dedX + 6,
+      y: totalsY + 7,
+      size: 10,
+      font: boldFont,
+    });
     page.drawText(formatCurrency(grossDeductions), {
-      x: startX + 260 + colWidths[2] + 40,
-      y: totalsY + 6,
+      x: dedX + colWidths[3] + 6,
+      y: totalsY + 7,
       size: 10,
       font: boldFont,
     });
 
-    // --- Net Pay ---
-    const netY = totalsY - 35;
+    // --- Net Pay row (in its own cell) ---
+    const netY = totalsY - 32;
     page.drawRectangle({
       x: startX,
       y: netY,
@@ -409,6 +420,7 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
       height: 28,
       color: rgb(0.88, 0.95, 1),
     });
+    // NET PAY label
     page.drawText("NET PAY", {
       x: startX + 8,
       y: netY + 8,
@@ -416,19 +428,19 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
       font: boldFont,
       color: rgb(0.02, 0.2, 0.55),
     });
-    page.drawText(formatCurrency(netPay), {
-      x: startX + totalWidth - 90,
+    // Numeric Net Pay with "/-"
+    page.drawText(formatCurrency(netPay) + "/-", {
+      x: startX + totalWidth - 95,
       y: netY + 8,
       size: 12,
       font: boldFont,
       color: rgb(0.02, 0.2, 0.55),
     });
-
-    // --- Footer ---
-    page.drawText("This is a computer generated payslip and does not require signature or stamp.", {
-      x: margin,
-      y: margin + 20,
-      size: 8,
+    // Computer generated note (slightly lower below net pay)
+    page.drawText("This is a computer generated salary slip and does not require signature or stamp.", {
+      x: startX,
+      y: netY - 20,
+      size: 9,
       font,
       color: rgb(0.4, 0.4, 0.4),
     });
@@ -506,43 +518,37 @@ const downloadPayrollPDF = async (record: PayrollRecord) => {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-xs sm:text-sm">Total Records</p>
-                <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">{filteredData.length}</p>
-              </div>
-              <div className="p-2 sm:p-3 bg-blue-100 rounded-lg">
-                <FiDollarSign className="text-blue-600 text-lg sm:text-xl" />
-              </div>
-            </div>
-          </div>
+        {/* Summary Cards - Current Month Net Pay & Overall Net Pay */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          {filteredData.length > 0 && (
 
-          <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-xs sm:text-sm">Total Net Pay</p>
-                <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">₹{totalNetPay.toLocaleString()}</p>
-              </div>
-              <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
-                <FiTrendingUp className="text-green-600 text-lg sm:text-xl" />
+              <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-500 text-xs sm:text-sm">Overall Net Pay</p>
+                  <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">₹{overallNetPay.toLocaleString()}</p>
+                </div>
+                <div className="p-2 sm:p-3 bg-blue-100 rounded-lg">
+                  <FiTrendingUp className="text-blue-600 text-lg sm:text-xl" />
+                </div>
               </div>
             </div>
-          </div>
+          
+          )}
 
-          <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-purple-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-xs sm:text-sm">Average Net Pay</p>
-                <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">₹{averageNetPay.toLocaleString()}</p>
-              </div>
-              <div className="p-2 sm:p-3 bg-purple-100 rounded-lg">
-                <FiTrendingDown className="text-purple-600 text-lg sm:text-xl" />
+          {payrollData.length > 0 && (
+            <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-green-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-500 text-xs sm:text-sm">Net Pay for {filteredData[0].month}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">₹{calculateNetPay(filteredData[0]).toLocaleString()}</p>
+                </div>
+                <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
+                  <FiDollarSign className="text-green-600 text-lg sm:text-xl" />
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Payroll Table for desktop */}

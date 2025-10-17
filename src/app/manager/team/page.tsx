@@ -280,21 +280,27 @@ export default function TeamReport() {
               >
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
-                  <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4">
+                  {docLoading ? (
+                    <div className="w-16 h-16 flex items-center justify-center rounded-full border border-gray-200 bg-gray-100">
+                      <div className="w-8 h-8 border-4 border-t-blue-600 border-gray-200 rounded-full animate-spin"></div>
+                    </div>
+                  ) : (
                     <Image
                       src={getAvatar(selectedEmp)}
                       alt={selectedEmp?.fullname || "Profile"}
                       width={60}
                       height={60}
-                      className="rounded-lg object-cover border border-gray-200"
+                      className="rounded-full object-cover border border-gray-200"
                     />
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900">
-                        {selectedEmp.fullname}
-                      </h2>
-                      <p className="text-gray-600">{selectedEmp.email}</p>
-                    </div>
+                  )}
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">
+                      {selectedEmp.fullname}
+                    </h2>
+                    <p className="text-gray-600">{selectedEmp.email}</p>
                   </div>
+                </div>
                   <button
                     onClick={() => {
                       setSelectedEmp(null);

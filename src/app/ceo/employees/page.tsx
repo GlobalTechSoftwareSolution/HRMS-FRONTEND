@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
 import axios from "axios";
@@ -15,19 +15,7 @@ import {
   Search,
   Filter,
   Calendar,
-  DollarSign,
 } from "lucide-react";
-
-/**
- * NOTE:
- * - API base is read from process.env.NEXT_PUBLIC_API_URL
- * - Put the proper domain in NEXT_PUBLIC_API_URL in your .env (e.g. https://globaltechsoftwaresolutions.cloud)
- * - This file expects the APIs:
- *    GET  ${BASE}/api/accounts/employees/
- *    GET  ${BASE}/api/accounts/list_documents/
- *    PATCH ${BASE}/api/accounts/list_documents/<document-id-or-user-id>/  (used for issuing)
- *    POST  (optional) endpoint for uploading new documents can be added similarly
- */
 
 type Employee = {
   id: number;
@@ -67,6 +55,15 @@ export default function EmployeesPage() {
   // employees + documents
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+
+  // Payroll data type
+  type Payroll = {
+    basic_salary?: number;
+    allowances?: number;
+    deductions?: number;
+    [key: string]: unknown;
+  };
+  const [payrollData, setPayrollData] = useState<{ [email: string]: Payroll }>({});
 
   // UI state
   const [loading, setLoading] = useState<boolean>(true);
@@ -118,6 +115,28 @@ export default function EmployeesPage() {
 
     fetchEmployees();
   }, [API_BASE]);
+
+  // Fetch payroll for employee, wrapped in useCallback for dependency safety
+  const fetchPayrollForEmployee = useCallback(async (email: string) => {
+    try {
+      const res = await axios.get(`${API_BASE}/api/accounts/get_payroll/${email}/`);
+      if (res.data && res.data.payroll && res.data.payroll.basic_salary) {
+        setPayrollData(prev => ({
+          ...prev,
+          [email]: res.data.payroll
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to fetch payroll data", err);
+    }
+  }, [API_BASE]);
+
+  // Fetch payroll when selectedUser changes
+  useEffect(() => {
+    if (selectedUser && selectedUser.email) {
+      fetchPayrollForEmployee(selectedUser.email);
+    }
+  }, [selectedUser, fetchPayrollForEmployee]);
 
   // ---------- Fetch documents ----------
   const fetchDocuments = async () => {
@@ -388,10 +407,6 @@ export default function EmployeesPage() {
                             <Calendar className="w-3 h-3" />
                             {new Date(emp.joinDate).toLocaleDateString()}
                           </div>
-                          <div className="flex items-center gap-1">
-                            <DollarSign className="w-3 h-3" />
-                            {emp.salary.toLocaleString()}
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -474,7 +489,14 @@ export default function EmployeesPage() {
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="font-medium text-gray-700">Salary:</span>
-                              <span className="text-gray-900">₹{selectedUser.salary?.toLocaleString() ?? 0}</span>
+                              <span className="text-gray-900">
+                                ₹{payrollData[selectedUser.email]?.basic_salary
+                                  ? Math.round(Number(payrollData[selectedUser.email]?.basic_salary || 0)).toLocaleString() + "/-"
+                                  : selectedUser.salary
+                                    ? Math.round(selectedUser.salary).toLocaleString() + "/-"
+                                    : "0/-"
+                                }
+                              </span>
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="font-medium text-gray-700">Joined:</span>
@@ -483,172 +505,168 @@ export default function EmployeesPage() {
                           </div>
                         </div>
 
-                   {/* Documents */}
-<div className="space-y-4">
-  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-    <FileText className="w-5 h-5 text-gray-600" />
-    Documents
-  </h3>
+                        {/* Documents */}
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <FileText className="w-5 h-5 text-gray-600" />
+                            Documents
+                          </h3>
 
-  <div className="space-y-3 max-h-80 overflow-y-auto">
-    {[
-      "resume",
-      "appointment_letter",
-      "offer_letter",
-      "releaving_letter",
-      "resignation_letter",
-      "id_proof",
-      "achievement_crt",
-      "bonafide_crt",
-      "marks_card",
-      "certificates",
-      "tenth",
-      "twelth",
-      "degree",
-      "masters",
-      "award",
-    ].map((docType) => {
-      const docObj = getDocumentForEmail(selectedUser.email);
-      let docValue = docObj?.[docType] ?? null;
-      if (docValue && typeof docValue !== "string") docValue = String(docValue);
+                          <div className="space-y-3 max-h-80 overflow-y-auto">
+                            {[
+                              "resume",
+                              "appointment_letter",
+                              "offer_letter",
+                              "releaving_letter",
+                              "resignation_letter",
+                              "id_proof",
+                              "achievement_crt",
+                              "bonafide_crt",
+                              "marks_card",
+                              "certificates",
+                              "tenth",
+                              "twelth",
+                              "degree",
+                              "masters",
+                              "award",
+                            ].map((docType) => {
+                              const docObj = getDocumentForEmail(selectedUser.email);
+                              let docValue = docObj?.[docType] ?? null;
 
-      const isViewing = previewDocs[docType]?.viewing || false;
-      const isLoading = previewDocs[docType]?.loading || false;
+                              if (docValue && typeof docValue !== "string") {
+                                docValue = String(docValue);
+                              }
 
-      const handleView = () => {
-        if (!docValue) return;
+                              const isViewing = previewDocs[docType]?.viewing || false;
+                              const isLoading = previewDocs[docType]?.loading || false;
 
-        // Set loading state
-        setPreviewDocs((prev) => ({
-          ...prev,
-          [docType]: { viewing: false, loading: true },
-        }));
+                              const handleView = () => {
+                                if (!docValue) return;
 
-        // Simulate load delay or network fetch
-        setTimeout(() => {
-          setPreviewDocs((prev) => ({
-            ...prev,
-            [docType]: { viewing: true, loading: false },
-          }));
-        }, 1200); // 1.2s loading effect
-      };
+                                setPreviewDocs((prev) => ({
+                                  ...prev,
+                                  [docType]: { viewing: false, loading: true },
+                                }));
 
-      const handleHide = () => {
-        setPreviewDocs((prev) => ({
-          ...prev,
-          [docType]: { viewing: false, loading: false },
-        }));
-      };
+                                setTimeout(() => {
+                                  setPreviewDocs((prev) => ({
+                                    ...prev,
+                                    [docType]: { viewing: true, loading: false },
+                                  }));
+                                }, 500);
+                              };
 
-      return (
-        <div key={docType} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-200">
-          <span className="font-medium text-gray-700 text-sm capitalize">
-            {docType.replace(/_/g, " ")}
-          </span>
+                              const handleHide = () => {
+                                setPreviewDocs((prev) => ({
+                                  ...prev,
+                                  [docType]: { viewing: false, loading: false },
+                                }));
+                              };
 
-          {docValue ? (
-            <div className="flex items-center gap-3 mt-1">
-              <button
-                onClick={isViewing ? handleHide : handleView}
-                className={`px-3 py-1 text-sm rounded-md border font-medium flex items-center gap-2 transition-all
-                  ${isLoading ? "bg-gray-200 text-gray-600 cursor-not-allowed" :
-                    "text-blue-600 hover:text-blue-700 hover:border-blue-400 border-gray-300"}`}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <svg
-                      className="animate-spin h-4 w-4 text-blue-600"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v8H4z"
-                      ></path>
-                    </svg>
-                    Loading...
-                  </>
-                ) : isViewing ? (
-                  "Hide"
-                ) : (
-                  "View"
-                )}
-              </button>
+                              return (
+                                <div key={docType} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                  <span className="font-medium text-gray-700 text-sm capitalize">
+                                    {docType.replace(/_/g, " ")}
+                                  </span>
 
-              <a
-                href={String(docValue)}
-                download
-                className="text-sm text-gray-600 hover:text-gray-800 font-medium"
-              >
-                Download
-              </a>
-            </div>
-          ) : (
-            <span className="text-gray-500 text-sm mt-1">Not uploaded</span>
-          )}
+                                  {docValue ? (
+                                    <div className="flex items-center gap-3 mt-1">
+                                      <button
+                                        onClick={isViewing ? handleHide : handleView}
+                                        className={`px-4 py-2 text-sm rounded-md font-medium flex items-center gap-2 transition-all
+                                          ${isLoading
+                                            ? "bg-gray-200 text-gray-600 cursor-not-allowed"
+                                            : isViewing
+                                              ? "bg-red-100 text-red-700 hover:bg-red-200"
+                                              : "bg-blue-600 text-white hover:bg-blue-700"
+                                          }`}
+                                        disabled={isLoading}
+                                      >
+                                        {isLoading ? (
+                                          <>
+                                            <svg
+                                              className="animate-spin h-4 w-4"
+                                              xmlns="http://www.w3.org/2000/svg"
+                                              fill="none"
+                                              viewBox="0 0 24 24"
+                                            >
+                                              <circle
+                                                className="opacity-25"
+                                                cx="12"
+                                                cy="12"
+                                                r="10"
+                                                stroke="currentColor"
+                                                strokeWidth="4"
+                                              ></circle>
+                                              <path
+                                                className="opacity-75"
+                                                fill="currentColor"
+                                                d="M4 12a8 8 0 018-8v8H4z"
+                                              ></path>
+                                            </svg>
+                                            Loading...
+                                          </>
+                                        ) : isViewing ? (
+                                          "Close Preview"
+                                        ) : (
+                                          "View Document"
+                                        )}
+                                      </button>
 
-          {/* Inline Preview */}
-       {isViewing && docValue && !isLoading && (
-  <div className="mt-3">
-    {(() => {
-      // Ensure docValue is always a string
-      const docValueStr = typeof docValue === "string" ? docValue : String(docValue);
-      // Type guard for fileType extraction
-      const fileType = typeof docValueStr === "string" ? docValueStr.split(".").pop()?.toLowerCase() : undefined;
+                                      <a
+                                        href={typeof docValue === 'string' ? docValue : ''}
+                                        download
+                                        className="px-4 py-2 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 font-medium transition-all"
+                                      >
+                                        Download
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-500 text-sm mt-1">Not uploaded</span>
+                                  )}
 
-      // Images
-      if (fileType && ["png", "jpg", "jpeg", "gif", "webp"].includes(fileType)) {
-        return (
-          <Image
-            src={docValueStr}
-            alt={docType}
-            width={800}
-            height={500}
-            className="w-full h-[500px] object-contain rounded-lg border"
-            unoptimized
-          />
-        );
-      }
+                                  {/* DOCUMENT PREVIEW */}
+                                  {isViewing && docValue && !isLoading && (
+                                    <div className="mt-4 border-2 border-blue-200 rounded-lg bg-white p-1">
+                                      <div className="flex justify-between items-center mb-2 px-3 py-2 bg-blue-50 rounded-t">
+                                        <h4 className="font-medium text-blue-900">
+                                          Viewing: {docType.replace(/_/g, " ")}
+                                        </h4>
+                                        <button
+                                          onClick={handleHide}
+                                          className="text-blue-700 hover:text-blue-900 p-1 rounded"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      </div>
 
-      // PDFs
-      if (fileType === "pdf") {
-        return (
-          <iframe
-            src={docValueStr}
-            className="w-full h-[500px] border rounded-lg"
-            title={docType}
-          />
-        );
-      }
+                                      {/* Use Google Docs Viewer for PDFs and other documents */}
+                                      <div className="w-full h-96 rounded-b">
+                                        <iframe
+                                          src={`https://docs.google.com/gview?url=${encodeURIComponent(docValue as string)}&embedded=true`}
+                                          className="w-full h-full border-0"
+                                          title={`${docType} preview`}
+                                        />
+                                      </div>
 
-      // Fallback
-      return (
-        <div className="p-4 border rounded bg-gray-100 text-gray-600 text-sm text-center">
-          Preview not available for this file type
-        </div>
-      );
-    })()}
-  </div>
-)}
-
-        </div>
-      );
-    })}
-  </div>
-</div>
-
-
+                                      {/* Download button */}
+                                      <div className="mt-3 px-3 pb-2">
+                                        <a
+                                          href={docValue as string}
+                                          download
+                                          className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                          <FileText className="w-4 h-4" />
+                                          Download File
+                                        </a>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
 
                       {/* Additional Information */}
@@ -656,7 +674,7 @@ export default function EmployeesPage() {
                         <h4 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {Object.entries(selectedUser)
-                            .filter(([k]) => !["id", "picture", "name", "role", "department", "email", "status", "joinDate", "phone", "salary"].includes(k))
+                            .filter(([k]) => !["id", "picture", "name", "role", "department", "email", "status", "joinDate", "phone", "salary", "profile_picture"].includes(k))
                             .map(([k, v]) => (
                               <div key={k} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded border border-gray-200">
                                 <span className="capitalize text-gray-600 text-sm">{k.replace(/_/g, " ")}:</span>

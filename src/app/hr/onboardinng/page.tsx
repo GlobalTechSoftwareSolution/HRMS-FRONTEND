@@ -57,7 +57,7 @@ export default function Onboarding() {
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);  
   const [editFormData, setEditFormData] = useState<Partial<Employee>>({});
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
@@ -873,15 +873,7 @@ export default function Onboarding() {
                 ) : (
                   <>
                     {/* Only show Edit button if not in pending tab */}
-                    {activeTab !== 'pending' && (
-                      <button
-                        onClick={() => setIsEditing(true)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition flex items-center"
-                      >
-                        <FiEdit className="mr-1" />
-                        Edit Info
-                      </button>
-                    )}
+                    
                     <button
                       onClick={() => {
                         setSelectedEmployee(null);
@@ -1070,15 +1062,7 @@ export default function Onboarding() {
                               View
                             </button>
                             {/* Only show Edit button if not in pending tab */}
-                            {activeTab !== 'pending' && (
-                              <button
-                                onClick={() => handleEditEmployee(item as Employee)}
-                                className="text-green-600 hover:text-green-900 flex items-center"
-                              >
-                                <FiEdit className="mr-1" />
-                                Edit
-                              </button>
-                            )}
+                            
                           </>
                         </div>
                       </td>

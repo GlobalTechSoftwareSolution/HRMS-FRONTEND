@@ -256,8 +256,19 @@ export default function DashboardOverview() {
                     key={idx}
                     className="bg-gray-50 p-3 rounded-lg shadow-sm flex flex-col sm:flex-row sm:justify-between gap-1"
                   >
-                    <div className="text-gray-700 font-medium">{l.start_date} - {l.end_date}</div>
-                    <div className="text-gray-500 text-sm">{l.leave_type ?? "-"}</div>
+                    <div className="text-gray-700 font-medium">
+                      {l.start_date} - {l.end_date}
+                      <span className="text-gray-500 text-sm ml-2">
+                        ({Math.max(
+                          1,
+                          Math.ceil(
+                            (new Date(l.end_date).getTime() - new Date(l.start_date).getTime()) /
+                              (1000 * 60 * 60 * 24)
+                          ) + 1
+                        )}{" "}
+                        days)
+                      </span>
+                    </div>
                     <div className="text-gray-500 text-sm">{l.reason}</div>
                     <div className={`${statusColor} font-semibold`}>{l.status}</div>
                   </div>

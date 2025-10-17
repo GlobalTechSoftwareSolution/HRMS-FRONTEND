@@ -35,7 +35,8 @@ type Holiday = {
 type Leave = {
     id: string;
     employee_name: string;
-    employee_email: string;
+    employee_email?: string;
+    email?: string;
     date: string;
     status: "Pending" | "Approved" | "Rejected";
     reason: string;
@@ -166,29 +167,28 @@ export default function AttendancePortal() {
     useEffect(() => {
         const fetchApprovedLeaves = async () => {
             try {
+                // Updated fetch URL and filtering logic
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/`);
                 if (!res.ok) throw new Error("Failed to fetch approved leaves");
                 const data = await res.json();
-                // The API is expected to return an array of leave objects
+                // Normalize and filter leaves by email and status, case-insensitive
+                let leavesArray: Leave[] = [];
                 if (Array.isArray(data)) {
-                    setApprovedLeavesCount(
-                        data.filter(
-                            (leave: Leave) =>
-                                leave.status === "Approved" &&
-                                leave.employee_email === loggedInEmail
-                        ).length
-                    );
+                  leavesArray = data;
                 } else if (Array.isArray(data.leaves)) {
-                    setApprovedLeavesCount(
-                        data.leaves.filter(
-                            (leave: Leave) =>
-                                leave.status === "Approved" &&
-                                leave.employee_email === loggedInEmail
-                        ).length
-                    );
-                } else {
-                    setApprovedLeavesCount(0);
+                  leavesArray = data.leaves;
                 }
+
+                const normalizedEmail = (loggedInEmail || "").trim().toLowerCase();
+
+               
+                const approvedLeaves = leavesArray.filter((leave: Leave) => {
+                  const email = (leave.employee_email || leave.email || "").trim().toLowerCase();
+                  const status = (leave.status || "").trim().toLowerCase();
+                  return email === normalizedEmail && status === "approved";
+                });
+
+                setApprovedLeavesCount(approvedLeaves.length);
             } catch {
                 setApprovedLeavesCount(0);
                 // Optionally log error

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import jsPDF from "jspdf";
-import autoTable  from "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 interface Employee {
   name: string;
@@ -23,7 +23,7 @@ interface Task {
 }
 
 interface Report {
-  task_id: number; 
+  task_id: number;
   email: string;
   title: string;
   description: string;
@@ -123,63 +123,88 @@ export default function ReportsAndTasksPage() {
     }
   };
 
+  // ✅ Improved professional PDF generator
   const downloadCombinedPDF = () => {
-    const doc = new jsPDF();
-    let y = 20;
+    const doc = new jsPDF("p", "mm", "a4");
+    const pageWidth = doc.internal.pageSize.getWidth();
 
-    doc.setFontSize(18);
-    doc.text("Organization Report", 14, y);
+    // Header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.text("Organization Report", pageWidth / 2, 20, { align: "center" });
 
-    // -------------------- Tasks --------------------
-    y += 10;
-    doc.setFontSize(14);
-    doc.text("Tasks", 14, y);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
 
-    const taskColumns = ["Email", "Title", "Department", "Priority", "Status", "Due Date"];
-    const taskRows = tasks.map(task => [
-      task.email,
-      task.title,
-      task.department || "-",
-      task.priority || "-",
-      task.status || "-",
-      task.due_date ? formatDate(task.due_date) : "-"
-    ]);
+    let y = 40;
+
+    // --- TASKS SECTION ---
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Task Summary", 14, y);
+    y += 5;
 
     autoTable(doc, {
-      head: [taskColumns],
-      body: taskRows,
       startY: y,
+      head: [["Email", "Title", "Department", "Priority", "Status", "Due Date"]],
+      body: tasks.map((task) => [
+        task.email,
+        task.title,
+        task.department || "-",
+        task.priority || "-",
+        task.status || "-",
+        task.due_date ? formatDate(task.due_date) : "-",
+      ]),
       theme: "grid",
-      headStyles: { fillColor: [37, 99, 235] },
+      styles: { fontSize: 10, cellPadding: 3 },
+      headStyles: { fillColor: [33, 150, 243], textColor: 255, halign: "center" },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
     });
 
-    // Fix TypeScript error for doc.lastAutoTable by using a safer type than 'any'
-    interface LastAutoTable {
-        finalY?: number;
+    // Define a type for jsPDF with autoTable plugin
+    type jsPDFWithPlugin = jsPDF & {
+      lastAutoTable?: {
+        finalY: number;
+      };
+    };
+    let lastY = ( (doc as jsPDFWithPlugin).lastAutoTable?.finalY ?? 0 );
+    lastY += 10;
+
+    // --- REPORTS SECTION ---
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Reports Summary", 14, lastY);
+    lastY += 5;
+
+    autoTable(doc, {
+      startY: lastY,
+      head: [["Title", "Description", "Date", "Created At", "Updated At"]],
+      body: reports.map((report) => [
+        report.title,
+        report.description || "-",
+        report.date ? formatDate(report.date) : "-",
+        report.created_at ? formatDate(report.created_at) : "-",
+        report.updated_at ? formatDate(report.updated_at) : "—",
+      ]),
+      theme: "grid",
+      styles: { fontSize: 10, cellPadding: 3 },
+      headStyles: { fillColor: [76, 175, 80], textColor: 255, halign: "center" },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+    });
+
+    // Footer with page number
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(10);
+      doc.setTextColor(150);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth - 30,
+        doc.internal.pageSize.getHeight() - 10
+      );
     }
-    const lastTable = (doc as unknown as { lastAutoTable?: LastAutoTable }).lastAutoTable;
-    y = lastTable?.finalY ? lastTable.finalY + 10 : y + 60;
-
-    // -------------------- Reports --------------------
-    doc.setFontSize(14);
-    doc.text("Reports", 14, y);
-
-    const reportColumns = ["Title", "Description", "Date", "Created At", "Updated At"];
-    const reportRows = reports.map(report => [
-      report.title,
-      report.description,
-      report.date ? formatDate(report.date) : "-",
-      report.created_at ? formatDate(report.created_at) : "-",
-      report.updated_at ? formatDate(report.updated_at) : "-"
-    ]);
-
-    autoTable(doc, {
-      head: [reportColumns],
-      body: reportRows,
-      startY: y,
-      theme: "grid",
-      headStyles: { fillColor: [37, 99, 235] },
-    });
 
     doc.save("organization-report.pdf");
   };
@@ -188,18 +213,30 @@ export default function ReportsAndTasksPage() {
     <DashboardLayout role="ceo">
       <div className="p-4 md:p-6 max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">Reports & Tasks</h1>
-          <p className="text-gray-600 mb-6">Monitor all organizational reports and tasks</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
+            Reports & Tasks
+          </h1>
+          <p className="text-gray-600 mb-6">
+            Monitor all organizational reports and tasks
+          </p>
 
           <div className="flex border-b border-gray-200">
             <button
-              className={`py-3 px-6 font-medium text-sm transition-colors ${activeTab === "tasks" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+              className={`py-3 px-6 font-medium text-sm transition-colors ${
+                activeTab === "tasks"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
               onClick={() => setActiveTab("tasks")}
             >
               Tasks ({tasks.length})
             </button>
             <button
-              className={`py-3 px-6 font-medium text-sm transition-colors ${activeTab === "reports" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+              className={`py-3 px-6 font-medium text-sm transition-colors ${
+                activeTab === "reports"
+                  ? "text-blue-600 border-b-2 border-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
               onClick={() => setActiveTab("reports")}
             >
               Reports ({reports.length})
@@ -210,302 +247,220 @@ export default function ReportsAndTasksPage() {
             onClick={downloadCombinedPDF}
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mt-4"
           >
-            Download PDF
+            Download Professional PDF
           </button>
         </div>
 
-{/* Tasks Table / Cards */ }
-{
-  activeTab === "tasks" && (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" >
-    {
-      isLoading?(
-              <div className = "flex justify-center items-center h-64" >
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"> </div>
-      </div>
+        {/* TASKS TABLE */}
+        {activeTab === "tasks" && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            {isLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+              </div>
             ) : tasks.length === 0 ? (
-    <div className= "text-center py-16 text-gray-500" >
-    No tasks available
-      </div>
+              <div className="text-center py-16 text-gray-500">No tasks available</div>
             ) : (
-    <>
-    {/* Table for md+ */ }
-    <div className="hidden md:block overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            {[
-              "Email",
-              "Title",
-              "Department",
-              "Priority",
-              "Status",
-              "Actions",
-            ].map((h) => (
-              <th
-                key={h}
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {tasks.map((task, index) => (
-            <tr
-              key={`${task.task_id}-${index}`}
-              className="hover:bg-gray-50 transition-colors"
-            >
-              <td className="px-6 py-4">{task.email}</td>
-              <td className="px-6 py-4">{task.title}</td>
-              <td className="px-6 py-4">{task.department}</td>
-              <td className="px-6 py-4">
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-                    task.priority
-                  )}`}
-                >
-                  {task.priority}
-                </span>
-              </td>
-              <td className="px-6 py-4">
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                    task.status
-                  )}`}
-                >
-                  {task.status}
-                </span>
-              </td>
-              <td className="px-6 py-4">
-                <button
-                  onClick={() => openTaskModal(task)}
-                  className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                >
-                  View
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-
-{/* Card view for small devices */}
-<div className="md:hidden grid gap-4">
-  {tasks.map((task, index) => (
-    <div
-      key={`${task.task_id}-${index}`}
-      className="bg-gray-50 p-4 rounded-lg shadow flex flex-col gap-2"
-    >
-      <div className="flex items-center gap-3">
-        <div className="text-sm text-gray-600">{task.email}</div>
-      </div>
-      <div className="text-sm text-gray-600">Department: {task.department}</div>
-      <div className="flex gap-2">
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-            task.priority
-          )}`}
-        >
-          {task.priority}
-        </span>
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-            task.status
-          )}`}
-        >
-          {task.status}
-        </span>
-      </div>
-      <button
-        onClick={() => openTaskModal(task)}
-        className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 self-start"
-      >
-        View
-      </button>
-    </div>
-  ))}
-</div>
-  </>
-            )}
-</div>
-        )}
-
-{/* Reports Table / Cards */ }
-{
-  activeTab === "reports" && (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden" >
-    {
-      isLoading?(
-              <div className = "flex justify-center items-center h-64" >
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"> </div>
-      </div>
-            ) : reports.length === 0 ? (
-    <div className= "text-center py-16 text-gray-500" >
-    No reports available
-      </div>
-            ) : (
-    <>
-    <div className="hidden md:block overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            {["Title", "Description", "Date", "Actions"].map((h) => (
-              <th
-                key={h}
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {reports.map((report, index) => (
-            <tr
-              key={`${report.task_id}-${index}`}
-              className="hover:bg-gray-50 transition-colors"
-            >
-              <td className="px-6 py-4 font-medium">{report.title}</td>
-              <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
-                {report.description}
-              </td>
-              <td className="px-6 py-4 text-gray-600 text-sm">
-                {formatDate(report.date)}
-              </td>
-              <td className="px-6 py-4">
-                <button
-                  onClick={() => openReportModal(report)}
-                  className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                >
-                  View
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-
-{/* Card view for small devices */}
-<div className="md:hidden grid gap-4">
-  {reports.map((report, index) => (
-    <div
-      key={`${report.task_id}-${index}`}
-      className="bg-gray-50 p-4 rounded-lg shadow flex flex-col gap-2"
-    >
-      <div className="flex items-center gap-3">
-        <div className="text-sm text-gray-600 font-medium">{report.title}</div>
-      </div>
-      <div className="text-sm text-gray-600 truncate">{report.description}</div>
-      <div className="text-sm text-gray-600">
-        Date: {formatDate(report.date)}
-      </div>
-      <button
-        onClick={() => openReportModal(report)}
-        className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 self-start"
-      >
-        View
-      </button>
-    </div>
-  ))}
-</div>
-  </>
-            )}
-</div>
-        )}
-
-{/* Task Modal */ }
-{
-  isTaskModalOpen && selectedTask && (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" >
-      <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6" >
-        <div className="flex justify-between items-start mb-4">
-          <h2 className="text-2xl font-bold">{selectedTask.title}</h2>
-          <button
-            onClick={closeModals}
-            className="text-gray-500 hover:text-gray-700 text-xl ml-4"
-          >
-            &times;
-          </button>
-        </div>
-    < div className = "grid grid-cols-1 md:grid-cols-2 gap-4" >
-      <div>
-      <strong>Department: </strong> {selectedTask.department}
-        </div>
-        < div >
-        <strong>Priority: </strong>{" "}
-          < span className = { getPriorityColor(selectedTask.priority) } >
-            { selectedTask.priority }
-            </span>
-            </div>
-            < div >
-            <strong>Status: </strong>{" "}
-              < span className = { getStatusColor(selectedTask.status) } >
-                { selectedTask.status }
-                </span>
+              <>
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {["Email", "Title", "Department", "Priority", "Status", "Actions"].map(
+                          (h) => (
+                            <th
+                              key={h}
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            >
+                              {h}
+                            </th>
+                          )
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {tasks.map((task, index) => (
+                        <tr
+                          key={`${task.task_id}-${index}`}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-6 py-4">{task.email}</td>
+                          <td className="px-6 py-4">{task.title}</td>
+                          <td className="px-6 py-4">{task.department}</td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+                                task.priority
+                              )}`}
+                            >
+                              {task.priority}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                task.status
+                              )}`}
+                            >
+                              {task.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => openTaskModal(task)}
+                              className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-  {
-    selectedTask.due_date && (
-      <div>
-      <strong>Due Date: </strong> {formatDate(selectedTask.due_date)}
-        </div>
-                )
-  }
-  </div>
-    < div className = "mt-4" >
-      <strong>Description: </strong>
-        < p > { selectedTask.description } </p>
-        </div>
-        </div>
-        </div>
-        )
-}
+              </>
+            )}
+          </div>
+        )}
 
-{/* Report Modal */ }
-{
-  isReportModalOpen && selectedReport && (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" >
-      <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6" >
-        <div className="flex justify-between items-start mb-4">
-          <h2 className="text-2xl font-bold">{selectedReport.title}</h2>
-          <button
-            onClick={closeModals}
-            className="text-gray-500 hover:text-gray-700 text-xl ml-4"
-          >
-            &times;
-          </button>
-        </div>
-    < div >
-    <strong>Description: </strong>
-      < p > { selectedReport.description } </p>
+        {/* REPORTS TABLE */}
+        {activeTab === "reports" && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            {isLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+              </div>
+            ) : reports.length === 0 ? (
+              <div className="text-center py-16 text-gray-500">No reports available</div>
+            ) : (
+              <>
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {["Title", "Description", "Date", "Actions"].map((h) => (
+                          <th
+                            key={h}
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {reports.map((report, index) => (
+                        <tr
+                          key={`${report.task_id}-${index}`}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-6 py-4 font-medium">{report.title}</td>
+                          <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
+                            {report.description}
+                          </td>
+                          <td className="px-6 py-4 text-gray-600 text-sm">
+                            {formatDate(report.date)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => openReportModal(report)}
+                              className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                            >
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* MODALS */}
+        {isTaskModalOpen && selectedTask && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-2xl font-bold">{selectedTask.title}</h2>
+                <button
+                  onClick={closeModals}
+                  className="text-gray-500 hover:text-gray-700 text-xl ml-4"
+                >
+                  &times;
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <strong>Department: </strong> {selectedTask.department}
+                </div>
+                <div>
+                  <strong>Priority: </strong>{" "}
+                  <span className={getPriorityColor(selectedTask.priority)}>
+                    {selectedTask.priority}
+                  </span>
+                </div>
+                <div>
+                  <strong>Status: </strong>{" "}
+                  <span className={getStatusColor(selectedTask.status)}>
+                    {selectedTask.status}
+                  </span>
+                </div>
+                {selectedTask.due_date && (
+                  <div>
+                    <strong>Due Date: </strong> {formatDate(selectedTask.due_date)}
+                  </div>
+                )}
+              </div>
+              <div className="mt-4">
+                <strong>Description: </strong>
+                <p>{selectedTask.description}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isReportModalOpen && selectedReport && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h2 className="text-2xl font-bold">{selectedReport.title}</h2>
+                <button
+                  onClick={closeModals}
+                  className="text-gray-500 hover:text-gray-700 text-xl ml-4"
+                >
+                  &times;
+                </button>
+              </div>
+              <div>
+                <strong>Description: </strong>
+                <p>{selectedReport.description}</p>
+              </div>
+              {selectedReport.content && (
+                <div className="mt-4">
+                  <strong>Content: </strong>
+                  <p>{selectedReport.content}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <strong>Date: </strong> {formatDate(selectedReport.date)}
+                </div>
+                <div>
+                  <strong>Created At: </strong>{" "}
+                  {formatDate(selectedReport.created_at)}
+                </div>
+                <div>
+                  <strong>Updated At: </strong>{" "}
+                  {formatDate(selectedReport.updated_at)}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-  {
-    selectedReport.content && (
-      <div className="mt-4" >
-        <strong>Content: </strong>
-          < p > { selectedReport.content } </p>
-          </div>
-              )
-  }
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" >
-    <div>
-    <strong>Date: </strong> {formatDate(selectedReport.date)}
-      </div>
-      < div >
-      <strong>Created At: </strong> {formatDate(selectedReport.created_at)}
-        </div>
-        < div >
-        <strong>Updated At: </strong> {formatDate(selectedReport.updated_at)}
-          </div>
-          </div>
-          </div>
-          </div>
-        )
-}
-</div>
-  </DashboardLayout>
+    </DashboardLayout>
   );
 }

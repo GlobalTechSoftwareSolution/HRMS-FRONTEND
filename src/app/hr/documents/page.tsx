@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -193,7 +194,7 @@ const DocumentPage = () => {
         {/* Header */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">HR Dashboard</h1>
+            <h1 className="text-3xl font-bold text-gray-900">HR Documents Dashboard</h1>
             <p className="text-gray-600 mt-1">Manage employees and their documents</p>
           </div>
           <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">

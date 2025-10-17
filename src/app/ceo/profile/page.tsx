@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
@@ -10,25 +11,38 @@ import {
   FiBriefcase,
   FiMail,
   FiCamera,
+  FiCalendar,
 } from "react-icons/fi";
-
 
 type UserProfile = {
   name: string;
   email: string;
   picture?: string;
-  role: string;
+  role?: string;
   phone?: string;
   department?: string;
+  date_of_birth?: string;
+  date_joined?: string;
+  age?: number;
+  ageManual?: boolean;
+  office_address?: string;
+  total_experience?: string;
+  bio?: string;
 };
 
 type FetchUserResponse = {
   fullname?: string;
   email: string;
   profile_picture?: string;
-  role: string;
+  role?: string;
   phone?: string;
   department?: string;
+  date_of_birth?: string;
+  date_joined?: string;
+  age?: number;
+  office_address?: string;
+  total_experience?: string;
+  bio?: string;
 };
 
 export default function Profile() {
@@ -39,33 +53,65 @@ export default function Profile() {
     role: "",
     phone: "",
     department: "",
+    date_of_birth: "",
+    date_joined: "",
+    age: undefined,
+    ageManual: false,
+    office_address: "",
+    total_experience: "",
+    bio: "",
   });
+  const [departments, setDepartments] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState({ type: "", text: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch user data
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL!;
+
+  // ✅ Helper: calculate age
+  const calculateAge = (dob: string) => {
+    if (!dob) return undefined;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+    return age;
+  };
+
+  // ✅ Fetch user data
   useEffect(() => {
     const fetchUserData = async (email: string) => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/ceos/${encodeURIComponent(
-            email
-          )}/`,
+          `${API_BASE}/api/accounts/ceos/${encodeURIComponent(email)}/`,
           { headers: { "Content-Type": "application/json" } }
         );
         if (!response.ok) throw new Error("Failed to fetch user data");
         const currentUser: FetchUserResponse = await response.json();
+        const dob = currentUser.date_of_birth || "";
         setUser({
           name: currentUser.fullname || "",
-          email: currentUser.email || email,
-          picture: currentUser.profile_picture || "/default-profile.png",
+          email: currentUser.email,
+          picture:
+            currentUser.profile_picture?.startsWith("http")
+              ? currentUser.profile_picture
+              : currentUser.profile_picture
+              ? `${API_BASE}/${currentUser.profile_picture}`
+              : "/default-profile.png",
           role: currentUser.role || "",
           phone: currentUser.phone || "",
           department: currentUser.department || "",
+          date_of_birth: dob,
+          date_joined: currentUser.date_joined || "",
+          age: calculateAge(dob),
+          ageManual: false,
+          office_address: currentUser.office_address || "",
+          total_experience: currentUser.total_experience || "",
+          bio: currentUser.bio || "",
         });
-      } catch (error: unknown) {
+      } catch (error) {
         console.error("Error fetching user data:", error);
         setSaveMessage({ type: "error", text: "Failed to load profile data." });
       }
@@ -76,9 +122,24 @@ export default function Profile() {
       const parsed = JSON.parse(storedUser) as { email?: string };
       if (parsed.email) fetchUserData(parsed.email);
     }
-  }, []);
+  }, [API_BASE]);
 
-  // Image preview
+  // ✅ Fetch departments
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/accounts/departments/`);
+        if (!res.ok) throw new Error("Failed to fetch departments");
+        const data: { department_name: string }[] = await res.json();
+        setDepartments(data.map((d) => d.department_name));
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    fetchDepartments();
+  }, [API_BASE]);
+
+  // ✅ Image preview
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -88,7 +149,7 @@ export default function Profile() {
     reader.readAsDataURL(file);
   };
 
-  // Save profile
+  // ✅ Save profile (fixed for numeric total_experience)
   const handleSave = async () => {
     if (
       user.phone &&
@@ -104,47 +165,69 @@ export default function Profile() {
     setIsSaving(true);
     try {
       const fileInput = fileInputRef.current?.files?.[0];
-
       const formData = new FormData();
-      formData.append("email", user.email);
-      formData.append("fullname", user.name);
+
+      formData.append("fullname", user.name || "");
       formData.append("phone", user.phone || "");
-      formData.append("department", user.department || "");
-      if (fileInput) {
-        formData.append("profile_picture", fileInput);
-      } else {
-        formData.append("profile_picture", "");
+      formData.append("date_of_birth", user.date_of_birth || "");
+      formData.append("date_joined", user.date_joined || "");
+      if (user.age !== undefined) formData.append("age", String(user.age));
+      if (user.office_address) formData.append("office_address", user.office_address);
+
+      // ✅ convert "10 years" → "10"
+      if (user.total_experience) {
+        const numericValue = parseFloat(
+          user.total_experience.replace(/[^\d.]/g, "")
+        );
+        if (!isNaN(numericValue)) {
+          formData.append("total_experience", String(numericValue));
+        }
       }
 
+      if (user.bio) formData.append("bio", user.bio);
+      if (user.department) formData.append("department", user.department);
+      if (fileInput) formData.append("profile_picture", fileInput);
+
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/ceos/${encodeURIComponent(
-          user.email
-        )}/`,
+        `${API_BASE}/api/accounts/ceos/${encodeURIComponent(user.email)}/`,
         {
-          method: "PUT",
+          method: "PATCH",
           body: formData,
         }
       );
 
-      if (!response.ok) throw new Error("Failed to update profile");
-      const updatedUser: FetchUserResponse = await response.json();
+      const text = await response.text();
+      if (!response.ok) throw new Error(`Failed to update profile: ${text}`);
+
+      const updatedUser: FetchUserResponse = JSON.parse(text);
+      const dob = updatedUser.date_of_birth || user.date_of_birth || "";
 
       setUser({
         name: updatedUser.fullname || user.name,
         email: updatedUser.email || user.email,
-        picture: updatedUser.profile_picture || user.picture || "/default-profile.png",
+        picture:
+          updatedUser.profile_picture?.startsWith("http")
+            ? updatedUser.profile_picture
+            : updatedUser.profile_picture
+            ? `${API_BASE}/${updatedUser.profile_picture}`
+            : user.picture,
         role: updatedUser.role || user.role,
         phone: updatedUser.phone || user.phone,
         department: updatedUser.department || user.department,
+        date_of_birth: dob,
+        date_joined: updatedUser.date_joined || user.date_joined,
+        age: calculateAge(dob),
+        office_address: updatedUser.office_address || user.office_address,
+        total_experience:
+          updatedUser.total_experience || user.total_experience,
+        bio: updatedUser.bio || user.bio,
+        ageManual: false,
       });
 
       localStorage.setItem("userInfo", JSON.stringify(updatedUser));
-      setSaveMessage({
-        type: "success",
-        text: "Profile updated successfully!",
-      });
+      setSaveMessage({ type: "success", text: "Profile updated successfully!" });
       setIsEditing(false);
-    } catch (error: unknown) {
+    } catch (error) {
       console.error(error);
       const message =
         error instanceof Error
@@ -165,11 +248,9 @@ export default function Profile() {
   return (
     <DashboardLayout role="ceo">
       <div className="max-w-4xl mx-auto p-4 sm:p-6 bg-white rounded-xl shadow-md">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">
-            Profile Information
-          </h1>
-        </div>
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-800 mb-6">
+          Profile Information
+        </h1>
 
         {saveMessage.text && (
           <div
@@ -183,6 +264,7 @@ export default function Profile() {
           </div>
         )}
 
+        {/* Profile Image */}
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
           <div className="relative flex-shrink-0">
             <Image
@@ -191,7 +273,7 @@ export default function Profile() {
               width={96}
               height={96}
               className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
-              unoptimized={!!(user.picture && user.picture.startsWith("http"))}
+              unoptimized
             />
             {isEditing && (
               <>
@@ -214,8 +296,10 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* Form */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div className="space-y-1">
+          {/* Name */}
+          <div>
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
               <FiUser size={14} /> Full Name
             </label>
@@ -224,11 +308,12 @@ export default function Profile() {
               value={user.name}
               onChange={(e) => setUser({ ...user, name: e.target.value })}
               disabled={!isEditing}
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
             />
           </div>
 
-          <div className="space-y-1">
+          {/* Email */}
+          <div>
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
               <FiMail size={14} /> Email Address
             </label>
@@ -241,7 +326,8 @@ export default function Profile() {
             <p className="text-xs text-gray-500">Email cannot be changed</p>
           </div>
 
-          <div className="space-y-1">
+          {/* Phone */}
+          <div>
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
               <FiPhone size={14} /> Phone Number
             </label>
@@ -251,11 +337,12 @@ export default function Profile() {
               onChange={(e) => setUser({ ...user, phone: e.target.value })}
               disabled={!isEditing}
               placeholder="Enter your phone number"
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
             />
           </div>
 
-          <div className="space-y-1">
+          {/* Department */}
+          <div>
             <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
               <FiBriefcase size={14} /> Department
             </label>
@@ -263,23 +350,125 @@ export default function Profile() {
               value={user.department || ""}
               onChange={(e) => setUser({ ...user, department: e.target.value })}
               disabled={!isEditing}
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+              className="border border-gray-300 text-black rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
             >
               <option value="">Select Department</option>
-              <option value="Engineering">Engineering</option>
-              <option value="Marketing">Marketing</option>
-              <option value="Sales">Sales</option>
-              <option value="HR">Human Resources</option>
-              <option value="Finance">Finance</option>
-              <option value="Operations">Operations</option>
+              {departments.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
             </select>
+          </div>
+
+          {/* DOB + Age */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
+              <FiCalendar size={14} /> Date of Birth
+            </label>
+            <input
+              type="date"
+              value={user.date_of_birth || ""}
+              onChange={(e) =>
+                setUser({
+                  ...user,
+                  date_of_birth: e.target.value,
+                  age: user.ageManual ? user.age : calculateAge(e.target.value),
+                })
+              }
+              disabled={!isEditing}
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+
+            <label className="block text-sm font-medium text-gray-700 mt-2">
+              Age
+            </label>
+            <input
+              type="number"
+              value={user.age || ""}
+              onChange={(e) =>
+                setUser({
+                  ...user,
+                  age: Number(e.target.value),
+                  ageManual: true,
+                })
+              }
+              disabled={!isEditing}
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Date Joined */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mt-2">
+              Date Joined
+            </label>
+            <input
+              type="date"
+              value={user.date_joined || ""}
+              onChange={(e) =>
+                setUser({ ...user, date_joined: e.target.value })
+              }
+              disabled={!isEditing}
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+          </div>
+
+          {/* Office Address */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Office Address
+            </label>
+            <input
+              type="text"
+              value={user.office_address || ""}
+              onChange={(e) =>
+                setUser({ ...user, office_address: e.target.value })
+              }
+              disabled={!isEditing}
+              placeholder="Enter office address"
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+          </div>
+
+          {/* Total Experience */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Total Experience
+            </label>
+            <input
+              type="text"
+              value={user.total_experience || ""}
+              onChange={(e) =>
+                setUser({ ...user, total_experience: e.target.value })
+              }
+              disabled={!isEditing}
+              placeholder="e.g., 2 years 5 months"
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+          </div>
+
+          {/* Bio */}
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Bio
+            </label>
+            <textarea
+              value={user.bio || ""}
+              onChange={(e) => setUser({ ...user, bio: e.target.value })}
+              disabled={!isEditing}
+              placeholder="Write a short bio..."
+              rows={3}
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            />
           </div>
         </div>
 
+        {/* Buttons */}
         {!isEditing ? (
           <button
             onClick={() => setIsEditing(true)}
-            className="flex items-center mt-5 justify-center gap-2 bg-blue-600 text-white px-4 py-2 text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center mt-5 justify-center gap-2 bg-blue-600 text-white px-4 py-2 text-sm sm:text-base rounded-lg hover:bg-blue-700"
           >
             <FiEdit size={16} /> Edit Profile
           </button>
