@@ -27,6 +27,7 @@ type UserProfile = {
   ageManual?: boolean;
   qualification?: string;
   skills?: string;
+  vintage?: string;
 };
 
 type FetchUserResponse = {
@@ -77,6 +78,43 @@ export default function Profile() {
     return age;
   };
 
+  // Helper: calculate vintage (years, months, days since date_joined)
+  const calculateVintage = (date_joined: string) => {
+    if (!date_joined) return undefined;
+    // Parse only the date part to avoid timezone issues
+    const [datePart] = date_joined.split("T");
+    const joinedDate = new Date(datePart);
+    if (isNaN(joinedDate.getTime())) return "0 years, 0 months, 0 days";
+    const today = new Date();
+    // Zero out time for today
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    let years = todayDate.getFullYear() - joinedDate.getFullYear();
+    let months = todayDate.getMonth() - joinedDate.getMonth();
+    let days = todayDate.getDate() - joinedDate.getDate();
+    if (days < 0) {
+      // Borrow days from previous month
+      months -= 1;
+      // Get days in previous month
+      const prevMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 0);
+      days += prevMonth.getDate();
+    }
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+    // Prevent negative values (if join date is in the future)
+    if (years < 0 || (years === 0 && months === 0 && days < 0)) {
+      years = 0;
+      months = 0;
+      days = 0;
+    }
+    // Formatting with correct singular/plural
+    const yearStr = years === 1 ? "1 year" : `${years} years`;
+    const monthStr = months === 1 ? "1 month" : `${months} months`;
+    const dayStr = days === 1 ? "1 day" : `${days} days`;
+    return `${yearStr}, ${monthStr}, ${dayStr}`;
+  };
+
   // Fetch user data
   useEffect(() => {
     const fetchUserData = async (email: string) => {
@@ -88,6 +126,7 @@ export default function Profile() {
         if (!response.ok) throw new Error("Failed to fetch user data");
         const currentUser: FetchUserResponse = await response.json();
         const dob = currentUser.date_of_birth || "";
+        const dateJoined = currentUser.date_joined || "";
         setUser({
           name: currentUser.fullname || "",
           email: currentUser.email,
@@ -101,11 +140,12 @@ export default function Profile() {
           phone: currentUser.phone || "",
           department: currentUser.department || "",
           date_of_birth: dob,
-          date_joined: currentUser.date_joined || "",
+          date_joined: dateJoined,
           age: calculateAge(dob),
           ageManual: false,
           qualification: currentUser.qualification || "",
           skills: currentUser.skills || "",
+          vintage: calculateVintage(dateJoined),
         });
       } catch (error) {
         console.error("Error fetching user data:", error);
@@ -186,6 +226,7 @@ export default function Profile() {
       const updatedUser: FetchUserResponse = JSON.parse(text);
 
       const dob = updatedUser.date_of_birth || user.date_of_birth || "";
+      const dateJoined = updatedUser.date_joined || user.date_joined || "";
       setUser({
         name: updatedUser.fullname || user.name,
         email: updatedUser.email || user.email,
@@ -199,11 +240,12 @@ export default function Profile() {
         phone: updatedUser.phone || user.phone,
         department: updatedUser.department || user.department,
         date_of_birth: dob,
-        date_joined: updatedUser.date_joined || user.date_joined,
+        date_joined: dateJoined,
         age: calculateAge(dob),
         ageManual: false,
         qualification: updatedUser.qualification || user.qualification,
         skills: updatedUser.skills || user.skills,
+        vintage: calculateVintage(dateJoined),
       });
 
       localStorage.setItem("userInfo", JSON.stringify(updatedUser));
@@ -388,9 +430,27 @@ export default function Profile() {
             <input
               type="date"
               value={user.date_joined || ""}
-              onChange={(e) => setUser({ ...user, date_joined: e.target.value })}
+              onChange={(e) => {
+                const newDateJoined = e.target.value;
+                setUser((prev) => ({
+                  ...prev,
+                  date_joined: newDateJoined,
+                  vintage: calculateVintage(newDateJoined),
+                }));
+              }}
               disabled={!isEditing}
               className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+            {/* Vintage */}
+            <label className="block text-sm font-medium text-gray-700 mt-2">
+              Vintage
+            </label>
+            <input
+              type="text"
+              value={user.vintage || ""}
+              readOnly
+              disabled
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full bg-gray-100"
             />
           </div>
 

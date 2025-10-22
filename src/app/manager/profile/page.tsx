@@ -282,7 +282,17 @@ export default function Profile() {
           {/* Date Joined */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mt-2">Date Joined</label>
-            <input type="date" value={user.date_joined || ""} onChange={e => setUser({ ...user, date_joined: e.target.value })} disabled={!isEditing} className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
+            <input
+              type="date"
+              value={user.date_joined || ""}
+              onChange={e => setUser({ ...user, date_joined: e.target.value })}
+              disabled={!isEditing}
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+
+            {/* Ventiage Field */}
+            <label className="block text-sm font-medium text-gray-700 mt-2">Ventiage</label>
+            <VentiageInput date_joined={user.date_joined} />
           </div>
 
           {/* Team Size */}
@@ -319,5 +329,89 @@ export default function Profile() {
         )}
       </div>
     </DashboardLayout>
+  );
+}
+// Utility for Ventiage calculation
+function calculateVentiage(date_joined: string): { years: number; months: number; days: number } {
+  if (!date_joined) return { years: 0, months: 0, days: 0 };
+  const joinDate = new Date(date_joined);
+  if (isNaN(joinDate.getTime())) return { years: 0, months: 0, days: 0 };
+  const now = new Date();
+  let years = now.getFullYear() - joinDate.getFullYear();
+  let months = now.getMonth() - joinDate.getMonth();
+  let days = now.getDate() - joinDate.getDate();
+  if (days < 0) {
+    months -= 1;
+    // Get days in previous month
+    const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    days += prevMonth.getDate();
+  }
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+  if (years < 0) return { years: 0, months: 0, days: 0 };
+  return { years, months, days };
+}
+
+// Live Ventiage Input (below Date Joined)
+function VentiageInput({ date_joined }: { date_joined?: string }) {
+  const [ventiageStr, setVentiageStr] = useState<string>("");
+  // Helper to format: always show years, months, and days (even if zero)
+  const formatVentiage = (d: { years: number; months: number; days: number }) => {
+    const { years, months, days } = d;
+    // Always show all three values, even if zero
+    return `${years} year${years !== 1 ? "s" : ""}, ${months} month${months !== 1 ? "s" : ""}, ${days} day${days !== 1 ? "s" : ""}`;
+  };
+  useEffect(() => {
+    setVentiageStr(formatVentiage(calculateVentiage(date_joined || "")));
+  }, [date_joined]);
+  // Update every day at midnight for live update if page is open
+  useEffect(() => {
+    if (!date_joined) return;
+    const now = new Date();
+    const msToMidnight =
+      new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0).getTime() - now.getTime();
+    const timeout = setTimeout(() => {
+      setVentiageStr(formatVentiage(calculateVentiage(date_joined)));
+    }, msToMidnight + 1000);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line
+  }, [date_joined, ventiageStr]);
+  return (
+    <input
+      type="text"
+      value={ventiageStr}
+      readOnly
+      className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full bg-gray-100"
+      placeholder="Ventiage"
+      tabIndex={-1}
+    />
+  );
+}
+
+// Ventiage display (live, formatted, updates at midnight)
+function VentiageDisplay({ date_joined }: { date_joined?: string }) {
+  const [ventiage, setVentiage] = useState<{ years: number; months: number; days: number }>({ years: 0, months: 0, days: 0 });
+  useEffect(() => {
+    setVentiage(calculateVentiage(date_joined || ""));
+  }, [date_joined]);
+  useEffect(() => {
+    if (!date_joined) return;
+    const now = new Date();
+    const msToMidnight =
+      new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0).getTime() - now.getTime();
+    const timeout = setTimeout(() => {
+      setVentiage(calculateVentiage(date_joined!));
+    }, msToMidnight + 1000);
+    return () => clearTimeout(timeout);
+  }, [date_joined, ventiage]);
+  // Format as "X years, Y months, Z days"
+  const parts = [];
+  if (ventiage.years > 0) parts.push(`${ventiage.years} year${ventiage.years !== 1 ? "s" : ""}`);
+  if (ventiage.months > 0) parts.push(`${ventiage.months} month${ventiage.months !== 1 ? "s" : ""}`);
+  if (ventiage.days > 0 || (ventiage.years === 0 && ventiage.months === 0)) parts.push(`${ventiage.days} day${ventiage.days !== 1 ? "s" : ""}`);
+  return (
+    <span className="text-sm text-gray-600">{parts.length > 0 ? parts.join(", ") : "—"}</span>
   );
 }

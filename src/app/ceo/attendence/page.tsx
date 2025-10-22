@@ -386,43 +386,6 @@ export default function ManagerDashboard() {
 
   
 
-  useEffect(() => {
-    const fetchHolidays = async () => {
-      try {
-        const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
-        if (!API_KEY) throw new Error("Google API key missing");
-        const calendarId = encodeURIComponent("en.indian#holiday@group.v.calendar.google.com");
-        const timeMin = new Date("2024-01-01").toISOString();
-        const timeMax = new Date("2030-12-31").toISOString();
-        const url = `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?key=${API_KEY}&timeMin=${timeMin}&timeMax=${timeMax}&maxResults=250&orderBy=startTime&singleEvents=true`;
-
-        const res = await fetch(url);
-        const data = await res.json();
-        const holidaysParsed: Holiday[] = (data.items || []).map((item: Record<string, unknown>) => {
-          const date = (item.start as { date?: string; dateTime?: string })?.date || (item.start as { date?: string; dateTime?: string })?.dateTime;
-          const summary = (item.summary as string) || "Unnamed Holiday";
-          const description = (item.description as string) || "";
-          let type: Holiday["type"] = "Festival";
-          const summaryLower = summary.toLowerCase();
-          if (summaryLower.includes("bank")) type = "Bank";
-          else if (summaryLower.includes("jayanti")) type = "Jayanthi";
-          else if (
-            summaryLower.includes("independence") ||
-            summaryLower.includes("republic") ||
-            summaryLower.includes("gandhi") ||
-            summaryLower.includes("government") ||
-            summaryLower.includes("labour")
-          )
-            type = "Government";
-          return { date, summary, type, description };
-        });
-        setHolidays(holidaysParsed);
-      } catch (err: unknown) {
-        console.error("Error fetching holidays", err);
-      }
-    };
-    fetchHolidays();
-  }, []);
 
 
 useEffect(() => {
@@ -763,42 +726,29 @@ const calendarEvents = [
             <FullCalendar
               plugins={[dayGridPlugin, interactionPlugin]}
               initialView="dayGridMonth"
-              height="auto"
+              height={400}
+              contentHeight={350}
+              maxWidth={600}
+              showNonCurrentDates={false}
               events={calendarEvents}
               eventClick={(info) => {
-                // Get clicked date
                 const clickedDate = info.event.startStr.split("T")[0];
                 setSelectedDate(clickedDate);
-                // Scroll to top smoothly
                 window.scrollTo({ top: 0, behavior: "smooth" });
-                // Highlight the day cell
-                // info.el is the event element; find the parent cell with class 'fc-daygrid-day'
                 const cell = info.el.closest(".fc-daygrid-day") as HTMLElement | null;
                 if (cell) {
-                  // Remove highlight from previously selected cell
-                  document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach((el) => {
-                    el.classList.remove("highlight-day");
-                  });
+                  document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach(el => el.classList.remove("highlight-day"));
                   cell.classList.add("highlight-day");
                 }
               }}
               dateClick={(arg) => {
                 const local = new Date(arg.date.getTime() - arg.date.getTimezoneOffset() * 60000);
                 const dateStr = local.toISOString().split("T")[0];
-                // Only update if the date changed
-                if (dateStr !== selectedDate) {
-                  setSelectedDate(dateStr);
-                }
-                // Scroll to top smoothly
+                if (dateStr !== selectedDate) setSelectedDate(dateStr);
                 window.scrollTo({ top: 0, behavior: "smooth" });
-                // Highlight the clicked cell
                 const cell = arg.dayEl as HTMLElement;
                 if (cell) {
-                  // Remove highlight from previously selected cell
-                  document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach((el) => {
-                    el.classList.remove("highlight-day");
-                  });
-                  // Add highlight to current cell
+                  document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach(el => el.classList.remove("highlight-day"));
                   cell.classList.add("highlight-day");
                 }
               }}

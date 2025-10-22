@@ -115,7 +115,7 @@ export default function TasksDashboard() {
             const response = await fetch(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_task/${taskId}/`,
                 {
-                    method: "PUT",
+                    method: "PATCH",
                     headers: {
                         "Content-Type": "application/json",
                     },

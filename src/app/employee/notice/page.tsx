@@ -8,6 +8,7 @@ import {
   FiSearch,
   FiBookmark,
   FiBell,
+  FiX,
 } from "react-icons/fi";
 
 type Notice = {
@@ -24,7 +25,7 @@ type Notice = {
   notice_to?: string;
 };
 
-type FilterType = "all" | "unread" | "important" | "with-attachments";
+type FilterType = "all" | "unread" | "important";
 
 export default function NoticeDashboard() {
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -99,9 +100,6 @@ export default function NoticeDashboard() {
         break;
       case "important":
         result = result.filter((notice) => Boolean(notice.important));
-        break;
-      case "with-attachments":
-        result = result.filter((notice) => notice.attachment);
         break;
       default:
         break;
@@ -229,7 +227,7 @@ export default function NoticeDashboard() {
               >
                 Unread Only
               </button>
-              {(["all", "important", "with-attachments"] as FilterType[]).map(
+              {(["all", "important"] as FilterType[]).map(
                 (f) => (
                   <button
                     key={f}
@@ -240,9 +238,7 @@ export default function NoticeDashboard() {
                         : "bg-white text-black border-black hover:bg-gray-100"
                     }`}
                   >
-                    {f === "with-attachments"
-                      ? "With Files"
-                      : f.charAt(0).toUpperCase() + f.slice(1)}
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
                   </button>
                 )
               )}
@@ -316,6 +312,49 @@ export default function NoticeDashboard() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Modal for selected notice */}
+        {selectedNotice && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+            <div className="bg-white rounded-lg max-w-3xl w-full p-6 relative shadow-lg max-h-[90vh] overflow-y-auto">
+              <button
+                onClick={() => setSelectedNotice(null)}
+                className="absolute top-4 right-4 text-black hover:text-red-500"
+                aria-label="Close notice details"
+              >
+                <FiX size={24} />
+              </button>
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                {selectedNotice.important && (
+                  <FiAlertCircle className="text-red-500" />
+                )}
+                {selectedNotice.title}
+              </h2>
+              <p className="mb-4 whitespace-pre-wrap">{selectedNotice.message}</p>
+              <div className="text-sm text-gray-700 space-y-1">
+                <p><strong>Category:</strong> {selectedNotice.category || "General"}</p>
+                <p><strong>Posted Date:</strong> {formatDate(selectedNotice.posted_date)}</p>
+                {selectedNotice.valid_until && (
+                  <p><strong>Valid Until:</strong> {formatDate(selectedNotice.valid_until)}</p>
+                )}
+                <p><strong>From:</strong> {selectedNotice.email}</p>
+                {selectedNotice.attachment && (
+                  <p>
+                    <strong>Attachment:</strong>{" "}
+                    <a
+                      href={selectedNotice.attachment}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline"
+                    >
+                      View File
+                    </a>
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>

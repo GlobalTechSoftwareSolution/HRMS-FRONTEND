@@ -3,12 +3,28 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Plus, Calendar, User, AlertCircle, CheckCircle, Clock, X, Mail, Users, MessageCircle } from 'lucide-react';
 
+// Helper function to format dates as DD/MM/YYYY or DD/MM/YYYY HH:MM
+function formatDate(dateString: string, withTime: boolean = false): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const day = pad(date.getDate());
+  const month = pad(date.getMonth() + 1);
+  const year = date.getFullYear();
+  if (withTime) {
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
+  }
+  return `${day}/${month}/${year}`;
+}
+
 export interface Ticket {
   id: string;
   subject: string;
   title?: string;
   description: string;
-  status: 'open' | 'closed';
+  status: 'open' | 'closed' | 'in-progress';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   email: string;
   created_at: string;
@@ -192,25 +208,40 @@ const Ticket: React.FC<TicketProps> = ({
         setShowDialog(true);
         return;
       }
+      if (newStatus === 'in-progress' && ticket.assigned_to?.toLowerCase() !== userEmail) {
+        setDialogMessage('Only the assigned user can mark this ticket as In Progress.');
+        setShowDialog(true);
+        return;
+      }
       if (newStatus === 'open' && ticket.assigned_by?.toLowerCase() !== userEmail) {
         setDialogMessage('Only the person who assigned this ticket can reopen it.');
         setShowDialog(true);
         return;
       }
 
+      // Map frontend status to backend format
+      const apiStatus =
+        newStatus === 'closed'
+          ? 'Closed'
+          : newStatus === 'open'
+          ? 'Open'
+          : newStatus === 'in-progress'
+          ? 'In Progress'
+          : newStatus;
+
       const patchPayload: Partial<Pick<Ticket, 'status' | 'closed_description' | 'closed_by' | 'closed_to'>> = { 
-        status: newStatus
+        status: apiStatus as Ticket['status']
       };
 
-      if (newStatus === 'closed') {
+      if (newStatus === 'closed' || newStatus === 'in-progress') {
         patchPayload.closed_description = closedDescription || '';
         patchPayload.closed_by = userEmail;
         patchPayload.closed_to = ticket.assigned_by || '';
       } else {
-        // Reopening clears closure info
-        patchPayload.closed_by = null;
-        patchPayload.closed_to = null;
-        patchPayload.closed_description = null;
+        // For Open — remove closure fields entirely
+        delete patchPayload.closed_by;
+        delete patchPayload.closed_to;
+        delete patchPayload.closed_description;
       }
 
       const patchUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/tickets/${ticketId}/`;
@@ -255,7 +286,7 @@ const Ticket: React.FC<TicketProps> = ({
       setDialogMessage(
         newStatus === 'closed'
           ? '✅ Ticket closed successfully!'
-          : '♻️ Ticket reopened successfully!'
+          : '♻️ Ticket submitted successfully!'
       );
       setShowDialog(true);
       closeModal();
@@ -289,11 +320,18 @@ const Ticket: React.FC<TicketProps> = ({
   const getStatusBadge = (status: string) => {
     const styles = {
       open: 'bg-red-50 text-red-700 border border-red-200',
-      closed: 'bg-gray-50 text-gray-700 border border-gray-200'
+      closed: 'bg-green-50 text-green-700 border border-green-200',
+      'in-progress': 'bg-yellow-50 text-yellow-700 border border-yellow-200',
     };
-    return <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800'}`}>
-      {status.replace('-', ' ')}
-    </span>;
+    return (
+      <span
+        className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
+          styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800'
+        }`}
+      >
+        {status.replace('-', ' ')}
+      </span>
+    );
   };
 
   const clearFilters = () => { setFilters({ status: '', priority: '', email: '' }); setSearchTerm(''); };
@@ -334,68 +372,81 @@ const Ticket: React.FC<TicketProps> = ({
   };
 
   // Enhanced TicketCard component
-  const TicketCard = ({ ticket }: { ticket: Ticket }) => (
-    <div 
-      className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 p-6 cursor-pointer hover:border-blue-300"
-      onClick={() => openModal(ticket)}
-    >
-      <div className="flex flex-col space-y-4">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-1">{ticket.subject}</h3>
-            <p className="text-gray-600 text-sm line-clamp-2">{ticket.description}</p>
-          </div>
-          <div className="flex items-center gap-2 ml-4">
-            {getStatusIcon(ticket.status)}
-            {getStatusBadge(ticket.status)}
-          </div>
-        </div>
-
-        {/* Metadata */}
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-          <div className="flex items-center gap-1">
-            <User className="w-4 h-4" />
-            <span className="font-medium">Raised by:</span>
-            <span>{ticket.assigned_by || ticket.email}</span>
-          </div>
-          {ticket.assigned_to && (
-            <div className="flex items-center gap-1">
-              <Users className="w-4 h-4" />
-              <span className="font-medium">Assigned to:</span>
-              <span>{ticket.assigned_to}</span>
+  const TicketCard = ({ ticket }: { ticket: Ticket }) => {
+    // For closed or in-progress, show closed date (updated_at as proxy)
+    const showClosed =
+      ticket.status === 'closed' || ticket.status === 'in-progress';
+    return (
+      <div 
+        className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 p-6 cursor-pointer hover:border-blue-300"
+        onClick={() => openModal(ticket)}
+      >
+        <div className="flex flex-col space-y-4">
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-1">{ticket.subject}</h3>
+              <p className="text-gray-600 text-sm line-clamp-2">{ticket.description}</p>
             </div>
-          )}
-          <div className="flex items-center gap-1">
-            <Calendar className="w-4 h-4" />
-            <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+            <div className="flex items-center gap-2 ml-4">
+              {getStatusIcon(ticket.status)}
+              {getStatusBadge(ticket.status)}
+            </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-          <div className="flex items-center gap-3">
-            {getPriorityBadge(ticket.priority)}
-            {ticket.closed_description && (
-              <div className="flex items-center gap-1 text-xs text-gray-500" title={ticket.closed_description}>
-                <MessageCircle className="w-3 h-3" />
-                <span>Closure note added</span>
+          {/* Metadata */}
+          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+            <div className="flex items-center gap-1">
+              <User className="w-4 h-4" />
+              <span className="font-medium">Raised by:</span>
+              <span>{ticket.assigned_by || ticket.email}</span>
+            </div>
+            {ticket.assigned_to && (
+              <div className="flex items-center gap-1">
+                <Users className="w-4 h-4" />
+                <span className="font-medium">Assigned to:</span>
+                <span>{ticket.assigned_to}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1">
+              <Calendar className="w-4 h-4" />
+              <span>Created: {formatDate(ticket.created_at, true)}</span>
+            </div>
+            {showClosed && (
+              <div className="flex items-center gap-1">
+                <Clock className="w-4 h-4" />
+                <span>
+                  Closed: {formatDate(ticket.updated_at, true)}
+                </span>
               </div>
             )}
           </div>
-          <button 
-            className="px-4 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium"
-            onClick={(e) => {
-              e.stopPropagation();
-              openModal(ticket);
-            }}
-          >
-            View Details
-          </button>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+            <div className="flex items-center gap-3">
+              {getPriorityBadge(ticket.priority)}
+              {ticket.closed_description && (
+                <div className="flex items-center gap-1 text-xs text-gray-500" title={ticket.closed_description}>
+                  <MessageCircle className="w-3 h-3" />
+                  <span>Closure note added</span>
+                </div>
+              )}
+            </div>
+            <button 
+              className="px-4 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+              onClick={(e) => {
+                e.stopPropagation();
+                openModal(ticket);
+              }}
+            >
+              View Details
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-8 text-black">
@@ -403,8 +454,8 @@ const Ticket: React.FC<TicketProps> = ({
         {/* Header */}
         <div className="mb-8 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Support Tickets</h1>
-            <p className="text-gray-600 text-lg">Manage and track all your support requests</p>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Tickets</h1>
+            <p className="text-gray-600 text-lg">Manage and track all your tickets</p>
           </div>
           {showCreateButton && (
             <button 
@@ -443,6 +494,10 @@ const Ticket: React.FC<TicketProps> = ({
           </div>
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">In Progress Tickets</p>
+                <p className="text-2xl font-bold text-blue-600">{tickets.allTickets.filter(t => t.status === 'in-progress').length}</p>
+              </div>
               <div className="p-3 bg-blue-50 rounded-lg">
                 <Clock className="w-6 h-6 text-blue-600" />
               </div>
@@ -617,7 +672,8 @@ const Ticket: React.FC<TicketProps> = ({
           const userEmail = localStorage.getItem('user_email') || '';
           const isAssignedUser = selectedTicket.assigned_to?.toLowerCase() === userEmail.toLowerCase();
           const isTicketCreator = selectedTicket.assigned_by?.toLowerCase() === userEmail.toLowerCase();
-          
+          const showClosed =
+            selectedTicket.status === 'closed' || selectedTicket.status === 'in-progress';
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
               <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -673,12 +729,18 @@ const Ticket: React.FC<TicketProps> = ({
                     </div>
                     <div>
                       <h3 className="text-sm font-medium text-gray-500 mb-2">Created</h3>
-                      <p className="text-gray-900">{new Date(selectedTicket.created_at).toLocaleString()}</p>
+                      <p className="text-gray-900">{formatDate(selectedTicket.created_at, true)}</p>
                     </div>
                     <div>
                       <h3 className="text-sm font-medium text-gray-500 mb-2">Last Updated</h3>
-                      <p className="text-gray-900">{new Date(selectedTicket.updated_at).toLocaleString()}</p>
+                      <p className="text-gray-900">{formatDate(selectedTicket.updated_at, true)}</p>
                     </div>
+                    {showClosed && (
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500 mb-2">Closed</h3>
+                        <p className="text-gray-900">{formatDate(selectedTicket.updated_at, true)}</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Status Update (for assigned users or creators) */}
@@ -701,19 +763,24 @@ const Ticket: React.FC<TicketProps> = ({
                           }}
                         >
                           <option value="open">Open</option>
+                          <option value="in-progress">In Progress</option>
                           <option value="closed">Closed</option>
                         </select>
                       </div>
 
-                      {/* Closure Description Input */}
-                      {editFields.showClosureInput && (
+                      {/* Closure/Progress Description Input */}
+                      {(editFields.status === 'closed' || editFields.status === 'in-progress') && (
                         <div className="mb-4">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Closure Description *
+                            {editFields.status === 'closed' ? 'Closure Description *' : 'Progress Description *'}
                           </label>
                           <textarea
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 min-h-[100px]"
-                            placeholder="Please provide details about how this ticket was resolved or why it's being closed..."
+                            placeholder={
+                              editFields.status === 'closed'
+                                ? "Please provide details about how this ticket was resolved or why it's being closed..."
+                                : "Please provide an update about the progress made so far..."
+                            }
                             value={editFields.closed_description}
                             onChange={(e) => setEditFields(prev => ({ 
                               ...prev, 
@@ -722,7 +789,9 @@ const Ticket: React.FC<TicketProps> = ({
                             required
                           />
                           <p className="text-sm text-gray-500 mt-1">
-                            This description will be visible to the ticket creator and other team members.
+                            {editFields.status === 'closed'
+                              ? 'This description will be visible to the ticket creator and other team members.'
+                              : 'This progress update will be visible to the ticket creator and other team members.'}
                           </p>
                         </div>
                       )}
@@ -817,16 +886,10 @@ const Ticket: React.FC<TicketProps> = ({
                     <option value="urgent">Urgent</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Assign To (Optional)</label>
-                  <input 
-                    type="email" 
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all"
-                    value={createFields.assigned_to} 
-                    onChange={e => handleCreateFieldChange('assigned_to', e.target.value)} 
-                    placeholder="Email address of assignee"
-                  />
-                </div>
+                <UserDropdown
+                  selectedEmail={createFields.assigned_to}
+                  onSelect={email => handleCreateFieldChange('assigned_to', email)}
+                />
                 
                 <div className="flex justify-end gap-3 pt-4">
                   <button 
@@ -870,3 +933,160 @@ const Ticket: React.FC<TicketProps> = ({
 };
 
 export default Ticket;
+// UserDropdown for assigning tickets
+interface UserType {
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  profile_picture?: string | null;
+  fullname?: string;
+  role?: string;
+}
+
+const UserDropdown: React.FC<{
+  selectedEmail: string;
+  onSelect: (email: string) => void;
+}> = ({ selectedEmail, onSelect }) => {
+  const [users, setUsers] = useState<UserType[]>([]);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/users/`)
+      .then(res => {
+        if (!res.ok) throw new Error('Could not fetch users');
+        return res.json();
+      })
+      .then(data => {
+        setUsers(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(e => {
+        setError('Failed to load users');
+        setLoading(false);
+      });
+  }, []);
+
+  const grouped = React.useMemo(() => {
+    const groups: Record<string, UserType[]> = {};
+    users.forEach(u => {
+      const role = u.role || 'Others';
+      if (!groups[role]) groups[role] = [];
+      groups[role].push(u);
+    });
+    return groups;
+  }, [users]);
+
+  const selectedUser = users.find(u => u.email === selectedEmail);
+
+  return (
+    <div className="relative">
+      <label className="block text-sm font-medium text-gray-700 mb-2">Assign To (Optional)</label>
+      <button
+        type="button"
+        className="w-full flex items-center px-3 py-2 border border-gray-300 rounded-lg bg-white hover:border-blue-400 transition-all focus:outline-none"
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        {selectedUser ? (
+          <span className="flex items-center gap-2">
+            {selectedUser.profile_picture ? (
+              <img src={selectedUser.profile_picture} alt={selectedUser.fullname || selectedUser.email} className="w-7 h-7 rounded-full object-cover" />
+            ) : (
+              <span className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-base">
+                {selectedUser.fullname?.[0]?.toUpperCase() || selectedUser.email[0].toUpperCase()}
+              </span>
+            )}
+            <span>
+              {selectedUser.fullname || selectedUser.email} <span className="text-gray-500 text-xs">({selectedUser.email})</span>
+            </span>
+          </span>
+        ) : (
+          <span className="text-gray-400">Select a user to assign (optional)</span>
+        )}
+        <svg className="ml-auto w-4 h-4 text-gray-400" fill="none" viewBox="0 0 20 20">
+          <path d="M7 8l3 3 3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute z-40 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+          <div className="p-2">
+            <input
+              type="text"
+              className="w-full border border-gray-200 rounded px-2 py-1 text-sm mb-2"
+              placeholder="Search user..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          {loading ? (
+            <div className="p-4 text-center text-gray-500">Loading users...</div>
+          ) : error ? (
+            <div className="p-4 text-center text-red-500">{error}</div>
+          ) : (
+            <>
+              <button
+                type="button"
+                className={`w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 transition flex items-center gap-2 ${!selectedEmail ? 'bg-blue-50' : ''}`}
+                onClick={() => {
+                  onSelect('');
+                  setOpen(false);
+                }}
+              >
+                <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold text-base">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 20 20">
+                    <path d="M10 4v8m0 0l-4-4m4 4l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </span>
+                <span>Unassigned</span>
+              </button>
+              {Object.entries(grouped).map(([role, list]) => {
+                const filtered = list.filter(u =>
+                  ((u.fullname?.toLowerCase() || '').includes(search.toLowerCase()) ||
+                   u.email.toLowerCase().includes(search.toLowerCase()))
+                );
+                if (!filtered.length) return null;
+                return (
+                  <div key={role} className="mb-2">
+                    <div className="px-4 py-1 text-xs text-gray-500 font-semibold uppercase bg-gray-50">{role}</div>
+                    {filtered.map(u => (
+                      <button
+                        type="button"
+                        key={u.email}
+                        className={`w-full text-left px-4 py-2 rounded-lg hover:bg-blue-50 transition flex items-center gap-3 ${selectedEmail === u.email ? 'bg-blue-100' : ''}`}
+                        onClick={() => {
+                          onSelect(u.email);
+                          setOpen(false);
+                        }}
+                      >
+                        {u.profile_picture ? (
+                          <img
+                            src={u.profile_picture}
+                            alt={u.fullname || u.email}
+                            className="w-8 h-8 rounded-full object-cover ring-2 ring-gray-100"
+                          />
+                        ) : (
+                          <span className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-base">
+                            {(u.fullname?.split(' ').map(n => n[0]).join('') || u.email[0]).toUpperCase()}
+                          </span>
+                        )}
+                        <span className="flex flex-col items-start">
+                          <span className="font-medium text-gray-900 text-sm">{u.fullname || u.email}</span>
+                          <span className="text-gray-500 text-xs">{u.email}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};

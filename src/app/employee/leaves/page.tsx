@@ -36,6 +36,14 @@ export default function LeaveSection() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMessage, setDialogMessage] = useState("");
+
+  const showDialog = (message: string) => {
+    setDialogMessage(message);
+    setDialogOpen(true);
+  };
+
   // Get logged-in user info once
   useEffect(() => {
     const userInfo = localStorage.getItem("userInfo");
@@ -116,17 +124,17 @@ export default function LeaveSection() {
 
   const handleAddLeave = async () => {
     if (!reason || !startDate || !endDate || !leaveType) {
-      alert("Please fill all fields");
+      showDialog("Please fill all fields");
       return;
     }
     if (new Date(startDate) > new Date(endDate)) {
-      alert("End date cannot be before start date");
+      showDialog("End date cannot be before start date");
       return;
     }
 
     const userInfo = localStorage.getItem("userInfo");
     if (!userInfo) {
-      alert("User info not found. Please login again.");
+      showDialog("User info not found. Please login again.");
       return;
     }
 
@@ -135,7 +143,7 @@ export default function LeaveSection() {
     const userDepartment = parsedUserInfo.department || "";
 
     if (!userEmail) {
-      alert("User email not found. Please login again.");
+      showDialog("User email not found. Please login again.");
       return;
     }
 
@@ -172,9 +180,18 @@ export default function LeaveSection() {
           const text = await res.text();
           errorBody = text;
         }
-        throw new Error(
-          typeof errorBody === "string" ? errorBody : JSON.stringify(errorBody)
-        );
+        // Custom error handling: show friendly dialog instead of throwing
+        let errorString =
+          typeof errorBody === "string" ? errorBody : JSON.stringify(errorBody);
+        if (
+          errorString.toLowerCase().includes("overlapping") ||
+          errorString.toLowerCase().includes("already have a leave")
+        ) {
+          showDialog("You already have a leave during these dates. Please pick a different range.");
+        } else {
+          showDialog("Failed to submit leave request. Please try again.");
+        }
+        return; // Don't proceed further
       }
 
       setReason("");
@@ -185,7 +202,8 @@ export default function LeaveSection() {
       fetchLeaves();
     } catch (err) {
       console.error("Leave submission error:", err);
-      alert("Failed to submit leave request: " + (err as Error).message);
+      // Show a general friendly error, don't throw
+      showDialog("Failed to submit leave request. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -352,6 +370,20 @@ export default function LeaveSection() {
           </div>
         )}
       </div>
+      {dialogOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Notice</h3>
+            <p className="text-gray-600 mb-5">{dialogMessage}</p>
+            <button
+              onClick={() => setDialogOpen(false)}
+              className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

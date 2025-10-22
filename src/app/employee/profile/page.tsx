@@ -28,7 +28,6 @@ type UserProfile = {
   gender?: string;
   marital_status?: string;
   nationality?: string;
-  current_address?: string;
   permanent_address?: string;
   emergency_contact_name?: string;
   emergency_contact_relationship?: string;
@@ -43,10 +42,31 @@ type UserProfile = {
   grade?: string;
   languages?: string;
   reports_to?: string;
+  // Additional fields from API
+  blood_group?: string;
+  account_number?: string;
+  father_name?: string;
+  father_contact?: string;
+  mother_name?: string;
+  mother_contact?: string;
+  wife_name?: string;
+  home_address?: string;
+  total_siblings?: string;
+  brothers?: string;
+  sisters?: string;
+  total_children?: string;
+  bank_name?: string;
+  branch?: string;
+  pf_no?: string;
+  pf_uan?: string;
+  ifsc?: string;
+  residential_address?: string;
 };
 
 
 export default function Profile() {
+  // Managers array: id, fullname, email
+  const [managers, setManagers] = useState<{id: string; fullname: string; email: string;}[]>([]);
   const [user, setUser] = useState<UserProfile>({
     email: "",
     fullname: "",
@@ -60,7 +80,6 @@ export default function Profile() {
     gender: "",
     marital_status: "",
     nationality: "",
-    current_address: "",
     permanent_address: "",
     emergency_contact_name: "",
     emergency_contact_relationship: "",
@@ -75,6 +94,24 @@ export default function Profile() {
     grade: "",
     languages: "",
     reports_to: "",
+    blood_group: "",
+    account_number: "",
+    father_name: "",
+    father_contact: "",
+    mother_name: "",
+    mother_contact: "",
+    wife_name: "",
+    home_address: "",
+    total_siblings: "",
+    brothers: "",
+    sisters: "",
+    total_children: "",
+    bank_name: "",
+    branch: "",
+    pf_no: "",
+    pf_uan: "",
+    ifsc: "",
+    residential_address: "",
   });
   const [isEditing, setIsEditing] = useState(false);
   // Store original user for Cancel
@@ -82,6 +119,74 @@ export default function Profile() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState({ type: "", text: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // AGE and VINTAGE states
+  const [age, setAge] = useState<string>("");
+  const [vintage, setVintage] = useState<string>("");
+
+  // Calculate age in years, months, days
+  function calculateAge(dateString: string | undefined): string {
+    if (!dateString) return "";
+    const dob = new Date(dateString);
+    if (isNaN(dob.getTime())) return "";
+    const today = new Date();
+    let years = today.getFullYear() - dob.getFullYear();
+    let months = today.getMonth() - dob.getMonth();
+    let days = today.getDate() - dob.getDate();
+    if (days < 0) {
+      months--;
+      // Get days in previous month
+      const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      days += prevMonth.getDate();
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+    if (years < 0) return "";
+    // Always display all three values (even if zero)
+    const yearStr = `${years} year${years !== 1 ? "s" : ""}`;
+    const monthStr = `${months} month${months !== 1 ? "s" : ""}`;
+    const dayStr = `${days} day${days !== 1 ? "s" : ""}`;
+    return `${yearStr}, ${monthStr}, ${dayStr}`;
+  }
+
+  // Calculate vintage: years, months, days since joining
+  function calculateVintage(dateString: string | undefined): string {
+    if (!dateString) return "";
+    const joined = new Date(dateString);
+    if (isNaN(joined.getTime())) return "";
+    const today = new Date();
+    let years = today.getFullYear() - joined.getFullYear();
+    let months = today.getMonth() - joined.getMonth();
+    let days = today.getDate() - joined.getDate();
+    if (days < 0) {
+      months--;
+      // Get days in previous month
+      const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      days += prevMonth.getDate();
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+    if (years < 0) return "";
+    // Always display all three values (even if zero)
+    const yearStr = `${years} year${years !== 1 ? "s" : ""}`;
+    const monthStr = `${months} month${months !== 1 ? "s" : ""}`;
+    const dayStr = `${days} day${days !== 1 ? "s" : ""}`;
+    return `${yearStr}, ${monthStr}, ${dayStr}`;
+  }
+
+  // Update age when date_of_birth changes
+  useEffect(() => {
+    setAge(calculateAge(user.date_of_birth));
+  }, [user.date_of_birth]);
+
+  // Update vintage when date_joined changes
+  useEffect(() => {
+    setVintage(calculateVintage(user.date_joined));
+  }, [user.date_joined]);
 
   // Fetch user data
   useEffect(() => {
@@ -95,7 +200,6 @@ export default function Profile() {
         );
         if (!response.ok) throw new Error("Failed to fetch user data");
         const currentUser: Record<string, unknown> = await response.json();
-        // Debug: log profile picture value
         // Map only the allowed fields from backend to frontend
         const loadedUser: UserProfile = {
           email: typeof currentUser.email === "string" ? currentUser.email : email,
@@ -108,11 +212,10 @@ export default function Profile() {
           skills: typeof currentUser.skills === "string" ? currentUser.skills : "",
           profile_picture: typeof currentUser.profile_picture === "string"
             ? currentUser.profile_picture.replace(/^"|"$/g, "").replace(/@/g, "%40")
-            : "/default-profile.png",
+            : "",
           gender: typeof currentUser.gender === "string" ? currentUser.gender : "",
           marital_status: typeof currentUser.marital_status === "string" ? currentUser.marital_status : "",
           nationality: typeof currentUser.nationality === "string" ? currentUser.nationality : "",
-          current_address: typeof currentUser.current_address === "string" ? currentUser.current_address : "",
           permanent_address: typeof currentUser.permanent_address === "string" ? currentUser.permanent_address : "",
           emergency_contact_name: typeof currentUser.emergency_contact_name === "string" ? currentUser.emergency_contact_name : "",
           emergency_contact_relationship: typeof currentUser.emergency_contact_relationship === "string" ? currentUser.emergency_contact_relationship : "",
@@ -122,11 +225,30 @@ export default function Profile() {
           work_location: typeof currentUser.work_location === "string" ? currentUser.work_location : "",
           team: typeof currentUser.team === "string" ? currentUser.team : "",
           degree: typeof currentUser.degree === "string" ? currentUser.degree : "",
-          degree_passout_year: typeof currentUser.degree_passout_year === "string" ? currentUser.degree_passout_year : "",
+          degree_passout_year: currentUser.degree_passout_year !== undefined ? String(currentUser.degree_passout_year) : "",
           institution: typeof currentUser.institution === "string" ? currentUser.institution : "",
           grade: typeof currentUser.grade === "string" ? currentUser.grade : "",
           languages: typeof currentUser.languages === "string" ? currentUser.languages : "",
           reports_to: typeof currentUser.reports_to === "string" ? currentUser.reports_to : "",
+          // Additional fields from API
+          blood_group: typeof currentUser.blood_group === "string" ? currentUser.blood_group : "",
+          account_number: typeof currentUser.account_number === "string" ? currentUser.account_number : "",
+          father_name: typeof currentUser.father_name === "string" ? currentUser.father_name : "",
+          father_contact: typeof currentUser.father_contact === "string" ? currentUser.father_contact : "",
+          mother_name: typeof currentUser.mother_name === "string" ? currentUser.mother_name : "",
+          mother_contact: typeof currentUser.mother_contact === "string" ? currentUser.mother_contact : "",
+          wife_name: typeof currentUser.wife_name === "string" ? currentUser.wife_name : "",
+          home_address: typeof currentUser.home_address === "string" ? currentUser.home_address : "",
+          total_siblings: currentUser.total_siblings !== undefined ? String(currentUser.total_siblings) : "",
+          brothers: currentUser.brothers !== undefined ? String(currentUser.brothers) : "",
+          sisters: currentUser.sisters !== undefined ? String(currentUser.sisters) : "",
+          total_children: currentUser.total_children !== undefined ? String(currentUser.total_children) : "",
+          bank_name: typeof currentUser.bank_name === "string" ? currentUser.bank_name : "",
+          branch: typeof currentUser.branch === "string" ? currentUser.branch : "",
+          pf_no: typeof currentUser.pf_no === "string" ? currentUser.pf_no : "",
+          pf_uan: typeof currentUser.pf_uan === "string" ? currentUser.pf_uan : "",
+          ifsc: typeof currentUser.ifsc === "string" ? currentUser.ifsc : "",
+          residential_address: typeof currentUser.residential_address === "string" ? currentUser.residential_address : "",
         };
         setUser(loadedUser);
         setOriginalUser(loadedUser);
@@ -135,10 +257,29 @@ export default function Profile() {
       }
     };
 
+    // Fetch managers list
+    const fetchManagers = async () => {
+      try {
+        // Adjust API endpoint as needed for your backend
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/?is_manager=true`, {
+          headers: { "Content-Type": "application/json" }
+        });
+        if (!response.ok) throw new Error("Failed to fetch managers list");
+        const data = await response.json();
+        // Assume data is an array of {id, fullname, email}
+        setManagers(Array.isArray(data) ? data : []);
+      } catch {
+        setManagers([]);
+      }
+    };
+
     const storedUser = localStorage.getItem("userInfo");
     if (storedUser) {
       const parsed = JSON.parse(storedUser) as { email?: string };
-      if (parsed.email) fetchUserData(parsed.email);
+      if (parsed.email) {
+        fetchUserData(parsed.email);
+        fetchManagers();
+      }
     }
   }, []);
 
@@ -161,65 +302,82 @@ export default function Profile() {
    setIsSaving(true);
    try {
      const fileInput = fileInputRef.current?.files?.[0];
-     if (fileInput) {
-     }
-
-     // Only send non-empty fields to backend
+     // List of allowed fields (including additional info fields)
      const allowedFields: (keyof UserProfile)[] = [
-       "fullname",
-       "phone",
-       "department",
-       "designation",
-       "date_of_birth",
-       "date_joined",
-       "skills",
-       "gender",
-       "marital_status",
-       "nationality",
-       "current_address",
-       "permanent_address",
-       "emp_id",
-       "employment_type",
-       "work_location",
-       "team",
-       "reports_to",
-       "degree",
-       "degree_passout_year",
-       "institution",
-       "grade",
-       "languages",
-       "emergency_contact_name",
+       "fullname", "phone", "department", "designation", "date_of_birth",
+       "date_joined", "skills", "gender", "marital_status", "nationality",
+       "permanent_address", "emp_id", "employment_type", "work_location",
+       "team", "reports_to", "degree", "degree_passout_year", "institution",
+       "grade", "languages", "emergency_contact_name",
        "emergency_contact_relationship",
        "emergency_contact_no",
+       "blood_group", "account_number", "father_name", "father_contact",
+       "mother_name", "mother_contact", "wife_name", "home_address",
+       "total_siblings", "brothers", "sisters", "total_children",
+       "bank_name", "branch", "pf_no", "pf_uan", "ifsc", "residential_address",
      ];
-
+     // Numeric fields to convert
+     const numericFields: (keyof UserProfile)[] = [
+       "total_siblings", "brothers", "sisters", "total_children", "degree_passout_year"
+     ];
      const formData = new FormData();
+     // Only append the selected profile picture file (not the base64 string)
      if (fileInput) {
        formData.append("profile_picture", fileInput);
      }
+
+     // Prepare a copy of user with reports_to as manager ID
+     let reportsToValue = user.reports_to || "";
+     // If the value is not empty and managers are loaded
+     if (reportsToValue && managers.length > 0) {
+       // Try to find manager by ID (if already an ID), else by email or fullname
+       let manager =
+         managers.find((m) => m.id === reportsToValue) ||
+         managers.find((m) => m.email === reportsToValue) ||
+         managers.find((m) => m.fullname === reportsToValue);
+       reportsToValue = manager ? manager.id : "";
+     }
+
      allowedFields.forEach((field) => {
-       const value = user[field];
-       // Only append if value is non-empty string (not null, undefined, or empty string)
-       if (typeof value === "string" && value.trim() !== "") {
-         formData.append(field, value);
+       // Don't send localProfilePic (used only for preview)
+       if (field === "profile_picture") return;
+       let value = user[field];
+       // Special handling for reports_to: send manager ID
+       if (field === "reports_to") {
+         if (reportsToValue && typeof reportsToValue === "string" && reportsToValue.trim() !== "") {
+           formData.append("reports_to", reportsToValue);
+         }
+         return;
+       }
+       // Convert numeric fields to numbers if not empty
+       if (numericFields.includes(field)) {
+         if (typeof value === "string" && value.trim() !== "") {
+           const num = Number(value);
+           if (!isNaN(num)) {
+             formData.append(field, num.toString());
+           }
+         }
+       } else {
+         if (typeof value === "string" && value.trim() !== "") {
+           formData.append(field, value);
+         }
        }
      });
      // Do NOT append email to FormData (handled by backend, avoid ForeignKey assignment error)
      // if (user.email && user.email.trim() !== "") {
      //   formData.append("email", user.email);
      // }
-
      const fetchOptions: RequestInit = {
        method: "PATCH",
        body: formData,
        // Do NOT set Content-Type, browser handles boundary for FormData
      };
-
+     const fetchUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(user.email)}/`;
      const response = await fetch(
-       `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(user.email)}/`,
+       fetchUrl,
        fetchOptions
      );
-
+     // Log backend response status and text before parsing
      const responseText = await response.text();
      let data;
      let isJSON = false;
@@ -230,7 +388,6 @@ export default function Profile() {
        data = null;
        isJSON = false;
      }
-
      if (!response.ok) {
        // If backend returned HTML (not JSON), show a generic error
        let errorMsg = "An error occurred while saving your profile.";
@@ -256,10 +413,9 @@ export default function Profile() {
        // Don't clear local image preview if backend fails
        return;
      }
-
      // Merge backend response into user, but don't overwrite local image preview with broken/HTML data
      setUser((prev) => {
-       // If localProfilePic is set, keep it as profile_picture
+       // If localProfilePic is set, keep it as profile_picture for preview
        if (localProfilePic) {
          return { ...prev, ...data, profile_picture: localProfilePic };
        }
@@ -270,7 +426,6 @@ export default function Profile() {
      window.scrollTo({ top: 0, behavior: "smooth" });
      // Clear localProfilePic on successful save
      setLocalProfilePic(null);
-
    } catch (e: unknown) {
      setSaveMessage({
        type: "error",
@@ -338,29 +493,22 @@ export default function Profile() {
   <h2 className="text-lg font-semibold text-gray-700 mb-2">Profile Picture</h2>
   <div className="flex items-center gap-6">
     <div className="relative flex-shrink-0">
-      {/* Profile image */}
-      <Image
-        src={
-          localProfilePic
-            ? localProfilePic
-            : user.profile_picture && user.profile_picture !== "null"
-            ? user.profile_picture.replace(/^"|"$/g, "").replace(/@/g, "%40")
-            : "/default-profile.png"
-        }
-        alt={user.fullname || "Profile"}
-        width={96}
-        height={96}
-        className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
-        unoptimized={!!localProfilePic || user.profile_picture?.startsWith("http")}
-        onError={(e) => {
-          console.error(
-            "Failed to load profile picture:",
-            (e.target as HTMLImageElement).src
-          );
-          // fallback to default image
-          (e.target as HTMLImageElement).src = "/default-profile.png";
-        }}
-      />
+      {/* Profile image - only show if there is a profile picture */}
+      {(localProfilePic || (user.profile_picture && user.profile_picture !== "null")) && (
+        <Image
+          src={
+            localProfilePic
+              ? localProfilePic
+              : user.profile_picture!.replace(/^"|"$/g, "").replace(/@/g, "%40")
+          }
+          alt={user.fullname || "Profile"}
+          width={96}
+          height={96}
+          className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
+          unoptimized={true}
+          onError={() => {}}
+        />
+      )}
     </div>
 
     {/* Edit button */}
@@ -446,6 +594,18 @@ export default function Profile() {
                 disabled={!isEditing}
                 className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
               />
+              {/* Age Display */}
+              <div className="mt-1">
+                <label className="block text-xs font-medium text-gray-500">Age</label>
+                <input
+                  type="text"
+                  value={age}
+                  readOnly
+                  className="border border-gray-200 rounded-md p-2.5 sm:p-3 w-full bg-gray-100 text-gray-700"
+                  tabIndex={-1}
+                  aria-label="Age in years, months, days"
+                />
+              </div>
             </div>
             {/* Gender */}
             <div className="space-y-1">
@@ -538,6 +698,18 @@ export default function Profile() {
                 className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                 placeholder="Enter joining date"
               />
+              {/* Vintage Display */}
+              <div className="mt-1">
+                <label className="block text-xs font-medium text-gray-500">Vintage </label>
+                <input
+                  type="text"
+                  value={vintage}
+                  readOnly
+                  className="border border-gray-200 rounded-md p-2.5 sm:p-3 w-full bg-gray-100 text-gray-700"
+                  tabIndex={-1}
+                  aria-label="Vintage in years, months, days"
+                />
+              </div>
             </div>
             {/* Employee ID */}
             <div className="space-y-1">
@@ -590,14 +762,26 @@ export default function Profile() {
             {/* Reports To */}
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-700">Reports To</label>
-              <input
-                type="text"
-                value={user.reports_to || ""}
-                onChange={(e) => setUser({ ...user, reports_to: e.target.value })}
+              <select
+                value={
+                  // Show the manager ID if present, else fallback to empty string
+                  user.reports_to && managers.some((m) => m.id === user.reports_to)
+                    ? user.reports_to
+                    : ""
+                }
+                onChange={(e) => {
+                  setUser({ ...user, reports_to: e.target.value });
+                }}
                 disabled={!isEditing}
                 className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                placeholder="Enter reports to"
-              />
+              >
+                <option value="">Select Manager</option>
+                {managers.map((manager) => (
+                  <option key={`${manager.id}-${manager.email}`} value={manager.id}>
+                    {manager.fullname} ({manager.email})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </section>
@@ -725,16 +909,16 @@ export default function Profile() {
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-gray-700 mb-2">Addresses</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* Current Address */}
+            {/* Residential Address */}
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Current Address</label>
+              <label className="block text-sm font-medium text-gray-700">Residential Address</label>
               <input
                 type="text"
-                value={user.current_address || ""}
-                onChange={(e) => setUser({ ...user, current_address: e.target.value })}
+                value={user.residential_address || ""}
+                onChange={(e) => setUser({ ...user, residential_address: e.target.value })}
                 disabled={!isEditing}
                 className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                placeholder="Enter current address"
+                placeholder="Enter residential address"
               />
             </div>
             {/* Permanent Address */}
@@ -747,6 +931,228 @@ export default function Profile() {
                 disabled={!isEditing}
                 className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
                 placeholder="Enter permanent address"
+              />
+            </div>
+          </div>
+        </section>
+        {/* Additional Information */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-700 mb-2">Additional Information</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* Blood Group */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Blood Group</label>
+              <input
+                type="text"
+                value={user.blood_group || ""}
+                onChange={(e) => setUser({ ...user, blood_group: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter blood group"
+              />
+            </div>
+            {/* Account Number */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Account Number</label>
+              <input
+                type="text"
+                value={user.account_number || ""}
+                onChange={(e) => setUser({ ...user, account_number: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter account number"
+              />
+            </div>
+            {/* Father Name */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Father Name</label>
+              <input
+                type="text"
+                value={user.father_name || ""}
+                onChange={(e) => setUser({ ...user, father_name: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter father name"
+              />
+            </div>
+            {/* Father Contact */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Father Contact</label>
+              <input
+                type="text"
+                value={user.father_contact || ""}
+                onChange={(e) => setUser({ ...user, father_contact: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter father contact"
+              />
+            </div>
+            {/* Mother Name */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Mother Name</label>
+              <input
+                type="text"
+                value={user.mother_name || ""}
+                onChange={(e) => setUser({ ...user, mother_name: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter mother name"
+              />
+            </div>
+            {/* Mother Contact */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Mother Contact</label>
+              <input
+                type="text"
+                value={user.mother_contact || ""}
+                onChange={(e) => setUser({ ...user, mother_contact: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter mother contact"
+              />
+            </div>
+            {/* Wife Name */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Wife Name</label>
+              <input
+                type="text"
+                value={user.wife_name || ""}
+                onChange={(e) => setUser({ ...user, wife_name: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter wife name"
+              />
+            </div>
+            {/* Home Address */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Home Address</label>
+              <input
+                type="text"
+                value={user.home_address || ""}
+                onChange={(e) => setUser({ ...user, home_address: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter home address"
+              />
+            </div>
+            {/* Total Siblings */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Total Siblings</label>
+              <input
+                type="text"
+                value={user.total_siblings || ""}
+                onChange={(e) => setUser({ ...user, total_siblings: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter total siblings"
+              />
+            </div>
+            {/* Brothers */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Brothers</label>
+              <input
+                type="text"
+                value={user.brothers || ""}
+                onChange={(e) => setUser({ ...user, brothers: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter number of brothers"
+              />
+            </div>
+            {/* Sisters */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Sisters</label>
+              <input
+                type="text"
+                value={user.sisters || ""}
+                onChange={(e) => setUser({ ...user, sisters: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter number of sisters"
+              />
+            </div>
+            {/* Total Children */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Total Children</label>
+              <input
+                type="text"
+                value={user.total_children || ""}
+                onChange={(e) => setUser({ ...user, total_children: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter total children"
+              />
+            </div>
+            {/* Bank Name */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Bank Name</label>
+              <input
+                type="text"
+                value={user.bank_name || ""}
+                onChange={(e) => setUser({ ...user, bank_name: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter bank name"
+              />
+            </div>
+            {/* Branch */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Branch</label>
+              <input
+                type="text"
+                value={user.branch || ""}
+                onChange={(e) => setUser({ ...user, branch: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter branch"
+              />
+            </div>
+            {/* PF No */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">PF No</label>
+              <input
+                type="text"
+                value={user.pf_no || ""}
+                onChange={(e) => setUser({ ...user, pf_no: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter PF number"
+              />
+            </div>
+            {/* PF UAN */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">PF UAN</label>
+              <input
+                type="text"
+                value={user.pf_uan || ""}
+                onChange={(e) => setUser({ ...user, pf_uan: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter PF UAN"
+              />
+            </div>
+            {/* IFSC */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">IFSC</label>
+              <input
+                type="text"
+                value={user.ifsc || ""}
+                onChange={(e) => setUser({ ...user, ifsc: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter IFSC code"
+              />
+            </div>
+            {/* Residential Address */}
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Residential Address</label>
+              <input
+                type="text"
+                value={user.residential_address || ""}
+                onChange={(e) => setUser({ ...user, residential_address: e.target.value })}
+                disabled={!isEditing}
+                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                placeholder="Enter residential address"
               />
             </div>
           </div>

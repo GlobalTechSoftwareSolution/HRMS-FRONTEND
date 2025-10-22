@@ -398,7 +398,7 @@ export default function Profile() {
             />
           </div>
 
-          {/* Date Joined */}
+          {/* Date Joined + Ventiage */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mt-2">
               Date Joined
@@ -411,6 +411,48 @@ export default function Profile() {
               }
               disabled={!isEditing}
               className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+            />
+            <label className="block text-sm font-medium text-gray-700 mt-2">
+              Ventiage
+            </label>
+            <input
+              type="text"
+              value={
+                user.date_joined
+                  ? (() => {
+                      const joinedDate = new Date(user.date_joined as string);
+                      const now = new Date();
+                      if (isNaN(joinedDate.getTime())) return "N/A";
+                      // Calculate difference in total milliseconds
+                      let diff = now.getTime() - joinedDate.getTime();
+                      if (diff < 0) return "N/A";
+                      // Create a temp date for calculation
+                      let years = now.getFullYear() - joinedDate.getFullYear();
+                      let months = now.getMonth() - joinedDate.getMonth();
+                      let days = now.getDate() - joinedDate.getDate();
+                      if (days < 0) {
+                        // borrow days from previous month
+                        months -= 1;
+                        // Get days in the previous month
+                        const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                        days += prevMonth.getDate();
+                      }
+                      if (months < 0) {
+                        years -= 1;
+                        months += 12;
+                      }
+                      if (years < 0) return "N/A";
+                      let result = "";
+                      result += `${years} year${years === 1 ? "" : "s"} `;
+                      result += `${months} month${months === 1 ? "" : "s"} `;
+                      result += `${days} day${days === 1 ? "" : "s"}`;
+                      return result.trim();
+                    })()
+                  : "N/A"
+              }
+              disabled
+              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full bg-gray-100"
+              readOnly
             />
           </div>
 
@@ -431,22 +473,6 @@ export default function Profile() {
             />
           </div>
 
-          {/* Total Experience */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Total Experience
-            </label>
-            <input
-              type="text"
-              value={user.total_experience || ""}
-              onChange={(e) =>
-                setUser({ ...user, total_experience: e.target.value })
-              }
-              disabled={!isEditing}
-              placeholder="e.g., 2 years 5 months"
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-            />
-          </div>
 
           {/* Bio */}
           <div className="sm:col-span-2">

@@ -1,109 +1,58 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import FullCalendar from "@fullcalendar/react";
-import { EventClickArg, EventContentArg } from "@fullcalendar/core";
-import { DateClickArg } from "@fullcalendar/interaction";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction";
 
 type Holiday = {
+  year: number;
+  month: number;
+  country: string;
   date: string;
-  summary: string;
-  type: "Government" | "Bank" | "Festival" | "Jayanthi";
-  description?: string;
+  name: string;
+  type: string;
+  weekday: string;
 };
 
-interface GoogleCalendarEvent {
-  start: {
-    date?: string;
-    dateTime?: string;
-  };
-  summary?: string;
-  description?: string;
-}
-
-const HOLIDAY_COLORS: Record<Holiday["type"], string> = {
-  Government: "bg-red-600",
-  Bank: "bg-blue-600",
-  Festival: "bg-green-600",
-  Jayanthi: "bg-purple-600",
-};
-
-const HOLIDAY_EVENT_COLORS: Record<Holiday["type"], string> = {
-  Government: "#dc2626",
-  Bank: "#2563eb",
-  Festival: "#16a34a",
-  Jayanthi: "#9333ea",
+const HOLIDAY_COLORS: Record<string, string> = {
+  "National Holiday": "bg-red-500",
+  "Government Holiday": "bg-blue-500",
+  "Jayanti/Festival": "bg-purple-500",
+  "Festival": "bg-green-500",
+  "Regional Festival": "bg-orange-400",
+  "Harvest Festival": "bg-amber-500",
+  "Observance": "bg-gray-500",
+  "Observance/Restricted": "bg-gray-500",
+  "Festival/National Holiday": "bg-pink-500",
+  "Jayanti": "bg-purple-400",
+  "Other": "bg-slate-400",
 };
 
 const HolidayCalendar: React.FC = () => {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Holiday["type"] | "All">("All");
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(
+    new Date().toISOString().split("T")[0]
+  );
+
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(new Date().getMonth());
+
+  const monthsList = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
 
   useEffect(() => {
     const fetchHolidays = async () => {
       try {
         setIsLoading(true);
         setError(null);
-
-        const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
-        if (!API_KEY) throw new Error("Google API key is not configured");
-
-        const calendarId = encodeURIComponent(
-          "en.indian#holiday@group.v.calendar.google.com"
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/holidays/`
         );
-
-        const currentYear = new Date().getFullYear();
-        const endYear = 2030;
-        const allHolidays: Holiday[] = [];
-
-        for (let year = currentYear; year <= endYear; year++) {
-          const timeMin = `${year}-01-01T00:00:00Z`;
-          const timeMax = `${year}-12-31T23:59:59Z`;
-
-          const url = `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events?key=${API_KEY}&timeMin=${timeMin}&timeMax=${timeMax}&maxResults=250&orderBy=startTime&singleEvents=true`;
-
-          const res = await fetch(url);
-          if (!res.ok) {
-            const errorText = await res.text();
-            console.error("API Error:", errorText);
-            throw new Error(`Failed to fetch holidays: ${res.status}`);
-          }
-
-          const data = await res.json();
-          if (!data.items || data.items.length === 0) continue;
-
-          const mapped: Holiday[] = data.items.map((event: GoogleCalendarEvent) => {
-            const date = event.start?.date
-              ? event.start.date
-              : event.start?.dateTime?.split("T")[0];
-            const summary = event.summary || "Holiday";
-            const description = event.description || "";
-
-            let type: Holiday["type"] = "Festival";
-            const summaryLower = summary.toLowerCase();
-            if (summaryLower.includes("bank")) type = "Bank";
-            else if (summaryLower.includes("jayanti")) type = "Jayanthi";
-            else if (
-              summaryLower.includes("independence") ||
-              summaryLower.includes("republic") ||
-              summaryLower.includes("gandhi") ||
-              summaryLower.includes("government") ||
-              summaryLower.includes("labour")
-            )
-              type = "Government";
-
-            return { date: date!, summary, type, description };
-          });
-
-          allHolidays.push(...mapped);
-        }
-
-        setHolidays(allHolidays);
+        if (!res.ok) throw new Error("Failed to fetch holidays");
+        const data = await res.json();
+        setHolidays(data);
       } catch (err) {
         console.error("Error fetching holidays:", err);
         setError(
@@ -113,161 +62,250 @@ const HolidayCalendar: React.FC = () => {
         setIsLoading(false);
       }
     };
-
     fetchHolidays();
   }, []);
-
-  const filteredHolidays = useMemo(() => {
-    if (filter === "All") return holidays;
-    return holidays.filter((h) => h.type === filter);
-  }, [holidays, filter]);
-
-  const events = useMemo(() => {
-    return filteredHolidays.map((h) => ({
-      title: h.summary,
-      start: h.date + "T00:00:00",
-      allDay: true,
-      extendedProps: {
-        type: h.type,
-        description: h.description,
-      },
-      backgroundColor: HOLIDAY_EVENT_COLORS[h.type],
-      borderColor: HOLIDAY_EVENT_COLORS[h.type],
-      textColor: "#fff",
-    }));
-  }, [filteredHolidays]);
 
   const normalizeDate = (dateStr: string) => {
     const d = new Date(dateStr);
     const year = d.getFullYear();
-    const month = (d.getMonth() + 1).toString().padStart(2, '0');
-    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, "0");
+    const day = d.getDate().toString().padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
 
   const selectedDateHolidays = useMemo(() => {
-    return holidays.filter((h) => normalizeDate(h.date) === normalizeDate(selectedDate));
+    return holidays.filter(
+      (h) => normalizeDate(h.date) === normalizeDate(selectedDate)
+    );
   }, [holidays, selectedDate]);
 
-  const handleDateClick = (arg: DateClickArg) => {
-    setSelectedDate(normalizeDate(arg.dateStr));
-  };
-
-  const handleEventClick = (arg: EventClickArg) => {
-    if (arg.jsEvent) {
-      arg.jsEvent.preventDefault();
-      arg.jsEvent.stopPropagation();
-    }
-    if (arg.event.start) {
-      const dateStr = normalizeDate(arg.event.start.toISOString().split("T")[0]);
-      if (dateStr !== normalizeDate(selectedDate)) {
-        setSelectedDate(dateStr);
-      }
+  const goToPreviousMonth = () => {
+    if (month === 0) {
+      setMonth(11);
+      setYear((prev) => prev - 1);
+    } else {
+      setMonth((prev) => prev - 1);
     }
   };
 
-  const holidayTypeCounts = useMemo(() => {
-    const counts: Record<Holiday["type"] | "All", number> = {
-      Government: 0,
-      Bank: 0,
-      Festival: 0,
-      Jayanthi: 0,
-      All: holidays.length,
-    };
-    holidays.forEach((h) => counts[h.type]++);
-    return counts;
-  }, [holidays]);
+  const goToNextMonth = () => {
+    if (month === 11) {
+      setMonth(0);
+      setYear((prev) => prev + 1);
+    } else {
+      setMonth((prev) => prev + 1);
+    }
+  };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 p-4 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            Calendar
-          </h1>
+  const goToToday = () => {
+    const today = new Date();
+    setYear(today.getFullYear());
+    setMonth(today.getMonth());
+    setSelectedDate(today.toISOString().split("T")[0]);
+  };
+
+  // Simple Calendar Header
+  const CalendarHeader = () => (
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={goToPreviousMonth}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors border border-gray-300"
+        >
+          <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <div className="text-center">
+          <div className="text-xl font-bold text-gray-800">
+            {monthsList[month]} {year}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 lg:gap-8">
-          <div className="xl:col-span-3 space-y-6">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden relative">
-              <div className="p-6 lg:p-8">
-                <div className="flex flex-wrap gap-5 mb-6">
-                  {(["All", "Government", "Bank", "Festival", "Jayanthi"] as const).map(
-                    (t) => (
-                      <button
-                        key={t}
-                        onClick={() => setFilter(t)}
-                        className={`px-5 py-2.5 rounded-xl font-medium transition-all duration-200 transform hover:scale-105 ${
-                          filter === t
-                            ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25"
-                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                        }`}
-                      >
-                        {t} <span>({holidayTypeCounts[t]})</span>
-                      </button>
-                    )
-                  )}
-                </div>
+        <button
+          onClick={goToNextMonth}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors border border-gray-300"
+        >
+          <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
 
-                {isLoading && (
-                  <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-xl z-10">
-                    <div className="text-center">
-                      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                      <p className="text-gray-700 font-medium">
-                        Loading holidays...
-                      </p>
+      <button
+        onClick={goToToday}
+        className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition-colors"
+      >
+        Today
+      </button>
+    </div>
+  );
+
+  // Clean Week Days Header
+  const WeekDaysHeader = () => {
+    const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return (
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {weekDays.map((day) => (
+          <div
+            key={day}
+            className="text-center py-2 text-xs font-semibold text-gray-600"
+          >
+            {day}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Compact Calendar Grid
+  const CalendarGrid = () => {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDay = firstDay.getDay();
+
+    const days = [];
+
+    // Empty days for the start of the month
+    for (let i = 0; i < startingDay; i++) {
+      days.push(<div key={`empty-${i}`} className="h-20 border border-gray-200 bg-gray-50"></div>);
+    }
+
+    // Actual days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${(month + 1)
+        .toString()
+        .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+      const isToday = dateStr === new Date().toISOString().split("T")[0];
+      const isSelected = dateStr === selectedDate;
+      const dayHolidays = holidays.filter(
+        (h) => normalizeDate(h.date) === dateStr
+      );
+
+      days.push(
+        <div
+          key={day}
+          className={`h-20 border border-gray-200 p-1 cursor-pointer transition-all ${
+            isSelected 
+              ? "bg-blue-500 text-white" 
+              : isToday 
+                ? "bg-blue-100 border-blue-300" 
+                : "bg-white hover:bg-gray-50"
+          }`}
+          onClick={() => setSelectedDate(dateStr)}
+        >
+          <div className={`text-xs font-medium ${
+            isSelected ? "text-white" : 
+            isToday ? "text-blue-600 font-bold" : "text-gray-700"
+          }`}>
+            {day}
+          </div>
+          
+          {/* Holidays - Compact */}
+          <div className="mt-0.5 space-y-0.5">
+            {dayHolidays.slice(0, 2).map((holiday, index) => (
+              <div
+                key={index}
+                className={`text-[10px] px-1 py-0.5 rounded text-white truncate ${HOLIDAY_COLORS[holiday.type] || "bg-gray-400"}`}
+                title={holiday.name}
+              >
+                {holiday.name.length > 8 ? holiday.name.substring(0, 8) + "..." : holiday.name}
+              </div>
+            ))}
+            {dayHolidays.length > 2 && (
+              <div className={`text-[10px] ${isSelected ? "text-blue-100" : "text-gray-500"}`}>
+                +{dayHolidays.length - 2}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return <div className="grid grid-cols-7 gap-1 bg-gray-100 border border-gray-200 rounded-lg overflow-hidden">{days}</div>;
+  };
+
+  // Holiday Cards for the bottom section
+  const HolidayCards = () => {
+    // Group holidays by month
+    const holidaysByMonth = holidays.reduce((acc, holiday) => {
+      const month = new Date(holiday.date).getMonth();
+      if (!acc[month]) acc[month] = [];
+      acc[month].push(holiday);
+      return acc;
+    }, {} as Record<number, Holiday[]>);
+
+    return (
+      <div className="mt-8">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">All Holidays ({year})</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Object.entries(holidaysByMonth).map(([monthNum, monthHolidays]) => (
+            <div key={monthNum} className="bg-white rounded-lg border border-gray-200 p-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b">
+                {monthsList[parseInt(monthNum)]}
+              </h3>
+              
+              <div className="space-y-2">
+                {monthHolidays
+                  .sort((a, b) => new Date(a.date).getDate() - new Date(b.date).getDate())
+                  .map((holiday, index) => (
+                  <div 
+                    key={index} 
+                    className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded transition-colors"
+                  >
+                    {/* Neutral style for holiday circle: gray background, text-gray-700 */}
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-gray-700 text-xs font-medium bg-gray-200">
+                      {new Date(holiday.date).getDate()}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="font-medium text-gray-800 text-sm truncate">{holiday.name}</h4>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-600">
+                        <span>{new Date(holiday.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                        <span>{holiday.type}</span>
+                      </div>
                     </div>
                   </div>
-                )}
-
-                <FullCalendar
-                  plugins={[dayGridPlugin, interactionPlugin]}
-                  initialView="dayGridMonth"
-                  events={events}
-                  eventClick={handleEventClick}
-                  dateClick={handleDateClick}
-                  height="auto"
-                  headerToolbar={{
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: '',
-                  }}
-                  dayMaxEventRows={3}
-                  eventContent={(eventInfo: EventContentArg) => {
-                    const type = eventInfo.event.extendedProps.type as Holiday["type"];
-                    return (
-                      <div className="flex items-center gap-1">
-                        <span
-                          className={`w-2 h-2 rounded-full ${HOLIDAY_COLORS[type]} shrink-0`}
-                          aria-label={type}
-                          title={type}
-                        />
-                        <span className="truncate">{eventInfo.event.title}</span>
-                      </div>
-                    );
-                  }}
-                  eventDisplay="block"
-                  selectable={false}
-                  fixedWeekCount={false}
-                  dayCellClassNames={(arg) => {
-                    const dateStr = normalizeDate(arg.date.toISOString());
-                    if (dateStr === normalizeDate(selectedDate)) {
-                      return ['!bg-blue-100'];
-                    }
-                    return [];
-                  }}
-                />
+                ))}
               </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-1">Holiday Calendar</h1>
+          <p className="text-gray-600 text-sm">View company holidays for {year}</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Main Calendar - Smaller */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <CalendarHeader />
+              <WeekDaysHeader />
+              <CalendarGrid />
             </div>
           </div>
 
-          <div className="space-y-6 lg:space-y-8">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 lg:p-8">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">
-                Selected Date
-              </h2>
-              <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100">
-                <div className="text-lg font-semibold text-gray-800">
+          {/* Right Sidebar - Compact */}
+          <div className="space-y-4">
+            {/* Selected Date */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <h2 className="text-md font-semibold text-gray-800 mb-3">Selected Date</h2>
+              <div className="mb-3 p-3 bg-gray-50 rounded border border-gray-200">
+                <div className="text-sm font-semibold text-gray-800">
                   {new Date(selectedDate).toLocaleDateString("en-US", {
                     weekday: "long",
                     year: "numeric",
@@ -276,34 +314,56 @@ const HolidayCalendar: React.FC = () => {
                   })}
                 </div>
               </div>
-              <div className="space-y-3 min-h-[100px]">
+
+              <div className="space-y-2">
+                <h3 className="font-medium text-gray-700 text-sm">Holidays:</h3>
                 {selectedDateHolidays.length > 0 ? (
                   selectedDateHolidays.map((h, i) => (
-                    <div
-                      key={i}
-                      className="p-4 rounded-xl border border-gray-200 hover:border-blue-300 transition-all duration-200 bg-white hover:shadow-md"
-                    >
-                      <h3 className="font-semibold text-gray-800 mb-1">
-                        {h.summary}
-                      </h3>
-                      <p className="text-sm text-gray-600 whitespace-pre-line">{h.description}</p>
-                      <span className={`inline-block mt-2 px-2 py-1 text-xs font-medium rounded-full ${HOLIDAY_COLORS[h.type]} text-white`}>
-                        {h.type}
-                      </span>
+                    <div key={i} className="p-2 rounded border border-gray-200 bg-white">
+                      <div className="flex items-start gap-2">
+                        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${HOLIDAY_COLORS[h.type] || "bg-gray-400"}`} />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-gray-800 text-sm mb-0.5">{h.name}</h4>
+                          <p className="text-xs text-gray-600">{h.type}</p>
+                        </div>
+                      </div>
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 text-gray-500 font-medium">
-                    📅 No holidays today
+                  <div className="text-center py-3 text-gray-500">
+                    <svg className="w-5 h-5 mx-auto mb-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <p className="text-xs">No holidays</p>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Quick Stats - Compact */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <h2 className="text-md font-semibold text-gray-800 mb-3">Overview</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center p-3 bg-blue-50 rounded border border-blue-200">
+                  <div className="text-lg font-bold text-blue-600">{holidays.length}</div>
+                  <div className="text-xs text-blue-600">Total Holidays</div>
+                </div>
+                <div className="text-center p-3 bg-green-50 rounded border border-green-200">
+                  <div className="text-lg font-bold text-green-600">
+                    {Array.from(new Set(holidays.map((h) => h.date))).length}
+                  </div>
+                  <div className="text-xs text-green-600">Holiday Days</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Holiday Cards at Bottom */}
+        <HolidayCards />
+
         {error && (
-          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 font-medium text-center">
+          <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-center text-sm">
             ⚠ {error}
           </div>
         )}
