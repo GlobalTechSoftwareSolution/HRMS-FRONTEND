@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
 import axios from "axios";
@@ -56,14 +56,18 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
 
-  // Payroll data type
+ 
+  // Store all payrolls for all employees
   type Payroll = {
+    email: string;
+    year?: number;
+    month?: number;
     basic_salary?: number;
-    allowances?: number;
-    deductions?: number;
+    salary?: number;
     [key: string]: unknown;
   };
-  const [payrollData, setPayrollData] = useState<{ [email: string]: Payroll }>({});
+
+  const [allPayrolls, setAllPayrolls] = useState<Payroll[]>([]);
 
   // UI state
   const [loading, setLoading] = useState<boolean>(true);
@@ -116,27 +120,40 @@ export default function EmployeesPage() {
     fetchEmployees();
   }, [API_BASE]);
 
-  // Fetch payroll for employee, wrapped in useCallback for dependency safety
-  const fetchPayrollForEmployee = useCallback(async (email: string) => {
-    try {
-      const res = await axios.get(`${API_BASE}/api/accounts/get_payroll/${email}/`);
-      if (res.data && res.data.payroll && res.data.payroll.basic_salary) {
-        setPayrollData(prev => ({
-          ...prev,
-          [email]: res.data.payroll
-        }));
+  // Fetch all payrolls once
+  useEffect(() => {
+    const fetchAllPayrolls = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/api/accounts/list_payrolls/`);
+        const data = res.data;
+        if (Array.isArray(data)) {
+          setAllPayrolls(data);
+        } else if (data?.payrolls && Array.isArray(data.payrolls)) {
+          setAllPayrolls(data.payrolls);
+        } else {
+          setAllPayrolls([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch payrolls", err);
+        setAllPayrolls([]);
       }
-    } catch (err) {
-      console.error("Failed to fetch payroll data", err);
-    }
+    };
+    fetchAllPayrolls();
   }, [API_BASE]);
 
-  // Fetch payroll when selectedUser changes
-  useEffect(() => {
-    if (selectedUser && selectedUser.email) {
-      fetchPayrollForEmployee(selectedUser.email);
-    }
-  }, [selectedUser, fetchPayrollForEmployee]);
+  // Helper to get latest payroll for an employee (case-insensitive, handle missing year/month)
+  const getLatestPayroll = (email: string) => {
+    if (!Array.isArray(allPayrolls)) return null;
+
+    const payrolls = allPayrolls
+      .filter(p => p.email?.toLowerCase() === email.toLowerCase())
+      .sort((a, b) => {
+        const dateA = a.year && a.month ? new Date(`${a.year}-${a.month}-01`) : new Date(0);
+        const dateB = b.year && b.month ? new Date(`${b.year}-${b.month}-01`) : new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
+    return payrolls[0] || null;
+  };
 
   // ---------- Fetch documents ----------
   const fetchDocuments = async () => {
@@ -490,11 +507,13 @@ export default function EmployeesPage() {
                             <div className="flex justify-between items-center">
                               <span className="font-medium text-gray-700">Salary:</span>
                               <span className="text-gray-900">
-                                ₹{payrollData[selectedUser.email]?.basic_salary
-                                  ? Math.round(Number(payrollData[selectedUser.email]?.basic_salary || 0)).toLocaleString() + "/-"
-                                  : selectedUser.salary
-                                    ? Math.round(selectedUser.salary).toLocaleString() + "/-"
-                                    : "0/-"
+                                ₹{
+                                  Math.round(
+                                    getLatestPayroll(selectedUser.email)?.basic_salary ??
+                                    getLatestPayroll(selectedUser.email)?.salary ??
+                                    selectedUser.salary ??
+                                    0
+                                  ).toLocaleString() + "/-"
                                 }
                               </span>
                             </div>

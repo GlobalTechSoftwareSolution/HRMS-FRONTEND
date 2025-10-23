@@ -75,9 +75,11 @@ const HolidayCalendar: React.FC = () => {
 
   const selectedDateHolidays = useMemo(() => {
     return holidays.filter(
-      (h) => normalizeDate(h.date) === normalizeDate(selectedDate)
+      (h) =>
+        normalizeDate(h.date) === normalizeDate(selectedDate) &&
+        new Date(h.date).getFullYear() === year
     );
-  }, [holidays, selectedDate]);
+  }, [holidays, selectedDate, year]);
 
   const goToPreviousMonth = () => {
     if (month === 0) {
@@ -229,13 +231,15 @@ const HolidayCalendar: React.FC = () => {
 
   // Holiday Cards for the bottom section
   const HolidayCards = () => {
-    // Group holidays by month
-    const holidaysByMonth = holidays.reduce((acc, holiday) => {
-      const month = new Date(holiday.date).getMonth();
-      if (!acc[month]) acc[month] = [];
-      acc[month].push(holiday);
-      return acc;
-    }, {} as Record<number, Holiday[]>);
+    // Group holidays by month for the selected year only
+    const holidaysByMonth = holidays
+      .filter(h => new Date(h.date).getFullYear() === year)
+      .reduce((acc, holiday) => {
+        const month = new Date(holiday.date).getMonth();
+        if (!acc[month]) acc[month] = [];
+        acc[month].push(holiday);
+        return acc;
+      }, {} as Record<number, Holiday[]>);
 
     return (
       <div className="mt-8">
@@ -287,6 +291,22 @@ const HolidayCalendar: React.FC = () => {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800 mb-1">Holiday Calendar</h1>
           <p className="text-gray-600 text-sm">View company holidays for {year}</p>
+        </div>
+
+        {/* Year Selector */}
+        <div className="flex items-center gap-2 mb-4">
+          <label className="text-sm font-medium text-gray-700">Year:</label>
+          <select
+            value={year}
+            onChange={(e) => setYear(parseInt(e.target.value))}
+            className="border rounded px-2 py-1"
+          >
+            {Array.from(new Set(holidays.map(h => new Date(h.date).getFullYear())))
+              .sort()
+              .map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+          </select>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -345,12 +365,14 @@ const HolidayCalendar: React.FC = () => {
               <h2 className="text-md font-semibold text-gray-800 mb-3">Overview</h2>
               <div className="grid grid-cols-2 gap-3">
                 <div className="text-center p-3 bg-blue-50 rounded border border-blue-200">
-                  <div className="text-lg font-bold text-blue-600">{holidays.length}</div>
+                  <div className="text-lg font-bold text-blue-600">
+                    {holidays.filter(h => new Date(h.date).getFullYear() === year).length}
+                  </div>
                   <div className="text-xs text-blue-600">Total Holidays</div>
                 </div>
                 <div className="text-center p-3 bg-green-50 rounded border border-green-200">
                   <div className="text-lg font-bold text-green-600">
-                    {Array.from(new Set(holidays.map((h) => h.date))).length}
+                    {Array.from(new Set(holidays.filter(h => new Date(h.date).getFullYear() === year).map((h) => h.date))).length}
                   </div>
                   <div className="text-xs text-green-600">Holiday Days</div>
                 </div>
