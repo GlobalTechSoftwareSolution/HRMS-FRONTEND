@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
@@ -13,6 +11,7 @@ import {
   FiCheckCircle,
   FiXCircle,
   FiClock,
+  FiInfo,
 } from "react-icons/fi";
 
 type Employee = {
@@ -33,18 +32,40 @@ type LeaveRequest = {
   status: "Pending" | "Approved" | "Rejected";
 };
 
+// ===== StatusBadge =====
 const StatusBadge = ({ status }: { status?: string }) => {
   const statusConfig: Record<string, { color: string; icon: React.ReactNode }> = {
     Pending: { color: "bg-yellow-100 text-yellow-800", icon: <FiClock className="mr-1" /> },
     Approved: { color: "bg-green-100 text-green-800", icon: <FiCheckCircle className="mr-1" /> },
     Rejected: { color: "bg-red-100 text-red-800", icon: <FiXCircle className="mr-1" /> },
   };
-  const config = status ? statusConfig[status] : { color: "bg-gray-100 text-gray-800", icon: <FiClock className="mr-1" /> };
+
+  const config = statusConfig[status ?? ""] ?? {
+    color: "bg-gray-100 text-gray-800",
+    icon: <FiClock className="mr-1" />,
+  };
+
   return (
     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${config.color}`}>
       {config.icon}
       {status || "Unknown"}
     </span>
+  );
+};
+
+// ===== ToastPopup =====
+const ToastPopup = ({ message, type }: { message: string; type: "success" | "error" }) => {
+  const bgColor = type === "success" ? "bg-green-500" : "bg-red-500";
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className={`${bgColor} text-white px-4 py-2 rounded shadow fixed top-5 right-5 z-50 flex items-center gap-2`}
+    >
+      <FiInfo className="w-5 h-5" />
+      <span>{message}</span>
+    </motion.div>
   );
 };
 
@@ -54,6 +75,9 @@ export default function ManagerLeaveApproval() {
   const [loading, setLoading] = useState(true);
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [filter, setFilter] = useState<"Pending" | "Approved" | "Rejected" | "All">("All");
+
+  // ===== Toast state =====
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const getLeaveKey = (leave: LeaveRequest) =>
     `${leave.email}-${leave.start_date}-${leave.end_date}-${leave.leave_type}`;
@@ -70,6 +94,7 @@ export default function ManagerLeaveApproval() {
       setLeaveRequests(leaveData.leaves || []);
     } catch (err) {
       console.error("Error fetching data:", err);
+      showToast("Failed to fetch data", "error");
     } finally {
       setLoading(false);
     }
@@ -78,6 +103,12 @@ export default function ManagerLeaveApproval() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // ===== Show toast =====
+  const showToast = (message: string, type: "success" | "error") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const updateLeaveStatus = async (leave: LeaveRequest, status: "Approved" | "Rejected") => {
     setUpdatingKey(leave.id);
@@ -92,7 +123,7 @@ export default function ManagerLeaveApproval() {
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         console.error("Backend error:", errData);
-        alert(errData.error || "Failed to update leave status.");
+        showToast(errData.error || "Failed to update leave status", "error");
         return;
       }
 
@@ -104,10 +135,10 @@ export default function ManagerLeaveApproval() {
         )
       );
 
-      alert(`Leave ${status} successfully!`);
+      showToast(`Leave ${status} successfully!`, "success");
     } catch (err) {
       console.error("Network error:", err);
-      alert("Network error. Could not update leave status.");
+      showToast("Network error. Could not update leave status", "error");
     } finally {
       setUpdatingKey(null);
     }
@@ -134,6 +165,9 @@ export default function ManagerLeaveApproval() {
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Leave Management Dashboard</h1>
+
+          {/* Toast */}
+          <AnimatePresence>{toast && <ToastPopup message={toast.message} type={toast.type} />}</AnimatePresence>
 
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">

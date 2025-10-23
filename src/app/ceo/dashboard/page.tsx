@@ -9,14 +9,14 @@ export default function CEODashboard() {
 
   // Financial data
   const financialData = {
-    totalHours: "0",
-    totalEmployees: "0",
-    totalIncome: "0",
-    totalPayment: "0",
-    paymentdone: "+0",
-    paymentpending: "+0",
-    cost: "+0",
-    grossProfit: "+0"
+    totalHours: "100",
+    totalEmployees: "50",
+    totalSales: "10",
+    totalConversion: "1",
+    paymentDone: "+4",
+    paymentPending: "+1",
+    cost: "+10000",
+    grossProfit: "+10"
   };
 
   // Highlights data
@@ -24,31 +24,31 @@ export default function CEODashboard() {
     {
       title: "Last Sales",
       date: "16 Oct 2021",
-      amount: "₹0",
+      amount: "₹1000",
       icon: "💰"
     },
     {
       title: "Last Receipt", 
       date: "18 Oct 2021",
-      amount: "₹0",
+      amount: "₹1000",
       icon: "📥"
     },
     {
       title: "Last Purchase",
       date: "16 Oct 2021", 
-      amount: "₹0",
+      amount: "₹1000",
       icon: "🛒"
     },
     {
       title: "Last Payment",
       date: "13 Oct 2021",
-      amount: "₹0",
+      amount: "₹1000",
       icon: "📤"
     },
     {
       title: "Due Customers",
-      count: "0",
-      value: "₹0",
+      count: "10",
+      value: "₹1000",
       icon: "👥"
     }
   ];
@@ -122,20 +122,20 @@ export default function CEODashboard() {
           {/* Total Purchase */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-orange-500 hover:shadow-xl transition-shadow duration-300">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Income</h3>
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Sales</h3>
               <div className="text-orange-500 text-2xl">🛒</div>
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-2">₹{financialData.totalIncome}</div>
+            <div className="text-3xl font-bold text-gray-900 mb-2">₹{financialData.totalSales}</div>
             <div className="text-sm text-orange-600 font-medium">+15.2% from last year</div>
           </div>
 
           {/* Total Payment */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500 hover:shadow-xl transition-shadow duration-300">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Payment</h3>
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Conversion</h3>
               <div className="text-purple-500 text-2xl">💸</div>
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-2">₹{financialData.totalPayment}</div>
+            <div className="text-3xl font-bold text-gray-900 mb-2">₹{financialData.totalConversion}</div>
             <div className="text-sm text-purple-600 font-medium">+9.7% from last year</div>
           </div>
         </div>
@@ -151,7 +151,7 @@ export default function CEODashboard() {
                   <h3 className="text-sm font-medium text-gray-700">Payment done</h3>
                   <div className="text-green-600 text-lg">📋</div>
                 </div>
-                <div className="text-2xl font-bold text-green-800">{financialData.paymentdone}</div>
+                <div className="text-2xl font-bold text-green-800">{financialData.paymentDone}</div>
               </div>
 
               {/* Purchase Debit Note */}
@@ -160,7 +160,7 @@ export default function CEODashboard() {
                   <h3 className="text-sm font-medium text-gray-700">Payment pending</h3>
                   <div className="text-red-600 text-lg">📄</div>
                 </div>
-                <div className="text-2xl font-bold text-red-800">{financialData.paymentpending}</div>
+                <div className="text-2xl font-bold text-red-800">{financialData.paymentPending}</div>
               </div>
 
               {/* Cost */}
@@ -272,15 +272,15 @@ export default function CEODashboard() {
         <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-6 text-white">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center">
-              <div className="text-3xl font-bold mb-2">₹0</div>
-              <div className="text-gray-300">Net Cash Flow</div>
+              <div className="text-3xl font-bold mb-2">₹100</div>
+              <div className="text-gray-300">Net Flow</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold mb-2">0%</div>
+              <div className="text-3xl font-bold mb-2">10%</div>
               <div className="text-gray-300">Profit Margin</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold mb-2">₹0</div>
+              <div className="text-3xl font-bold mb-2">3%</div>
               <div className="text-gray-300">Quarterly Growth</div>
             </div>
           </div>

@@ -503,30 +503,65 @@ export default function AttendancePortal() {
                             <h3 className="text-lg font-semibold mb-4 text-gray-800">
                                 {new Date(currentMonth).toLocaleString("default", { month: "long", year: "numeric" })} Attendance Summary
                             </h3>
-
-                            <PieChart
-                                data={chartData}
-                                animate
-                                onMouseOver={(e, index) => setHoveredIndex(index)}
-                                onMouseOut={() => setHoveredIndex(null)}
-                                label={({ dataEntry }) => (dataEntry.value > 0 ? `${dataEntry.value}` : "")}
-                                labelStyle={{ fontSize: "10px", fontFamily: "inherit", fill: "#374151" }}
-                                radius={38}
-                                labelPosition={68}
-                                style={{ height: 180 }}
-                            />
-
-                            {hoveredIndex !== null && (
-                                <div className="absolute top-10 left-1/2 transform -translate-x-1/2 bg-white border shadow-lg px-3 py-2 rounded-lg text-xs text-gray-700 animate-fade-in">
-                                    <span className="font-semibold">{chartData[hoveredIndex].title}:</span> {chartData[hoveredIndex].value} days (
-                                    {(
-                                        (chartData[hoveredIndex].value /
-                                            (chartData[0].value + chartData[1].value + chartData[2].value)) *
-                                        100
-                                    ).toFixed(1)}
-                                    %)
-                                </div>
-                            )}
+                            {(() => {
+                                // Find out how many categories have value > 0
+                                const nonZeroSegments = chartData.filter(d => d.value > 0);
+                                if (nonZeroSegments.length === 1) {
+                                    // Only one category has value > 0. Show number in center.
+                                    const category = nonZeroSegments[0];
+                                    return (
+                                        <div className="relative flex items-center justify-center" style={{ height: 180 }}>
+                                            <PieChart
+                                                data={chartData}
+                                                animate
+                                                label={() => ""}
+                                                radius={38}
+                                                style={{ height: 180 }}
+                                            />
+                                            <div
+                                                className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+                                                style={{ top: 0, left: 0 }}
+                                            >
+                                                <span
+                                                    className="text-4xl font-bold"
+                                                    style={{ color: "#000" }}
+                                                >
+                                                    {category.value}
+                                                </span>
+                                                <span className="text-xs text-gray-600 mt-1">{category.title}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                } else {
+                                    // Multiple segments: show normal PieChart with label and hovered info
+                                    return (
+                                        <>
+                                            <PieChart
+                                                data={chartData}
+                                                animate
+                                                onMouseOver={(e, index) => setHoveredIndex(index)}
+                                                onMouseOut={() => setHoveredIndex(null)}
+                                                label={({ dataEntry }) => (dataEntry.value > 0 ? `${dataEntry.value}` : "")}
+                                                labelStyle={{ fontSize: "10px", fontFamily: "inherit", fill: "#374151" }}
+                                                radius={38}
+                                                labelPosition={68}
+                                                style={{ height: 180 }}
+                                            />
+                                            {hoveredIndex !== null && (
+                                                <div className="absolute top-10 left-1/2 transform -translate-x-1/2 bg-white border shadow-lg px-3 py-2 rounded-lg text-xs text-gray-700 animate-fade-in">
+                                                    <span className="font-semibold">{chartData[hoveredIndex].title}:</span> {chartData[hoveredIndex].value} days (
+                                                    {(
+                                                        (chartData[hoveredIndex].value /
+                                                            (chartData[0].value + chartData[1].value + chartData[2].value)) *
+                                                        100
+                                                    ).toFixed(1)}
+                                                    %)
+                                                </div>
+                                            )}
+                                        </>
+                                    );
+                                }
+                            })()}
                         </div>
                     </div>
                 </div>

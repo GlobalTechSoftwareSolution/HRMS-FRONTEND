@@ -96,7 +96,7 @@ export default function HRPayrollDashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const setAttendance = useState<Attendance[]>([])[1];
 
   const [formData, setFormData] = useState<CreatePayrollForm>({
     email: "",
@@ -207,53 +207,67 @@ export default function HRPayrollDashboard() {
     setNotifications(prev => prev.filter(notification => notification.id !== id));
   };
 
-// In your fetchData useEffect, add this debugging:
 const fetchData = useCallback(async () => {
+  setLoading(true);
+  setError(null);
   try {
-    setLoading(true);
-    setError(null);
-
-    // Fetch employees
-    const employeesResponse = await fetch(
+    // Start all fetches in parallel
+    const employeesPromise = fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`
     );
-    if (!employeesResponse.ok) throw new Error('Failed to fetch employees');
-    const employeesData: Employee[] = await employeesResponse.json();
-    setEmployees(Array.isArray(employeesData) ? employeesData : []);
-    console.log('👥 Employees loaded:', employeesData.length);
-
-    // Fetch attendance
-    const attendanceResponse = await fetch(
+    const attendancePromise = fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_attendance/`
     );
+    const payrollsPromise = fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_payrolls/`
+    );
+
+    const [employeesResponse, attendanceResponse, payrollsResponse] = await Promise.all([
+      employeesPromise,
+      attendancePromise,
+      payrollsPromise,
+    ]);
+
+    let employeesData: Employee[] = [];
+    if (employeesResponse.ok) {
+      employeesData = await employeesResponse.json();
+      setEmployees(Array.isArray(employeesData) ? employeesData : []);
+      console.log('👥 Employees loaded:', employeesData.length);
+    } else {
+      setEmployees([]);
+      throw new Error('Failed to fetch employees');
+    }
+
+    let attendanceData: Attendance[] = [];
     if (attendanceResponse.ok) {
-      const attendanceData: Attendance[] = await attendanceResponse.json();
-      setAttendance(Array.isArray(attendanceData) ? attendanceData : []);
+      const rawAttendance = await attendanceResponse.json();
+      attendanceData = Array.isArray(rawAttendance) ? rawAttendance : rawAttendance.results || [];
+      setAttendance(attendanceData);
       console.log('📊 All attendance records:', attendanceData);
     } else {
+      setAttendance([]);
       console.error('Failed to fetch attendance');
     }
 
-    // Fetch payrolls
-    const payrollsResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_payrolls/`
-    );
-    if (!payrollsResponse.ok) throw new Error('Failed to fetch payroll data');
-    const payrollsData = await payrollsResponse.json();
-    console.log('💰 Payrolls loaded:', payrollsData.payrolls?.length || 0);
+    let payrollsData: { payrolls: PayrollAPIResponse[] } = { payrolls: [] };
+    if (payrollsResponse.ok) {
+      payrollsData = await payrollsResponse.json();
+      console.log('💰 Payrolls loaded:', payrollsData.payrolls?.length || 0);
+    } else {
+      setPayslips([]);
+      throw new Error('Failed to fetch payroll data');
+    }
 
     if (payrollsData.payrolls && Array.isArray(payrollsData.payrolls)) {
       const transformedPayslips: PayslipData[] = payrollsData.payrolls.map(
         (payroll: PayrollAPIResponse, _index: number) => {
           const employee = employeesData.find((emp) => emp.email === payroll.email);
-          const employeeAttendance = attendance.filter((a) => a.email === payroll.email);
-
+          const employeeAttendance = attendanceData.filter((a) => a.email === payroll.email);
           const attendanceMetrics = calculateAttendanceMetrics(
             employeeAttendance,
             payroll.month,
             parseInt(payroll.year)
           );
-
           return {
             id: `${payroll.email}-${payroll.month}-${payroll.year}-${_index}`,
             companyName: "GLOBAL TECH SOFTWARE SOLUTIONS",
@@ -291,10 +305,12 @@ const fetchData = useCallback(async () => {
     console.error("Error fetching data:", err);
     setError(err instanceof Error ? err.message : "Failed to fetch data");
     setPayslips([]);
+    setEmployees([]);
+    setAttendance([]);
   } finally {
     setLoading(false);
   }
-}, [attendance]);
+}, [setAttendance]);
 
 useEffect(() => {
   fetchData();
@@ -361,9 +377,8 @@ useEffect(() => {
         `Payroll for ${formData.email} has been created successfully!`
       );
 
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      // Immediately fetch new data and close modal
+      await fetchData();
 
     } catch (err) {
       console.error("Error creating payroll:", err);
@@ -880,7 +895,7 @@ employeeDetails.forEach((row) => {
 
     y -= 15;
 
-    const confidentialText = "FOR AUTHORIZED USE ONLY";
+    const confidentialText = " FOR AUTHORIZED USE ONLY";
     page.drawText(confidentialText, {
       x: width / 2 - font.widthOfTextAtSize(confidentialText, 9) / 2,
       y,
@@ -958,27 +973,26 @@ employeeDetails.forEach((row) => {
     "July", "August", "September", "October", "November", "December"
   ];
 
+
+
+
+
+  
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 
-  if (loading) {
-    return (
-      <DashboardLayout role="hr">
-        <div className="min-h-screen bg-gray-50 p-6">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
+  // Always render DashboardLayout to prevent flicker and show spinner only if loading.
+  return (
+    <DashboardLayout role="hr">
+      <div className="min-h-screen bg-gray-50 p-6 relative">
+        {/* Loading Spinner */}
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center z-40 bg-white bg-opacity-60">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
           </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (error) {
-    return (
-      <DashboardLayout role="hr">
-        <div className="min-h-screen bg-gray-50 p-6">
+        )}
+        {/* Error State */}
+        {!loading && error && (
           <div className="max-w-6xl mx-auto">
             <div className="text-center py-16">
               <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -996,45 +1010,174 @@ employeeDetails.forEach((row) => {
               </button>
             </div>
           </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (!showPayslip) {
-    return (
-      <DashboardLayout role="hr">
-        <div className="min-h-screen bg-gray-50 p-6">
-          <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm w-full">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-4 rounded-lg border shadow-lg transform transition-all duration-300 ease-in-out ${getNotificationBgColor(notification.type)}`}
-              >
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    {getNotificationIcon(notification.type)}
+        )}
+        {/* Payslip View */}
+        {!loading && !error && showPayslip && (
+          <div className="max-w-4xl mx-auto">
+            <button
+              onClick={() => setShowPayslip(false)}
+              className="mb-6 flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Employee List
+            </button>
+            {selectedPayslip && (
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+                <div className="p-8">
+                  <div className="text-center mb-8">
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                      {selectedPayslip.companyName}
+                    </h1>
+                    <h2 className="text-lg font-semibold text-gray-700">
+                      Pay slip For {selectedPayslip.period}
+                    </h2>
                   </div>
-                  <div className="ml-3 flex-1">
-                    <p className={`text-sm font-medium ${getNotificationTextColor(notification.type)}`}>
-                      {notification.title}
-                    </p>
-                    <p className={`mt-1 text-sm ${getNotificationTextColor(notification.type)}`}>
-                      {notification.message}
-                    </p>
+                  <div className="mb-8">
+                    <table className="w-full text-sm border-collapse">
+                      <tbody>
+                        <tr className="border-b border-gray-200">
+                          <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50 w-1/4">Employee ID</td>
+                          <td className="py-2 px-4 text-gray-900 w-1/4">{selectedPayslip.employeeId}</td>
+                          <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50 w-1/4">Name</td>
+                          <td className="py-2 px-4 text-gray-900 w-1/4">{selectedPayslip.employeeName}</td>
+                        </tr>
+                        <tr className="border-b border-gray-200">
+                          <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Bank</td>
+                          <td className="py-2 px-4 text-gray-900">{selectedPayslip.bank}</td>
+                          <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Bank A/c No.</td>
+                          <td className="py-2 px-4 text-gray-900">{selectedPayslip.bankAccount}</td>
+                        </tr>
+                        <tr className="border-b border-gray-200">
+                          <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">DOJ</td>
+                          <td className="py-2 px-4 text-gray-900">{selectedPayslip.doj}</td>
+                          <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">PF - UAN</td>
+                          <td className="py-2 px-4 text-gray-900">{selectedPayslip.pfUan}</td>
+                        </tr>
+                        <tr className="border-b border-gray-200">
+                          <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Location</td>
+                          <td className="py-2 px-4 text-gray-900">{selectedPayslip.location}</td>
+                          <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Department</td>
+                          <td className="py-2 px-4 text-gray-900">{selectedPayslip.department}</td>
+                        </tr>
+                        <tr className="border-b border-gray-200">
+                          <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">PF number</td>
+                          <td className="py-2 px-4 text-gray-900">{selectedPayslip.pf_no}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
-                  <button
-                    onClick={() => removeNotification(notification.id)}
-                    className="ml-4 flex-shrink-0 inline-flex text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  <div className="mb-8">
+                    <table className="w-full text-sm border-collapse border border-gray-300">
+                      <thead>
+                        <tr>
+                          <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-left w-2/5">Earnings</th>
+                          <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-right w-1/5">Amount in Rs.</th>
+                          <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-left w-2/5">Deductions</th>
+                          <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-right w-1/5">Amount in Rs.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          ["BASIC", selectedPayslip.earnings.basic],
+                          ["HOUSE RENT ALLOWANCE", selectedPayslip.earnings.houseRentAllowance],
+                          ["PERSONAL ALLOWANCE", selectedPayslip.earnings.personalAllowance],
+                          ["OTHER ALLOWANCE", selectedPayslip.earnings.otherAllowance],
+                          ["ONCALL / SHIFT ALLOWANCE", selectedPayslip.earnings.oncallShiftAllowance],
+                        ].map(([label, amount], idx) => (
+                          <tr key={`earn-${idx}`} className="border-b border-gray-300">
+                            <td className="py-2 px-4 border border-gray-300">{label}</td>
+                            <td className="py-2 px-4 border border-gray-300 text-right">{formatCurrency(Number(amount))}</td>
+                            <td className="py-2 px-4 border border-gray-300">
+                              {idx === 0 && "PROVIDENT FUND"}
+                              {idx === 1 && "PROFESSIONAL TAX"}
+                              {idx === 2 && "ESPP CONTRIBUTION DEDUCTION"}
+                            </td>
+                            <td className="py-2 px-4 border border-gray-300 text-right">
+                              {idx === 0 && formatCurrency(selectedPayslip.deductions.providentFund)}
+                              {idx === 1 && formatCurrency(selectedPayslip.deductions.professionalTax)}
+                              {idx === 2 && formatCurrency(selectedPayslip.deductions.esppContribution)}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="bg-gray-50 font-semibold">
+                          <td className="py-3 px-4 border border-gray-300">GROSS EARNINGS</td>
+                          <td className="py-3 px-4 border border-gray-300 text-right">
+                            {formatCurrency(
+                              Object.values(selectedPayslip.earnings).reduce((sum, a) => sum + Number(a || 0), 0)
+                            )}
+                          </td>
+                          <td className="py-3 px-4 border border-gray-300">GROSS DEDUCTIONS</td>
+                          <td className="py-3 px-4 border border-gray-300 text-right">
+                            {formatCurrency(
+                              Object.values(selectedPayslip.deductions).reduce((sum, a) => sum + Number(a || 0), 0)
+                            )}
+                          </td>
+                        </tr>
+                        <tr className="bg-blue-50 font-bold">
+                          <td className="py-3 px-4 border border-gray-300" colSpan={2}></td>
+                          <td className="py-3 px-4 border border-gray-300">NET PAY</td>
+                          <td className="py-3 px-4 border border-gray-300 text-right text-blue-700">
+                            {formatCurrency(
+                              Object.values(selectedPayslip.earnings).reduce((sum, a) => sum + Number(a || 0), 0) -
+                              Object.values(selectedPayslip.deductions).reduce((sum, a) => sum + Number(a || 0), 0)
+                            )}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="text-center text-gray-500 text-sm border-t border-gray-200 pt-4">
+                    <p>** This is a computer generated payslip and does not require signature and stamp.</p>
+                  </div>
+                  <div className="mt-8 flex justify-center gap-4">
+                    <button
+                      onClick={() => downloadPDF(selectedPayslip)}
+                      className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center gap-2"
+                    >
+                      <Download className="h-5 w-5" />
+                      Download PDF
+                    </button>
+                  </div>
                 </div>
               </div>
-            ))}
+            )}
           </div>
+        )}
+        {/* Main Content */}
+        {!loading && !error && !showPayslip && (
+          <>
+            <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm w-full">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-4 rounded-lg border shadow-lg transform transition-all duration-300 ease-in-out ${getNotificationBgColor(notification.type)}`}
+                >
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      {getNotificationIcon(notification.type)}
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <p className={`text-sm font-medium ${getNotificationTextColor(notification.type)}`}>
+                        {notification.title}
+                      </p>
+                      <p className={`mt-1 text-sm ${getNotificationTextColor(notification.type)}`}>
+                        {notification.message}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => removeNotification(notification.id)}
+                      className="ml-4 flex-shrink-0 inline-flex text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-          <div className="max-w-6xl mx-auto">
+            <div className="max-w-6xl mx-auto">
             <div className="flex justify-between items-center mb-8">
               <div className="text-center flex-1">
                 <h1 className="text-3xl font-bold text-gray-800 mb-4">Employee Payslips</h1>
@@ -1283,159 +1426,16 @@ employeeDetails.forEach((row) => {
                       )}
                     </button>
                   </div>
+
+
+
+
                 </form>
               </div>
             </div>
           )}
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  return (
-    <DashboardLayout role="hr">
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-4xl mx-auto">
-          <button
-            onClick={() => setShowPayslip(false)}
-            className="mb-6 flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Employee List
-          </button>
-
-          {selectedPayslip && (
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
-              <div className="p-8">
-                <div className="text-center mb-8">
-                  <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                    {selectedPayslip.companyName}
-                  </h1>
-                  <h2 className="text-lg font-semibold text-gray-700">
-                    Pay slip For {selectedPayslip.period}
-                  </h2>
-                </div>
-
-                <div className="mb-8">
-                  <table className="w-full text-sm border-collapse">
-                    <tbody>
-                      <tr className="border-b border-gray-200">
-                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50 w-1/4">Employee ID</td>
-                        <td className="py-2 px-4 text-gray-900 w-1/4">{selectedPayslip.employeeId}</td>
-                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50 w-1/4">Name</td>
-                        <td className="py-2 px-4 text-gray-900 w-1/4">{selectedPayslip.employeeName}</td>
-                      </tr>
-                      <tr className="border-b border-gray-200">
-                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Bank</td>
-                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.bank}</td>
-                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Bank A/c No.</td>
-                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.bankAccount}</td>
-                      </tr>
-                      <tr className="border-b border-gray-200">
-                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">DOJ</td>
-                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.doj}</td>
-                        
-                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">PF - UAN</td>
-                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.pfUan}</td>
-                      </tr>
-                      <tr className="border-b border-gray-200">
-                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Location</td>
-                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.location}</td>
-                        
-                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">Department</td>
-                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.department}</td>
-                      </tr>
-                      <tr className="border-b border-gray-200">
-                           
-                        <td className="py-2 px-4 font-semibold text-gray-700 bg-gray-50">PF number</td>
-                        <td className="py-2 px-4 text-gray-900">{selectedPayslip.pf_no}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="mb-8">
-                  <table className="w-full text-sm border-collapse border border-gray-300">
-                    <thead>
-                      <tr>
-                        <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-left w-2/5">Earnings</th>
-                        <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-right w-1/5">Amount in Rs.</th>
-                        <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-left w-2/5">Deductions</th>
-                        <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-right w-1/5">Amount in Rs.</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        ["BASIC", selectedPayslip.earnings.basic],
-                        ["HOUSE RENT ALLOWANCE", selectedPayslip.earnings.houseRentAllowance],
-                        ["PERSONAL ALLOWANCE", selectedPayslip.earnings.personalAllowance],
-                        ["OTHER ALLOWANCE", selectedPayslip.earnings.otherAllowance],
-                        ["ONCALL / SHIFT ALLOWANCE", selectedPayslip.earnings.oncallShiftAllowance],
-                      ].map(([label, amount], idx) => (
-                        <tr key={`earn-${idx}`} className="border-b border-gray-300">
-                          <td className="py-2 px-4 border border-gray-300">{label}</td>
-                          <td className="py-2 px-4 border border-gray-300 text-right">{formatCurrency(Number(amount))}</td>
-                          <td className="py-2 px-4 border border-gray-300">
-                            {idx === 0 && "PROVIDENT FUND"}
-                            {idx === 1 && "PROFESSIONAL TAX"}
-                            {idx === 2 && "ESPP CONTRIBUTION DEDUCTION"}
-                          </td>
-                          <td className="py-2 px-4 border border-gray-300 text-right">
-                            {idx === 0 && formatCurrency(selectedPayslip.deductions.providentFund)}
-                            {idx === 1 && formatCurrency(selectedPayslip.deductions.professionalTax)}
-                            {idx === 2 && formatCurrency(selectedPayslip.deductions.esppContribution)}
-                          </td>
-                        </tr>
-                      ))}
-
-                      <tr className="bg-gray-50 font-semibold">
-                        <td className="py-3 px-4 border border-gray-300">GROSS EARNINGS</td>
-                        <td className="py-3 px-4 border border-gray-300 text-right">
-                          {formatCurrency(
-                            Object.values(selectedPayslip.earnings).reduce((sum, a) => sum + Number(a || 0), 0)
-                          )}
-                        </td>
-                        <td className="py-3 px-4 border border-gray-300">GROSS DEDUCTIONS</td>
-                        <td className="py-3 px-4 border border-gray-300 text-right">
-                          {formatCurrency(
-                            Object.values(selectedPayslip.deductions).reduce((sum, a) => sum + Number(a || 0), 0)
-                          )}
-                        </td>
-                      </tr>
-
-                      <tr className="bg-blue-50 font-bold">
-                        <td className="py-3 px-4 border border-gray-300" colSpan={2}></td>
-                        <td className="py-3 px-4 border border-gray-300">NET PAY</td>
-                        <td className="py-3 px-4 border border-gray-300 text-right text-blue-700">
-                          {formatCurrency(
-                            Object.values(selectedPayslip.earnings).reduce((sum, a) => sum + Number(a || 0), 0) -
-                            Object.values(selectedPayslip.deductions).reduce((sum, a) => sum + Number(a || 0), 0)
-                          )}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="text-center text-gray-500 text-sm border-t border-gray-200 pt-4">
-                  <p>** This is a computer generated payslip and does not require signature and stamp.</p>
-                </div>
-
-                <div className="mt-8 flex justify-center gap-4">
-                  <button
-                    onClick={() => downloadPDF(selectedPayslip)}
-                    className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center gap-2"
-                  >
-                    <Download className="h-5 w-5" />
-                    Download PDF
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        </>
+        )}
       </div>
     </DashboardLayout>
   );

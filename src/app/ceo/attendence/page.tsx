@@ -458,7 +458,7 @@ const calendarEvents = [
               title: "Total Employees",
               value: totalEmployees,
               color: "bg-gradient-to-r from-blue-400 to-blue-600",
-              onClick: () => router.push("/employee"),
+              onClick: () => router.push("/ceo/employees"),
             },
             {
               title: "Checked In",

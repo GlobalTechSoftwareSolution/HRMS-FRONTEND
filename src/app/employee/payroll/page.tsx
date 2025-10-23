@@ -211,15 +211,15 @@ export default function PayrollDashboard() {
         branch: _branch,
         earnings: {
           "Basic Salary": record.basicSalary,
-          "House Rent Allowance": Math.round(record.basicSalary * 0.4),
-          "Travel Allowance": 1600,
-          "Medical Allowance": 1250,
-          "Special Allowance": Math.round(record.basicSalary * 0.15),
+          "House Rent Allowance": 0,
+          "Travel Allowance": 0,
+          "Medical Allowance": 0,
+          "Special Allowance": 0,
         },
         deductions: {
-          "Provident Fund": Math.round(record.basicSalary * 0.12),
+          "Provident Fund": 1800,
           "Professional Tax": 200,
-          "Income Tax": Math.round(record.basicSalary * 0.05),
+          "Income Tax": 0,
         },
       };
 
