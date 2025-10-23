@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Search, Filter, Plus, Calendar, User, AlertCircle, CheckCircle, Clock, X, Mail, Users, MessageCircle } from 'lucide-react';
 
 // Helper function to format dates as DD/MM/YYYY or DD/MM/YYYY HH:MM
@@ -153,8 +154,7 @@ const Ticket: React.FC<TicketProps> = ({
   const closeCreateModal = () => setShowCreateModal(false);
   const handleCreateFieldChange = (field: string, value: string) => setCreateFields(prev => ({ ...prev, [field]: value }));
 
-  const submitCreateTicket = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitCreateTicket = async () => {
     setCreating(true);
     try {
       const userEmail = localStorage.getItem('user_email') || '';
@@ -435,10 +435,7 @@ const Ticket: React.FC<TicketProps> = ({
             </div>
             <button 
               className="px-4 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium"
-              onClick={(e) => {
-                e.stopPropagation();
-                openModal(ticket);
-              }}
+              onClick={() => { openModal(ticket); }}
             >
               View Details
             </button>
@@ -964,7 +961,7 @@ const UserDropdown: React.FC<{
         setUsers(Array.isArray(data) ? data : []);
         setLoading(false);
       })
-      .catch(e => {
+      .catch(() => {
         setError('Failed to load users');
         setLoading(false);
       });
@@ -995,7 +992,13 @@ const UserDropdown: React.FC<{
         {selectedUser ? (
           <span className="flex items-center gap-2">
             {selectedUser.profile_picture ? (
-              <img src={selectedUser.profile_picture} alt={selectedUser.fullname || selectedUser.email} className="w-7 h-7 rounded-full object-cover" />
+              <Image
+                src={selectedUser.profile_picture || '/placeholder.png'}
+                alt={selectedUser.fullname || selectedUser.email}
+                width={28}
+                height={28}
+                className="rounded-full object-cover"
+              />
             ) : (
               <span className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-base">
                 {selectedUser.fullname?.[0]?.toUpperCase() || selectedUser.email[0].toUpperCase()}
@@ -1064,10 +1067,12 @@ const UserDropdown: React.FC<{
                         }}
                       >
                         {u.profile_picture ? (
-                          <img
-                            src={u.profile_picture}
+                          <Image
+                            src={u.profile_picture || '/placeholder.png'}
                             alt={u.fullname || u.email}
-                            className="w-8 h-8 rounded-full object-cover ring-2 ring-gray-100"
+                            width={32}
+                            height={32}
+                            className="rounded-full object-cover ring-2 ring-gray-100"
                           />
                         ) : (
                           <span className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-base">

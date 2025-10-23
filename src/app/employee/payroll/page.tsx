@@ -72,6 +72,8 @@ type PayslipData = {
   facility?: string;
   entity?: string;
   pfUan?: string;
+  ifsc?: string;
+  branch?: string;
   earnings: Record<string, number | string>;
   deductions: Record<string, number | string>;
 };
@@ -183,8 +185,8 @@ export default function PayrollDashboard() {
       const bankAccount = employeeData?.account_number ? `XXXX${employeeData.account_number.slice(-4)}` : "XXXX1234";
       const pfNumber = employeeData?.pf_no || "Not Available";
       const pfUan = employeeData?.pf_uan || "Not Available";
-      const ifsc = employeeData?.ifsc || "Not Available";
-      const branch = employeeData?.branch || "Not Available";
+      const _ifsc = employeeData?.ifsc || "Not Available";
+      const _branch = employeeData?.branch || "Not Available";
 
       const payslip: PayslipData = {
         companyName: process.env.NEXT_PUBLIC_COMPANY_NAME || "Global Tech Software Solutions",
@@ -205,6 +207,8 @@ export default function PayrollDashboard() {
         facility: "Bengaluru Office",
         entity: "Global Tech Software Solutions",
         pfUan: pfUan,
+        ifsc: _ifsc,
+        branch: _branch,
         earnings: {
           "Basic Salary": record.basicSalary,
           "House Rent Allowance": Math.round(record.basicSalary * 0.4),
@@ -326,6 +330,8 @@ export default function PayrollDashboard() {
         ["Facility", payslip.facility],
         ["Entity", payslip.entity],
         ["PF - UAN", payslip.pfUan],
+        ["IFSC Code", payslip.ifsc],
+        ["Branch", payslip.branch],
       ];
 
       for (let i = 0; i < Math.ceil(infoPairs.length / 2); i++) {

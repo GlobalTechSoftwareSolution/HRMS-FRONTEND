@@ -424,7 +424,7 @@ export default function Profile() {
                       const now = new Date();
                       if (isNaN(joinedDate.getTime())) return "N/A";
                       // Calculate difference in total milliseconds
-                      let diff = now.getTime() - joinedDate.getTime();
+                      const diff = now.getTime() - joinedDate.getTime();
                       if (diff < 0) return "N/A";
                       // Create a temp date for calculation
                       let years = now.getFullYear() - joinedDate.getFullYear();

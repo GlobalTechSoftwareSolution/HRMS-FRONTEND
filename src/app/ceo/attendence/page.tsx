@@ -80,7 +80,7 @@ export default function ManagerDashboard() {
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   // --- For mini calendar selection (full attendance list) ---
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [holidays] = useState<Holiday[]>([]);
   const [leaves, setLeaves] = useState<
     {
       employee_name?: string;
@@ -723,41 +723,42 @@ const calendarEvents = [
                 Showing attendance for: {new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
               </div>
             )}
-            <FullCalendar
-              plugins={[dayGridPlugin, interactionPlugin]}
-              initialView="dayGridMonth"
-              height={400}
-              contentHeight={350}
-              maxWidth={600}
-              showNonCurrentDates={false}
-              events={calendarEvents}
-              eventClick={(info) => {
-                const clickedDate = info.event.startStr.split("T")[0];
-                setSelectedDate(clickedDate);
-                window.scrollTo({ top: 0, behavior: "smooth" });
-                const cell = info.el.closest(".fc-daygrid-day") as HTMLElement | null;
-                if (cell) {
-                  document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach(el => el.classList.remove("highlight-day"));
-                  cell.classList.add("highlight-day");
-                }
-              }}
-              dateClick={(arg) => {
-                const local = new Date(arg.date.getTime() - arg.date.getTimezoneOffset() * 60000);
-                const dateStr = local.toISOString().split("T")[0];
-                if (dateStr !== selectedDate) setSelectedDate(dateStr);
-                window.scrollTo({ top: 0, behavior: "smooth" });
-                const cell = arg.dayEl as HTMLElement;
-                if (cell) {
-                  document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach(el => el.classList.remove("highlight-day"));
-                  cell.classList.add("highlight-day");
-                }
-              }}
-              headerToolbar={{
-                left: "prev,next today",
-                center: "title",
-                right: "dayGridMonth,dayGridWeek",
-              }}
-            />
+            <div className="mx-auto max-w-[600px]">
+              <FullCalendar
+                plugins={[dayGridPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                height={400}
+                contentHeight={350}
+                showNonCurrentDates={false}
+                events={calendarEvents}
+                eventClick={(info) => {
+                  const clickedDate = info.event.startStr.split("T")[0];
+                  setSelectedDate(clickedDate);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                  const cell = info.el.closest(".fc-daygrid-day") as HTMLElement | null;
+                  if (cell) {
+                    document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach(el => el.classList.remove("highlight-day"));
+                    cell.classList.add("highlight-day");
+                  }
+                }}
+                dateClick={(arg) => {
+                  const local = new Date(arg.date.getTime() - arg.date.getTimezoneOffset() * 60000);
+                  const dateStr = local.toISOString().split("T")[0];
+                  if (dateStr !== selectedDate) setSelectedDate(dateStr);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                  const cell = arg.dayEl as HTMLElement;
+                  if (cell) {
+                    document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach(el => el.classList.remove("highlight-day"));
+                    cell.classList.add("highlight-day");
+                  }
+                }}
+                headerToolbar={{
+                  left: "prev,next today",
+                  center: "title",
+                  right: "dayGridMonth,dayGridWeek",
+                }}
+              />
+            </div>
           </div>
           {selectedDate && (
             <button

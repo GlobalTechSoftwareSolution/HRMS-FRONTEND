@@ -1,10 +1,9 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, PDFFont } from "pdf-lib";
 import { Plus, Eye, Download, X, CheckCircle, AlertCircle, Info } from "lucide-react";
-import { differenceInMinutes, parseISO, eachDayOfInterval, startOfMonth, endOfMonth, isWeekend } from 'date-fns';
-
+import { differenceInMinutes, parseISO, eachDayOfInterval, isWeekend } from 'date-fns';
 type PayslipData = {
   id: string;
   companyName: string;
@@ -209,69 +208,54 @@ export default function HRPayrollDashboard() {
   };
 
 // In your fetchData useEffect, add this debugging:
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+const fetchData = useCallback(async () => {
+  try {
+    setLoading(true);
+    setError(null);
 
-      // Fetch employees
-      const employeesResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`
-      );
-      
-      if (!employeesResponse.ok) {
-        throw new Error('Failed to fetch employees');
-      }
-      
-      const employeesData = await employeesResponse.json();
-      setEmployees(Array.isArray(employeesData) ? employeesData : []);
-      console.log('👥 Employees loaded:', employeesData.length);
+    // Fetch employees
+    const employeesResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`
+    );
+    if (!employeesResponse.ok) throw new Error('Failed to fetch employees');
+    const employeesData: Employee[] = await employeesResponse.json();
+    setEmployees(Array.isArray(employeesData) ? employeesData : []);
+    console.log('👥 Employees loaded:', employeesData.length);
 
-      // Fetch attendance
-      const attendanceResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_attendance/`
-      );
-      
-      if (attendanceResponse.ok) {
-        const attendanceData = await attendanceResponse.json();
-        setAttendance(Array.isArray(attendanceData) ? attendanceData : []);
-        console.log('📊 All attendance records:', attendanceData);
-      } else {
-        console.error('Failed to fetch attendance');
-      }
+    // Fetch attendance
+    const attendanceResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_attendance/`
+    );
+    if (attendanceResponse.ok) {
+      const attendanceData: Attendance[] = await attendanceResponse.json();
+      setAttendance(Array.isArray(attendanceData) ? attendanceData : []);
+      console.log('📊 All attendance records:', attendanceData);
+    } else {
+      console.error('Failed to fetch attendance');
+    }
 
-      // Fetch payrolls
-      const payrollsResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_payrolls/`
-      );
+    // Fetch payrolls
+    const payrollsResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_payrolls/`
+    );
+    if (!payrollsResponse.ok) throw new Error('Failed to fetch payroll data');
+    const payrollsData = await payrollsResponse.json();
+    console.log('💰 Payrolls loaded:', payrollsData.payrolls?.length || 0);
 
-      if (!payrollsResponse.ok) {
-        throw new Error('Failed to fetch payroll data');
-      }
-
-      const payrollsData = await payrollsResponse.json();
-      console.log('💰 Payrolls loaded:', payrollsData.payrolls?.length || 0);
-      
-      if (payrollsData.payrolls && Array.isArray(payrollsData.payrolls)) {
-        const transformedPayslips: PayslipData[] = payrollsData.payrolls.map((payroll: PayrollAPIResponse, index: number) => {
-          const employee = employeesData.find((emp: Employee) => emp.email === payroll.email);
-          
-          // Get attendance for this specific employee
-          const employeeAttendance = attendance.filter(a => a.email === payroll.email);
-          
-          console.log(`\n🎯 Processing: ${payroll.email} for ${payroll.month} ${payroll.year}`);
-          console.log(`📨 Employee: ${employee?.fullname}`);
-          console.log(`📊 Found ${employeeAttendance.length} attendance records for ${payroll.email}`);
+    if (payrollsData.payrolls && Array.isArray(payrollsData.payrolls)) {
+      const transformedPayslips: PayslipData[] = payrollsData.payrolls.map(
+        (payroll: PayrollAPIResponse, _index: number) => {
+          const employee = employeesData.find((emp) => emp.email === payroll.email);
+          const employeeAttendance = attendance.filter((a) => a.email === payroll.email);
 
           const attendanceMetrics = calculateAttendanceMetrics(
-            employeeAttendance, 
-            payroll.month, 
+            employeeAttendance,
+            payroll.month,
             parseInt(payroll.year)
           );
 
           return {
-            id: `${payroll.email}-${payroll.month}-${payroll.year}-${index}`,
+            id: `${payroll.email}-${payroll.month}-${payroll.year}-${_index}`,
             companyName: "GLOBAL TECH SOFTWARE SOLUTIONS",
             period: `${payroll.month} ${payroll.year}`,
             employeeId: payroll.email,
@@ -297,23 +281,24 @@ useEffect(() => {
               esppContribution: 0,
             },
           };
-        });
-        setPayslips(transformedPayslips);
-      } else {
-        setPayslips([]);
-      }
-
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch data");
+        }
+      );
+      setPayslips(transformedPayslips);
+    } else {
       setPayslips([]);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err: unknown) {
+    console.error("Error fetching data:", err);
+    setError(err instanceof Error ? err.message : "Failed to fetch data");
+    setPayslips([]);
+  } finally {
+    setLoading(false);
+  }
+}, [attendance]);
 
+useEffect(() => {
   fetchData();
-}, []);
+}, [fetchData]);
 
   const handleCreatePayroll = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -357,7 +342,7 @@ useEffect(() => {
         throw new Error(`Failed to create payroll: ${response.status} - ${errorData.error}`);
       }
 
-      const result = await response.json();
+       await response.json();
 
       setFormData({
         email: "",
@@ -534,9 +519,14 @@ const topOffset = 20; // Increase = move up, Decrease = move down
 let currentY = y + topOffset;
 
 // helper: wrap long text if exceeds width
-function wrapText(text, font, fontSize, maxWidth) {
+function wrapText(
+  text: string,
+  font: PDFFont,
+  fontSize: number,
+  maxWidth: number
+): string[] {
   const words = (text || "").split(" ");
-  const lines = [];
+  const lines: string[] = [];
   let currentLine = "";
 
   for (const word of words) {
@@ -555,7 +545,7 @@ function wrapText(text, font, fontSize, maxWidth) {
   return lines;
 }
 
-employeeDetails.forEach((row, index) => {
+employeeDetails.forEach((row) => {
   const labelFontSize = 9;
   const valueFontSize = 9;
 
@@ -684,7 +674,7 @@ employeeDetails.forEach((row, index) => {
       { description: "ESPP Contribution", amount: payslip.deductions.esppContribution },
     ];
 
-    const formatCurrency = (amount: any) => {
+    const formatCurrency = (amount: number | string) => {
       const value = Number(amount) || 0;
       return value.toLocaleString("en-IN", {
         minimumFractionDigits: 2,
@@ -890,7 +880,7 @@ employeeDetails.forEach((row, index) => {
 
     y -= 15;
 
-    const confidentialText = "CONFIDENTIAL - FOR AUTHORIZED USE ONLY";
+    const confidentialText = "FOR AUTHORIZED USE ONLY";
     page.drawText(confidentialText, {
       x: width / 2 - font.widthOfTextAtSize(confidentialText, 9) / 2,
       y,
@@ -901,7 +891,7 @@ employeeDetails.forEach((row, index) => {
 
     // ===== SAVE AND DOWNLOAD =====
     const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -917,11 +907,11 @@ employeeDetails.forEach((row, index) => {
   }
 };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | string) => {
     return new Intl.NumberFormat('en-IN', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(amount);
+    }).format(Number(amount));
   };
 
   const getNotificationIcon = (type: NotificationType) => {

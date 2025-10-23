@@ -331,7 +331,7 @@ export default function Profile() {
      // If the value is not empty and managers are loaded
      if (reportsToValue && managers.length > 0) {
        // Try to find manager by ID (if already an ID), else by email or fullname
-       let manager =
+       const manager =
          managers.find((m) => m.id === reportsToValue) ||
          managers.find((m) => m.email === reportsToValue) ||
          managers.find((m) => m.fullname === reportsToValue);
@@ -341,7 +341,7 @@ export default function Profile() {
      allowedFields.forEach((field) => {
        // Don't send localProfilePic (used only for preview)
        if (field === "profile_picture") return;
-       let value = user[field];
+       const value = user[field];
        // Special handling for reports_to: send manager ID
        if (field === "reports_to") {
          if (reportsToValue && typeof reportsToValue === "string" && reportsToValue.trim() !== "") {

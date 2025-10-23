@@ -376,7 +376,6 @@ function VentiageInput({ date_joined }: { date_joined?: string }) {
       setVentiageStr(formatVentiage(calculateVentiage(date_joined)));
     }, msToMidnight + 1000);
     return () => clearTimeout(timeout);
-    // eslint-disable-next-line
   }, [date_joined, ventiageStr]);
   return (
     <input
@@ -387,31 +386,5 @@ function VentiageInput({ date_joined }: { date_joined?: string }) {
       placeholder="Ventiage"
       tabIndex={-1}
     />
-  );
-}
-
-// Ventiage display (live, formatted, updates at midnight)
-function VentiageDisplay({ date_joined }: { date_joined?: string }) {
-  const [ventiage, setVentiage] = useState<{ years: number; months: number; days: number }>({ years: 0, months: 0, days: 0 });
-  useEffect(() => {
-    setVentiage(calculateVentiage(date_joined || ""));
-  }, [date_joined]);
-  useEffect(() => {
-    if (!date_joined) return;
-    const now = new Date();
-    const msToMidnight =
-      new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0).getTime() - now.getTime();
-    const timeout = setTimeout(() => {
-      setVentiage(calculateVentiage(date_joined!));
-    }, msToMidnight + 1000);
-    return () => clearTimeout(timeout);
-  }, [date_joined, ventiage]);
-  // Format as "X years, Y months, Z days"
-  const parts = [];
-  if (ventiage.years > 0) parts.push(`${ventiage.years} year${ventiage.years !== 1 ? "s" : ""}`);
-  if (ventiage.months > 0) parts.push(`${ventiage.months} month${ventiage.months !== 1 ? "s" : ""}`);
-  if (ventiage.days > 0 || (ventiage.years === 0 && ventiage.months === 0)) parts.push(`${ventiage.days} day${ventiage.days !== 1 ? "s" : ""}`);
-  return (
-    <span className="text-sm text-gray-600">{parts.length > 0 ? parts.join(", ") : "—"}</span>
   );
 }

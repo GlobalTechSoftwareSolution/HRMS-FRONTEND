@@ -39,7 +39,7 @@ export default function AttendancePortal() {
     const [loadingFetchedAttendance, setLoadingFetchedAttendance] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
-    const [leaves, setLeaves] = useState<Leave[]>([]);
+    const [, setLeaves] = useState<Leave[]>([]);
     const [approvedLeavesCount, setApprovedLeavesCount] = useState<number>(0);
     const [selectedDateRecord, setSelectedDateRecord] = useState<AttendanceRecord | null>(null);
     const [isClient, setIsClient] = useState(false);
@@ -107,7 +107,7 @@ export default function AttendancePortal() {
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/`);
                 if (!res.ok) throw new Error("Failed to fetch approved leaves");
                 const data = await res.json();
-                
+
                 let leavesArray: Leave[] = [];
                 if (Array.isArray(data)) {
                     leavesArray = data;
@@ -147,29 +147,6 @@ export default function AttendancePortal() {
         }
     }, [selectedDate, fetchedAttendance, loggedInEmail]);
 
-    const attendanceSummary = (() => {
-        const userRecords = fetchedAttendance.filter(rec => {
-            const recordEmail = (rec.email || "").trim().toLowerCase();
-            const currentEmail = (loggedInEmail || "").trim().toLowerCase();
-            return recordEmail === currentEmail;
-        });
-
-        let present = 0, absent = 0, workingIn = 0;
-        
-        userRecords.forEach(rec => {
-            if (rec.checkIn && rec.checkIn !== "-" && rec.checkIn !== "null") {
-                if (rec.checkOut && rec.checkOut !== "-" && rec.checkOut !== "null") {
-                    present += 1;
-                } else {
-                    workingIn += 1;
-                }
-            } else {
-                absent += 1;
-            }
-        });
-
-        return { present, absent, workingIn };
-    })();
 
     // Helper function to format dates consistently for comparison
     const formatDateForComparison = (date: Date | string): string => {
@@ -213,7 +190,7 @@ export default function AttendancePortal() {
 
     // Calculate hours worked
     const calculateHoursWorked = (record: AttendanceRecord): string => {
-        if (!record.checkIn || record.checkIn === "-" || record.checkIn === "null" || 
+        if (!record.checkIn || record.checkIn === "-" || record.checkIn === "null" ||
             !record.checkOut || record.checkOut === "-" || record.checkOut === "null") {
             return "-";
         }
@@ -221,59 +198,63 @@ export default function AttendancePortal() {
         const checkInDate = new Date(`${record.date}T${record.checkIn}`);
         const checkOutDate = new Date(`${record.date}T${record.checkOut}`);
         let diffMs = checkOutDate.getTime() - checkInDate.getTime();
-        
+
         if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
-        
+
         let totalMinutes = Math.floor(diffMs / 60000);
         const leftoverMs = diffMs % 60000;
         if (leftoverMs >= 30000) totalMinutes += 1;
-        
+
         const hoursPart = Math.floor(totalMinutes / 60);
         const minutesPart = totalMinutes % 60;
         return `${hoursPart}h ${minutesPart}m`;
     };
 
     // Month summary for the pie chart
-    const handleActiveStartDateChange = ({ activeStartDate }: any) => {
-      if (activeStartDate) setCurrentMonth(activeStartDate);
+    // Update to match react-calendar's onActiveStartDateChange signature and types
+    const handleActiveStartDateChange = (
+        { activeStartDate }: { activeStartDate: Date | null }
+        // ignore unused parameters to avoid ESLint warnings
+    ) => {
+        if (activeStartDate) setCurrentMonth(activeStartDate);
     };
 
     const monthSummary = (() => {
-      if (!isClient || !loggedInEmail) return { present: 0, absent: 0, workingIn: 0 };
+        if (!isClient || !loggedInEmail) return { present: 0, absent: 0, workingIn: 0 };
 
-      const normalizedEmail = (loggedInEmail || "").trim().toLowerCase();
+        const normalizedEmail = (loggedInEmail || "").trim().toLowerCase();
 
-      const filtered = fetchedAttendance.filter(rec => {
-        const recordEmail = (rec.email || "").trim().toLowerCase();
-        const d = new Date(rec.date);
+        const filtered = fetchedAttendance.filter(rec => {
+            const recordEmail = (rec.email || "").trim().toLowerCase();
+            const d = new Date(rec.date);
 
-        return (
-          recordEmail === normalizedEmail &&
-          d.getMonth() === currentMonth.getMonth() &&
-          d.getFullYear() === currentMonth.getFullYear()
-        );
-      });
+            return (
+                recordEmail === normalizedEmail &&
+                d.getMonth() === currentMonth.getMonth() &&
+                d.getFullYear() === currentMonth.getFullYear()
+            );
+        });
 
-      let present = 0, absent = 0, workingIn = 0;
-      filtered.forEach(rec => {
-        if (rec.checkIn && rec.checkIn !== "-" && rec.checkIn !== "null") {
-          if (rec.checkOut && rec.checkOut !== "-" && rec.checkOut !== "null") {
-            present++;
-          } else {
-            workingIn++;
-          }
-        } else {
-          absent++;
-        }
-      });
+        let present = 0, absent = 0, workingIn = 0;
+        filtered.forEach(rec => {
+            if (rec.checkIn && rec.checkIn !== "-" && rec.checkIn !== "null") {
+                if (rec.checkOut && rec.checkOut !== "-" && rec.checkOut !== "null") {
+                    present++;
+                } else {
+                    workingIn++;
+                }
+            } else {
+                absent++;
+            }
+        });
 
-      return { present, absent, workingIn };
+        return { present, absent, workingIn };
     })();
 
     const chartData = [
-      { title: "Present", value: monthSummary.present, color: "#10b981" },
-      { title: "Absent", value: monthSummary.absent, color: "#ef4444" },
-      { title: "Working In", value: monthSummary.workingIn, color: "#f59e0b" },
+        { title: "Present", value: monthSummary.present, color: "#10b981" },
+        { title: "Absent", value: monthSummary.absent, color: "#ef4444" },
+        { title: "Working In", value: monthSummary.workingIn, color: "#f59e0b" },
     ];
 
     return (
@@ -353,51 +334,49 @@ export default function AttendancePortal() {
                                 )}
                                 {/* Tooltip */}
                                 {hoveredRecord && hoveredPosition && (
-                                  <div
-                                    className={`absolute bg-white/80 backdrop-blur-sm border shadow-lg rounded-lg p-2 text-xs z-50 pointer-events-none transition-opacity duration-300 ${
-                                      hoveredRecord ? 'opacity-100' : 'opacity-0'
-                                    }`}
-                                    style={{
-                                      left: hoveredPosition.x - 210 < 0 ? 0 : hoveredPosition.x - 210,
-                                      top: hoveredPosition.y - 100,
-                                      minWidth: 180,
-                                      maxWidth: 240,
-                                    }}
-                                  >
-                                    <div className="font-semibold mb-1 text-gray-800">
-                                      {formatDateForDisplay(hoveredRecord.date)}
+                                    <div
+                                        className={`absolute bg-white/80 backdrop-blur-sm border shadow-lg rounded-lg p-2 text-xs z-50 pointer-events-none transition-opacity duration-300 ${hoveredRecord ? 'opacity-100' : 'opacity-0'
+                                            }`}
+                                        style={{
+                                            left: hoveredPosition.x - 210 < 0 ? 0 : hoveredPosition.x - 210,
+                                            top: hoveredPosition.y - 100,
+                                            minWidth: 180,
+                                            maxWidth: 240,
+                                        }}
+                                    >
+                                        <div className="font-semibold mb-1 text-gray-800">
+                                            {formatDateForDisplay(hoveredRecord.date)}
+                                        </div>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-gray-600">Status:</span>
+                                            <span
+                                                className={`font-medium px-2 py-0.5 rounded ${hoveredRecord.checkIn && hoveredRecord.checkIn !== '-' && hoveredRecord.checkIn !== 'null'
+                                                        ? hoveredRecord.checkOut && hoveredRecord.checkOut !== '-' && hoveredRecord.checkOut !== 'null'
+                                                            ? 'bg-green-100 text-green-800'
+                                                            : 'bg-yellow-100 text-yellow-800'
+                                                        : 'bg-red-100 text-red-800'
+                                                    }`}
+                                            >
+                                                {hoveredRecord.checkIn && hoveredRecord.checkIn !== '-' && hoveredRecord.checkIn !== 'null'
+                                                    ? hoveredRecord.checkOut && hoveredRecord.checkOut !== '-' && hoveredRecord.checkOut !== 'null'
+                                                        ? 'Present'
+                                                        : 'Working In'
+                                                    : 'Absent'}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-gray-600">Check-in:</span>
+                                            <span className="text-green-700 font-medium">{formatTime(hoveredRecord.checkIn)}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-gray-600">Check-out:</span>
+                                            <span className="text-red-700 font-medium">{formatTime(hoveredRecord.checkOut)}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-gray-600">Hours:</span>
+                                            <span className="text-blue-700 font-medium">{calculateHoursWorked(hoveredRecord)}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="text-gray-600">Status:</span>
-                                      <span
-                                        className={`font-medium px-2 py-0.5 rounded ${
-                                          hoveredRecord.checkIn && hoveredRecord.checkIn !== '-' && hoveredRecord.checkIn !== 'null'
-                                            ? hoveredRecord.checkOut && hoveredRecord.checkOut !== '-' && hoveredRecord.checkOut !== 'null'
-                                              ? 'bg-green-100 text-green-800'
-                                              : 'bg-yellow-100 text-yellow-800'
-                                            : 'bg-red-100 text-red-800'
-                                        }`}
-                                      >
-                                        {hoveredRecord.checkIn && hoveredRecord.checkIn !== '-' && hoveredRecord.checkIn !== 'null'
-                                          ? hoveredRecord.checkOut && hoveredRecord.checkOut !== '-' && hoveredRecord.checkOut !== 'null'
-                                            ? 'Present'
-                                            : 'Working In'
-                                          : 'Absent'}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="text-gray-600">Check-in:</span>
-                                      <span className="text-green-700 font-medium">{formatTime(hoveredRecord.checkIn)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between mb-1">
-                                      <span className="text-gray-600">Check-out:</span>
-                                      <span className="text-red-700 font-medium">{formatTime(hoveredRecord.checkOut)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-gray-600">Hours:</span>
-                                      <span className="text-blue-700 font-medium">{calculateHoursWorked(hoveredRecord)}</span>
-                                    </div>
-                                  </div>
                                 )}
                             </div>
                             {/* Selected Date Card - Appears below calendar when date is selected */}
@@ -405,11 +384,11 @@ export default function AttendancePortal() {
                                 <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg animate-fade-in">
                                     <div className="flex items-center justify-between mb-3">
                                         <h3 className="text-lg font-semibold text-blue-800">
-                                            {new Date(selectedDate).toLocaleDateString('en-US', { 
-                                                weekday: 'long', 
-                                                year: 'numeric', 
-                                                month: 'long', 
-                                                day: 'numeric' 
+                                            {new Date(selectedDate).toLocaleDateString('en-US', {
+                                                weekday: 'long',
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
                                             })}
                                         </h3>
                                         <button
@@ -422,7 +401,7 @@ export default function AttendancePortal() {
                                             ✕
                                         </button>
                                     </div>
-                                    
+
                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                         <div className="space-y-2">
                                             <div className="flex justify-between">
@@ -441,13 +420,12 @@ export default function AttendancePortal() {
                                         <div className="space-y-2">
                                             <div className="flex justify-between">
                                                 <span className="text-gray-600">Status:</span>
-                                                <span className={`font-medium px-2 py-1 rounded ${
-                                                    selectedDateRecord.checkIn && selectedDateRecord.checkIn !== "-" && selectedDateRecord.checkIn !== "null"
+                                                <span className={`font-medium px-2 py-1 rounded ${selectedDateRecord.checkIn && selectedDateRecord.checkIn !== "-" && selectedDateRecord.checkIn !== "null"
                                                         ? selectedDateRecord.checkOut && selectedDateRecord.checkOut !== "-" && selectedDateRecord.checkOut !== "null"
                                                             ? "bg-green-100 text-green-800"
                                                             : "bg-yellow-100 text-yellow-800"
                                                         : "bg-red-100 text-red-800"
-                                                }`}>
+                                                    }`}>
                                                     {selectedDateRecord.checkIn && selectedDateRecord.checkIn !== "-" && selectedDateRecord.checkIn !== "null"
                                                         ? selectedDateRecord.checkOut && selectedDateRecord.checkOut !== "-" && selectedDateRecord.checkOut !== "null"
                                                             ? "Present"
@@ -471,11 +449,11 @@ export default function AttendancePortal() {
                                 <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg animate-fade-in">
                                     <div className="flex items-center justify-between mb-2">
                                         <h3 className="text-lg font-semibold text-gray-800">
-                                            {new Date(selectedDate).toLocaleDateString('en-US', { 
-                                                weekday: 'long', 
-                                                year: 'numeric', 
-                                                month: 'long', 
-                                                day: 'numeric' 
+                                            {new Date(selectedDate).toLocaleDateString('en-US', {
+                                                weekday: 'long',
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric'
                                             })}
                                         </h3>
                                         <button
@@ -522,33 +500,33 @@ export default function AttendancePortal() {
 
                         {/* Pie Chart Card */}
                         <div className="w-full md:w-80 bg-white rounded-lg border border-gray-200 p-6 relative">
-                          <h3 className="text-lg font-semibold mb-4 text-gray-800">
-                            {new Date(currentMonth).toLocaleString("default", { month: "long", year: "numeric" })} Attendance Summary
-                          </h3>
+                            <h3 className="text-lg font-semibold mb-4 text-gray-800">
+                                {new Date(currentMonth).toLocaleString("default", { month: "long", year: "numeric" })} Attendance Summary
+                            </h3>
 
-                          <PieChart
-                            data={chartData}
-                            animate
-                            onMouseOver={(e, index) => setHoveredIndex(index)}
-                            onMouseOut={() => setHoveredIndex(null)}
-                            label={({ dataEntry }) => (dataEntry.value > 0 ? `${dataEntry.value}` : "")}
-                            labelStyle={{ fontSize: "10px", fontFamily: "inherit", fill: "#374151" }}
-                            radius={38}
-                            labelPosition={68}
-                            style={{ height: 180 }}
-                          />
+                            <PieChart
+                                data={chartData}
+                                animate
+                                onMouseOver={(e, index) => setHoveredIndex(index)}
+                                onMouseOut={() => setHoveredIndex(null)}
+                                label={({ dataEntry }) => (dataEntry.value > 0 ? `${dataEntry.value}` : "")}
+                                labelStyle={{ fontSize: "10px", fontFamily: "inherit", fill: "#374151" }}
+                                radius={38}
+                                labelPosition={68}
+                                style={{ height: 180 }}
+                            />
 
-                          {hoveredIndex !== null && (
-                            <div className="absolute top-10 left-1/2 transform -translate-x-1/2 bg-white border shadow-lg px-3 py-2 rounded-lg text-xs text-gray-700 animate-fade-in">
-                              <span className="font-semibold">{chartData[hoveredIndex].title}:</span> {chartData[hoveredIndex].value} days (
-                              {(
-                                (chartData[hoveredIndex].value /
-                                  (chartData[0].value + chartData[1].value + chartData[2].value)) *
-                                100
-                              ).toFixed(1)}
-                              %)
-                            </div>
-                          )}
+                            {hoveredIndex !== null && (
+                                <div className="absolute top-10 left-1/2 transform -translate-x-1/2 bg-white border shadow-lg px-3 py-2 rounded-lg text-xs text-gray-700 animate-fade-in">
+                                    <span className="font-semibold">{chartData[hoveredIndex].title}:</span> {chartData[hoveredIndex].value} days (
+                                    {(
+                                        (chartData[hoveredIndex].value /
+                                            (chartData[0].value + chartData[1].value + chartData[2].value)) *
+                                        100
+                                    ).toFixed(1)}
+                                    %)
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -561,13 +539,13 @@ export default function AttendancePortal() {
                             {fetchedAttendance.filter(record => {
                                 const recordEmail = (record.email || "").trim().toLowerCase();
                                 const currentEmail = (loggedInEmail || "").trim().toLowerCase();
-                                return recordEmail === currentEmail && 
-                                       record.checkIn && 
-                                       record.checkIn !== "-" && 
-                                       record.checkIn !== "null" &&
-                                       record.checkOut && 
-                                       record.checkOut !== "-" && 
-                                       record.checkOut !== "null";
+                                return recordEmail === currentEmail &&
+                                    record.checkIn &&
+                                    record.checkIn !== "-" &&
+                                    record.checkIn !== "null" &&
+                                    record.checkOut &&
+                                    record.checkOut !== "-" &&
+                                    record.checkOut !== "null";
                             }).length}
                         </div>
                     </div>
@@ -579,15 +557,15 @@ export default function AttendancePortal() {
                                 const currentEmail = (loggedInEmail || "").trim().toLowerCase();
                                 const recordDate = new Date(record.date);
                                 const currentDate = new Date();
-                                return recordEmail === currentEmail && 
-                                       record.checkIn && 
-                                       record.checkIn !== "-" && 
-                                       record.checkIn !== "null" &&
-                                       record.checkOut && 
-                                       record.checkOut !== "-" && 
-                                       record.checkOut !== "null" &&
-                                       recordDate.getMonth() === currentDate.getMonth() &&
-                                       recordDate.getFullYear() === currentDate.getFullYear();
+                                return recordEmail === currentEmail &&
+                                    record.checkIn &&
+                                    record.checkIn !== "-" &&
+                                    record.checkIn !== "null" &&
+                                    record.checkOut &&
+                                    record.checkOut !== "-" &&
+                                    record.checkOut !== "null" &&
+                                    recordDate.getMonth() === currentDate.getMonth() &&
+                                    recordDate.getFullYear() === currentDate.getFullYear();
                             }).length}
                         </div>
                     </div>
@@ -633,13 +611,12 @@ export default function AttendancePortal() {
                             >
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="text-sm text-gray-500">{formatDateForDisplay(record.date)}</div>
-                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                                        record.checkIn && record.checkIn !== "-" && record.checkIn !== "null"
+                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded ${record.checkIn && record.checkIn !== "-" && record.checkIn !== "null"
                                             ? record.checkOut && record.checkOut !== "-" && record.checkOut !== "null"
                                                 ? "bg-green-100 text-green-800"
                                                 : "bg-yellow-100 text-yellow-800"
                                             : "bg-red-100 text-red-800"
-                                    }`}>
+                                        }`}>
                                         {record.checkIn && record.checkIn !== "-" && record.checkIn !== "null"
                                             ? record.checkOut && record.checkOut !== "-" && record.checkOut !== "null"
                                                 ? "Present"
@@ -923,22 +900,81 @@ export default function AttendancePortal() {
     }
 }
 
-// Updated AttendanceRecordsWithDatePicker component
 function AttendanceRecordsWithDatePicker({
     fetchedAttendance,
     loggedInEmail,
     loadingFetchedAttendance,
     fetchError,
     selectedDate,
-    onDateChange,
     formatDateForComparison,
-}: any) {
-    // ... (keep the existing implementation same as before)
-    // [Previous implementation remains exactly the same]
-    return null; // This is just a placeholder
+}: {
+    fetchedAttendance: AttendanceRecord[];
+    loggedInEmail: string | null;
+    loadingFetchedAttendance: boolean;
+    fetchError: string | null;
+    selectedDate: string | null;
+    onDateChange: (date: string | null) => void;
+    formatDateForComparison: (date: Date | string) => string;
+}) {
+    if (loadingFetchedAttendance) {
+        return <p className="text-gray-500 text-sm">Loading attendance records...</p>;
+    }
+
+    if (fetchError) {
+        return <p className="text-red-500 text-sm">Error fetching attendance: {fetchError}</p>;
+    }
+
+    const normalizedEmail = (loggedInEmail || "").trim().toLowerCase();
+
+    const filteredRecords = fetchedAttendance
+        .filter(record => {
+            const recordEmail = (record.email || "").trim().toLowerCase();
+            if (recordEmail !== normalizedEmail) return false;
+            if (selectedDate) {
+                return formatDateForComparison(record.date) === selectedDate;
+            }
+            return true;
+        })
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    if (filteredRecords.length === 0) {
+        return <p className="text-gray-500 text-sm">No attendance records found.</p>;
+    }
+
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {filteredRecords.map(record => (
+                <div key={record.id} className="bg-white rounded-lg border p-3 shadow-sm flex flex-col gap-1">
+                    <div className="flex justify-between text-sm">
+                        <span>{new Date(record.date).toLocaleDateString()}</span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${record.checkIn && record.checkIn !== "-" && record.checkIn !== "null"
+                                ? record.checkOut && record.checkOut !== "-" && record.checkOut !== "null"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800"
+                            }`}>
+                            {record.checkIn && record.checkIn !== "-" && record.checkIn !== "null"
+                                ? record.checkOut && record.checkOut !== "-" && record.checkOut !== "null"
+                                    ? "Present"
+                                    : "Working In"
+                                : "Absent"
+                            }
+                        </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                        <span>Check-in:</span>
+                        <span className="text-green-700 font-medium">{record.checkIn}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                        <span>Check-out:</span>
+                        <span className="text-red-700 font-medium">{record.checkOut}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                        <span>Hours:</span>
+                        <span className="text-blue-700 font-medium">{record.hoursWorked || "-"}</span>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
 }
-
-
-
-
-

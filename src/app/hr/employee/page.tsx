@@ -53,15 +53,16 @@ type SortConfig = {
 
 export default function HrEmployee() {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [error, setError] = useState<string>("");
+const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [payrollData, setPayrollData] = useState<{ [key: string]: any }>({});
+  type Payroll = Record<string, unknown> & { basic_salary?: number };
+  const [payrollData, setPayrollData] = useState<Record<string, Payroll>>({});
   const [documentData, setDocumentData] = useState<{ [key: string]: Document[] }>({});
-  const [awardData, setAwardData] = useState<{ [key: string]: Award[] }>({});
+  const [awardData, setAwardData] = useState<Record<string, Award[]>>({});
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL! || "";
 
@@ -127,8 +128,8 @@ export default function HrEmployee() {
     try {
       const res = await axios.get(`${API_BASE}/api/accounts/list_awards/`);
       if (res.data && Array.isArray(res.data)) {
-        const awardsByEmail: { [key: string]: Award[] } = {};
-        res.data.forEach((award: any) => {
+        const awardsByEmail: Record<string, Award[]> = {};
+        res.data.forEach((award: Award & { email: string; created_at: string }) => {
           if (!awardsByEmail[award.email]) awardsByEmail[award.email] = [];
           awardsByEmail[award.email].push({
             id: award.id,
@@ -155,7 +156,7 @@ export default function HrEmployee() {
   };
 
   // Fetch all employees
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       const empRes = await fetch(`${API_BASE}/api/accounts/employees/`);
@@ -165,18 +166,24 @@ export default function HrEmployee() {
       setError("");
 
       await Promise.all(empData.map((emp) => fetchPayrollForEmployee(emp)));
-    } catch (err: any) {
-      console.error("Failed to fetch data:", err);
-      setError("Failed to fetch employee data");
-      toast.error("Failed to fetch employee data");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        console.error("Failed to fetch data:", err.message);
+        setError("Failed to fetch employee data");
+        toast.error("Failed to fetch employee data");
+      } else {
+        console.error("Failed to fetch data:", err);
+        setError("Failed to fetch employee data");
+        toast.error("Failed to fetch employee data");
+      }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [API_BASE, fetchPayrollForEmployee]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const departments = Array.from(new Set(employees.map((e) => e.department).filter(Boolean))) as string[];
 

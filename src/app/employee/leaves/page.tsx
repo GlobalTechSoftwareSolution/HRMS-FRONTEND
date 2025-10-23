@@ -181,7 +181,7 @@ export default function LeaveSection() {
           errorBody = text;
         }
         // Custom error handling: show friendly dialog instead of throwing
-        let errorString =
+        const errorString =
           typeof errorBody === "string" ? errorBody : JSON.stringify(errorBody);
         if (
           errorString.toLowerCase().includes("overlapping") ||
