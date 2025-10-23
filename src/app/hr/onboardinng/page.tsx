@@ -263,7 +263,6 @@ export default function Onboarding() {
 
     // append editable fields
     formData.append("fullname", editFormData.fullname ?? selectedEmployee.fullname ?? "");
-    formData.append("age", String(editFormData.age ?? selectedEmployee.age ?? ""));
     formData.append("phone", editFormData.phone ?? selectedEmployee.phone ?? "");
     formData.append("department", editFormData.department ?? selectedEmployee.department ?? "");
     formData.append("designation", editFormData.designation ?? selectedEmployee.designation ?? "");
@@ -758,25 +757,6 @@ export default function Onboarding() {
                       />
                     ) : (
                       <p className="text-gray-900">{selectedEmployee.phone || "N/A"}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
-                    {(isEditing && activeTab !== 'pending') ? (
-                      <input
-                        type="number"
-                        name="age"
-                        value={editFormData.age ?? ""}
-                        onChange={handleInputChange}
-                        placeholder={
-                          selectedEmployee.age !== null && selectedEmployee.age !== undefined
-                            ? String(selectedEmployee.age)
-                            : "Enter age"
-                        }
-                        className="w-full px-3 py-2 border rounded-md"
-                      />
-                    ) : (
-                      <p className="text-gray-900">{selectedEmployee.age || "N/A"}</p>
                     )}
                   </div>
                   <div>

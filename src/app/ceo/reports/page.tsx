@@ -7,6 +7,8 @@ import autoTable from "jspdf-autotable";
 
 interface Employee {
   name: string;
+  email: string;
+  department?: string;
   profileImage?: string;
 }
 
@@ -43,6 +45,7 @@ export default function ReportsAndTasksPage() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"tasks" | "reports">("tasks");
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,6 +65,9 @@ export default function ReportsAndTasksPage() {
 
         setTasks(Array.isArray(tasksJson.tasks) ? tasksJson.tasks : []);
         setReports(Array.isArray(reportsJson.reports) ? reportsJson.reports : []);
+        
+        // Fetch employees after tasks and reports
+        await fetchEmployees();
       } catch (err) {
         console.error("Error fetching data:", err);
         setTasks([]);
@@ -73,8 +79,23 @@ export default function ReportsAndTasksPage() {
     fetchData();
   }, []);
 
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`);
+      const data = await res.json();
+      setEmployees(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const openTaskModal = (task: Task) => {
-    setSelectedTask(task);
+    const employee = employees.find(emp => emp.email === task.email);
+    const taskWithDept = { 
+      ...task, 
+      department: employee?.department || "Not Assigned" 
+    };
+    setSelectedTask(taskWithDept);
     setIsTaskModalOpen(true);
   };
 
@@ -123,7 +144,7 @@ export default function ReportsAndTasksPage() {
     }
   };
 
-  // ✅ Improved professional PDF generator
+  // ✅ PDF GENERATOR (includes email column)
   const downloadCombinedPDF = () => {
     const doc = new jsPDF("p", "mm", "a4");
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -148,27 +169,31 @@ export default function ReportsAndTasksPage() {
     autoTable(doc, {
       startY: y,
       head: [["Email", "Title", "Department", "Priority", "Status", "Due Date"]],
-      body: tasks.map((task) => [
-        task.email,
-        task.title,
-        task.department || "-",
-        task.priority || "-",
-        task.status || "-",
-        task.due_date ? formatDate(task.due_date) : "-",
-      ]),
+      body: tasks.map((task) => {
+        const employee = employees.find(emp => emp.email === task.email);
+        const department = employee?.department || "Not Assigned";
+        return [
+          task.email,
+          task.title,
+          department,
+          task.priority || "-",
+          task.status || "-",
+          task.due_date ? formatDate(task.due_date) : "-",
+        ];
+      }),
       theme: "grid",
       styles: { fontSize: 10, cellPadding: 3 },
       headStyles: { fillColor: [33, 150, 243], textColor: 255, halign: "center" },
       alternateRowStyles: { fillColor: [245, 247, 250] },
     });
 
-    // Define a type for jsPDF with autoTable plugin
     type jsPDFWithPlugin = jsPDF & {
       lastAutoTable?: {
         finalY: number;
       };
     };
-    let lastY = ( (doc as jsPDFWithPlugin).lastAutoTable?.finalY ?? 0 );
+
+    let lastY = (doc as jsPDFWithPlugin).lastAutoTable?.finalY ?? 0;
     lastY += 10;
 
     // --- REPORTS SECTION ---
@@ -179,8 +204,9 @@ export default function ReportsAndTasksPage() {
 
     autoTable(doc, {
       startY: lastY,
-      head: [["Title", "Description", "Date", "Created At", "Updated At"]],
+      head: [["Email", "Title", "Description", "Date", "Created At", "Updated At"]],
       body: reports.map((report) => [
+        report.email,
         report.title,
         report.description || "-",
         report.date ? formatDate(report.date) : "-",
@@ -193,7 +219,7 @@ export default function ReportsAndTasksPage() {
       alternateRowStyles: { fillColor: [245, 247, 250] },
     });
 
-    // Footer with page number
+    // Footer
     const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
@@ -261,32 +287,31 @@ export default function ReportsAndTasksPage() {
             ) : tasks.length === 0 ? (
               <div className="text-center py-16 text-gray-500">No tasks available</div>
             ) : (
-              <>
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        {["Email", "Title", "Department", "Priority", "Status", "Actions"].map(
-                          (h) => (
-                            <th
-                              key={h}
-                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                            >
-                              {h}
-                            </th>
-                          )
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {tasks.map((task, index) => (
-                        <tr
-                          key={`${task.task_id}-${index}`}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {["Email", "Title", "Department", "Priority", "Status", "Actions"].map(
+                        (h) => (
+                          <th
+                            key={h}
+                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          >
+                            {h}
+                          </th>
+                        )
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {tasks.map((task) => {
+                      const emp = employees.find(e => e.email === task.email);
+                      const dept = emp?.department || "Not Assigned";
+                      return (
+                        <tr key={task.task_id} className="hover:bg-gray-50">
                           <td className="px-6 py-4">{task.email}</td>
                           <td className="px-6 py-4">{task.title}</td>
-                          <td className="px-6 py-4">{task.department}</td>
+                          <td className="px-6 py-4">{dept}</td>
                           <td className="px-6 py-4">
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
@@ -314,11 +339,11 @@ export default function ReportsAndTasksPage() {
                             </button>
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
@@ -333,53 +358,49 @@ export default function ReportsAndTasksPage() {
             ) : reports.length === 0 ? (
               <div className="text-center py-16 text-gray-500">No reports available</div>
             ) : (
-              <>
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        {["Title", "Description", "Date", "Actions"].map((h) => (
-                          <th
-                            key={h}
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {reports.map((report, index) => (
-                        <tr
-                          key={`${report.task_id}-${index}`}
-                          className="hover:bg-gray-50 transition-colors"
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {["Email", "Title", "Description", "Date", "Actions"].map((h) => (
+                        <th
+                          key={h}
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                         >
-                          <td className="px-6 py-4 font-medium">{report.title}</td>
-                          <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
-                            {report.description}
-                          </td>
-                          <td className="px-6 py-4 text-gray-600 text-sm">
-                            {formatDate(report.date)}
-                          </td>
-                          <td className="px-6 py-4">
-                            <button
-                              onClick={() => openReportModal(report)}
-                              className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                            >
-                              View
-                            </button>
-                          </td>
-                        </tr>
+                          {h}
+                        </th>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {reports.map((report) => (
+                      <tr key={report.task_id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">{report.email}</td>
+                        <td className="px-6 py-4 font-medium">{report.title}</td>
+                        <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
+                          {report.description}
+                        </td>
+                        <td className="px-6 py-4 text-gray-600 text-sm">
+                          {formatDate(report.date)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => openReportModal(report)}
+                            className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
 
-        {/* MODALS */}
+        {/* TASK MODAL */}
         {isTaskModalOpen && selectedTask && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
@@ -394,17 +415,20 @@ export default function ReportsAndTasksPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
+                  <strong>Email: </strong> {selectedTask.email}
+                </div>
+                <div>
                   <strong>Department: </strong> {selectedTask.department}
                 </div>
                 <div>
                   <strong>Priority: </strong>{" "}
-                  <span className={getPriorityColor(selectedTask.priority)}>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(selectedTask.priority)}`}>
                     {selectedTask.priority}
                   </span>
                 </div>
                 <div>
                   <strong>Status: </strong>{" "}
-                  <span className={getStatusColor(selectedTask.status)}>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedTask.status)}`}>
                     {selectedTask.status}
                   </span>
                 </div>
@@ -416,12 +440,13 @@ export default function ReportsAndTasksPage() {
               </div>
               <div className="mt-4">
                 <strong>Description: </strong>
-                <p>{selectedTask.description}</p>
+                <p className="mt-2 text-gray-700">{selectedTask.description}</p>
               </div>
             </div>
           </div>
         )}
 
+        {/* REPORT MODAL */}
         {isReportModalOpen && selectedReport && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
@@ -435,26 +460,29 @@ export default function ReportsAndTasksPage() {
                 </button>
               </div>
               <div>
-                <strong>Description: </strong>
-                <p>{selectedReport.description}</p>
-              </div>
-              {selectedReport.content && (
-                <div className="mt-4">
-                  <strong>Content: </strong>
-                  <p>{selectedReport.content}</p>
-                </div>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <strong>Date: </strong> {formatDate(selectedReport.date)}
-                </div>
-                <div>
-                  <strong>Created At: </strong>{" "}
-                  {formatDate(selectedReport.created_at)}
-                </div>
-                <div>
-                  <strong>Updated At: </strong>{" "}
-                  {formatDate(selectedReport.updated_at)}
+                <p>
+                  <strong>Email:</strong> {selectedReport.email}
+                </p>
+                <p className="mt-2">
+                  <strong>Description:</strong> {selectedReport.description}
+                </p>
+                {selectedReport.content && (
+                  <p className="mt-2">
+                    <strong>Content:</strong> {selectedReport.content}
+                  </p>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <strong>Date:</strong> {formatDate(selectedReport.date)}
+                  </div>
+                  <div>
+                    <strong>Created At:</strong>{" "}
+                    {formatDate(selectedReport.created_at)}
+                  </div>
+                  <div>
+                    <strong>Updated At:</strong>{" "}
+                    {formatDate(selectedReport.updated_at)}
+                  </div>
                 </div>
               </div>
             </div>
