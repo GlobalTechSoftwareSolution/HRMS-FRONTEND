@@ -116,7 +116,7 @@ export default function AdminAttendanceDashboard() {
       try {
         setLoadingEmployees(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`
         );
         if (!res.ok) throw new Error("Failed to fetch employees");
         const data: Employee[] = await res.json();

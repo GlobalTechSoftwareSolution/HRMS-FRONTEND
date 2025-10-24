@@ -197,7 +197,9 @@ const LoginPage = () => {
 
             {/* Email */}
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email Address
+              </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-gray-400" />
@@ -218,7 +220,9 @@ const LoginPage = () => {
 
             {/* Password */}
             <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-gray-400" />
@@ -226,7 +230,7 @@ const LoginPage = () => {
                 <input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"} // ✅ FIXED HERE
                   autoComplete="current-password"
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-300"
                   value={password}
@@ -240,16 +244,15 @@ const LoginPage = () => {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <span className="text-gray-500 text-sm select-none">Show</span>
-                  ) : (
                     <span className="text-gray-500 text-sm select-none">Hide</span>
+                  ) : (
+                    <span className="text-gray-500 text-sm select-none">Show</span>
                   )}
                 </button>
               </div>
             </div>
 
             <div className="flex items-center justify-between text-sm text-gray-700">
-
               <button
                 type="button"
                 onClick={() => router.push("/forgot-password")}
@@ -268,16 +271,16 @@ const LoginPage = () => {
               {isLoading ? "Logging in..." : "Login"}
             </button>
             <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Don&apos;t have an account?{" "}
-              <button
-                onClick={() => router.push("/signup")}
-                className="font-medium text-blue-600 hover:text-blue-500 transition-colors hover:underline"
-              >
-                 Sign up
-              </button>
-            </p>
-          </div>
+              <p className="text-gray-600">
+                Don&apos;t have an account?{" "}
+                <button
+                  onClick={() => router.push("/signup")}
+                  className="font-medium text-blue-600 hover:text-blue-500 transition-colors hover:underline"
+                >
+                  Sign up
+                </button>
+              </p>
+            </div>
           </form>
         </div>
       </div>

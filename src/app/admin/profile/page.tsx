@@ -2,211 +2,155 @@
 import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
-import {
-  FiSave,
-  FiEdit,
-  FiUser,
-  FiPhone,
-  FiBriefcase,
-  FiMail,
-  FiCamera,
-} from "react-icons/fi";
+import { FiSave, FiEdit, FiUser, FiPhone, FiMail, FiMapPin, FiCamera } from "react-icons/fi";
 
-
-type UserProfile = {
-  name: string;
+type AdminProfile = {
+  fullname: string;
   email: string;
-  picture?: string;
-  role: string;
   phone?: string;
-  department?: string;
-};
-
-type FetchUserResponse = {
-  fullname?: string;
-  email: string;
+  office_address?: string;
   profile_picture?: string;
-  role: string;
-  phone?: string;
-  department?: string;
 };
 
 export default function Profile() {
-  const [user, setUser] = useState<UserProfile>({
-    name: "",
+  const [admin, setAdmin] = useState<AdminProfile>({
+    fullname: "",
     email: "",
-    picture: "",
-    role: "",
     phone: "",
-    department: "",
+    office_address: "",
+    profile_picture: "/default-profile.png",
   });
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState({ type: "", text: "" });
+  const [message, setMessage] = useState({ type: "", text: "" });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // Fetch user data
+  // ✅ Fetch admin data based on logged-in email
   useEffect(() => {
-    const fetchUserData = async (email: string) => {
+    const fetchAdmin = async () => {
       try {
+        // Get logged-in email from localStorage (or your auth method)
+        const storedUser = localStorage.getItem("userInfo");
+        const userEmail = storedUser ? JSON.parse(storedUser).email : null;
+        if (!userEmail) throw new Error("No logged-in email found");
+
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/admins/${encodeURIComponent(
-            email
-          )}/`,
-          { headers: { "Content-Type": "application/json" } }
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/admins/${encodeURIComponent(userEmail)}/`
         );
-        if (!response.ok) throw new Error("Failed to fetch user data");
-        const currentUser: FetchUserResponse = await response.json();
-        setUser({
-          name: currentUser.fullname || "",
-          email: currentUser.email || email,
-          picture: currentUser.profile_picture || "/default-profile.png",
-          role: currentUser.role || "",
-          phone: currentUser.phone || "",
-          department: currentUser.department || "",
+        if (!response.ok) throw new Error("Failed to fetch admin details");
+
+        const adminData = await response.json();
+        setAdmin({
+          fullname: adminData.fullname || "",
+          email: adminData.email || userEmail,
+          phone: adminData.phone || "",
+          office_address: adminData.office_address || "",
+          profile_picture: adminData.profile_picture || "/default-profile.png",
         });
-      } catch (error: unknown) {
-        console.error("Error fetching user data:", error);
-        setSaveMessage({ type: "error", text: "Failed to load profile data." });
+      } catch (error) {
+        console.error(error);
+        setMessage({ type: "error", text: "Failed to load admin profile." });
       }
     };
 
-    const storedUser = localStorage.getItem("userInfo");
-    if (storedUser) {
-      const parsed = JSON.parse(storedUser) as { email?: string };
-      if (parsed.email) fetchUserData(parsed.email);
-    }
+    fetchAdmin();
   }, []);
 
-  // Image preview
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  // ✅ Preview new profile image
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
+    setSelectedFile(file);
+
     const reader = new FileReader();
-    reader.onload = () =>
-      setUser((prev) => ({ ...prev, picture: reader.result as string }));
+    reader.onload = () => setAdmin((prev) => ({ ...prev, profile_picture: reader.result as string }));
     reader.readAsDataURL(file);
   };
 
-  // Save profile
+  // ✅ Save updated admin data using FormData
   const handleSave = async () => {
-    if (
-      user.phone &&
-      !/^[\+]?[0-9]{6,15}$/.test(user.phone.replace(/\s/g, ""))
-    ) {
-      setSaveMessage({
-        type: "error",
-        text: "Please enter a valid phone number",
-      });
-      return;
-    }
-
-    setIsSaving(true);
     try {
-      const fileInput = fileInputRef.current?.files?.[0];
+      setIsSaving(true);
 
       const formData = new FormData();
-      formData.append("email", user.email);
-      formData.append("fullname", user.name);
-      formData.append("phone", user.phone || "");
-      formData.append("department", user.department || "");
-      if (fileInput) {
-        formData.append("profile_picture", fileInput);
-      } else {
-        formData.append("profile_picture", "");
+      formData.append("fullname", admin.fullname);
+      formData.append("phone", admin.phone || "");
+      formData.append("office_address", admin.office_address || "");
+      if (selectedFile) {
+        formData.append("profile_picture", selectedFile);
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/admins/${encodeURIComponent(
-          user.email
-        )}/`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/admins/${encodeURIComponent(admin.email)}/`,
         {
-          method: "PUT",
+          method: "PATCH",
           body: formData,
         }
       );
 
-      if (!response.ok) throw new Error("Failed to update profile");
-      const updatedUser: FetchUserResponse = await response.json();
+      if (!response.ok) {
+        console.error("PATCH failed:", response.status, await response.text());
+        throw new Error("Failed to update admin profile");
+      }
 
-      setUser({
-        name: updatedUser.fullname || user.name,
-        email: updatedUser.email || user.email,
-        picture: updatedUser.profile_picture || user.picture || "/default-profile.png",
-        role: updatedUser.role || user.role,
-        phone: updatedUser.phone || user.phone,
-        department: updatedUser.department || user.department,
-      });
-
-      localStorage.setItem("userInfo", JSON.stringify(updatedUser));
-      setSaveMessage({
-        type: "success",
-        text: "Profile updated successfully!",
-      });
+      const updated = await response.json();
+      setAdmin(updated);
       setIsEditing(false);
-    } catch (error: unknown) {
+      setMessage({ type: "success", text: "Profile updated successfully!" });
+    } catch (error) {
       console.error(error);
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to save profile changes.";
-      setSaveMessage({ type: "error", text: message });
+      setMessage({ type: "error", text: "Failed to save changes." });
     } finally {
       setIsSaving(false);
-      setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
     }
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    setSaveMessage({ type: "", text: "" });
+    setMessage({ type: "", text: "" });
   };
 
   return (
     <DashboardLayout role="admin">
-      <div className="max-w-4xl mx-auto p-4 sm:p-6 bg-white rounded-xl shadow-md">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">
-            Profile Information
-          </h1>
-        </div>
+      <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-md">
+        <h1 className="text-2xl font-semibold text-gray-800 mb-6">Admin Profile</h1>
 
-        {saveMessage.text && (
+        {message.text && (
           <div
-            className={`mb-6 p-3 rounded-md text-sm sm:text-base ${
-              saveMessage.type === "success"
+            className={`p-3 mb-6 rounded-md ${
+              message.type === "success"
                 ? "bg-green-100 text-green-700"
                 : "bg-red-100 text-red-700"
             }`}
           >
-            {saveMessage.text}
+            {message.text}
           </div>
         )}
 
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
-          <div className="relative flex-shrink-0">
+        <div className="flex flex-col items-center gap-4 mb-8">
+          <div className="relative">
             <Image
-              src={user.picture || "/default-profile.png"}
-              alt={user.name || "Profile"}
-              width={96}
-              height={96}
-              className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
-              unoptimized={!!(user.picture && user.picture.startsWith("http"))}
+              src={admin.profile_picture || "/default-profile.png"}
+              alt={admin.fullname}
+              width={120}
+              height={120}
+              className="rounded-full border-2 border-blue-500 shadow-md object-cover"
+              unoptimized
             />
             {isEditing && (
               <>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-0 right-0 bg-blue-500 text-white p-1.5 rounded-full shadow-md hover:bg-blue-600 transition-colors"
-                  type="button"
+                  className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full shadow-md hover:bg-blue-600 transition-colors"
                 >
-                  <FiCamera size={14} />
+                  <FiCamera size={16} />
                 </button>
                 <input
                   type="file"
                   accept="image/*"
                   ref={fileInputRef}
-                  onChange={handleImageUpload}
+                  onChange={handleImageChange}
                   className="hidden"
                 />
               </>
@@ -214,72 +158,69 @@ export default function Profile() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
+        <div className="space-y-4">
+          {/* Full Name */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
               <FiUser size={14} /> Full Name
             </label>
             <input
               type="text"
-              value={user.name}
-              onChange={(e) => setUser({ ...user, name: e.target.value })}
+              value={admin.fullname}
+              onChange={(e) => setAdmin({ ...admin, fullname: e.target.value })}
               disabled={!isEditing}
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             />
           </div>
 
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
-              <FiMail size={14} /> Email Address
+          {/* Email */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+              <FiMail size={14} /> Email
             </label>
             <input
               type="email"
-              value={user.email}
+              value={admin.email}
               disabled
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full bg-gray-100"
+              className="w-full border border-gray-300 rounded-md p-2 bg-gray-100"
             />
-            <p className="text-xs text-gray-500">Email cannot be changed</p>
           </div>
 
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
-              <FiPhone size={14} /> Phone Number
+          {/* Phone */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+              <FiPhone size={14} /> Phone
             </label>
             <input
               type="tel"
-              value={user.phone || ""}
-              onChange={(e) => setUser({ ...user, phone: e.target.value })}
+              value={admin.phone || ""}
+              onChange={(e) => setAdmin({ ...admin, phone: e.target.value })}
               disabled={!isEditing}
-              placeholder="Enter your phone number"
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+              placeholder="Enter phone number"
             />
           </div>
 
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700 flex items-center gap-1">
-              <FiBriefcase size={14} /> Department
+          {/* Office Address */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
+              <FiMapPin size={14} /> Office Address
             </label>
-            <select
-              value={user.department || ""}
-              onChange={(e) => setUser({ ...user, department: e.target.value })}
+            <input
+              type="text"
+              value={admin.office_address || ""}
+              onChange={(e) => setAdmin({ ...admin, office_address: e.target.value })}
               disabled={!isEditing}
-              className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-            >
-              <option value="">Select Department</option>
-              <option value="Engineering">Engineering</option>
-              <option value="Marketing">Marketing</option>
-              <option value="Sales">Sales</option>
-              <option value="HR">Human Resources</option>
-              <option value="Finance">Finance</option>
-              <option value="Operations">Operations</option>
-            </select>
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+              placeholder="Enter office address"
+            />
           </div>
         </div>
 
         {!isEditing ? (
           <button
             onClick={() => setIsEditing(true)}
-            className="flex items-center mt-5 justify-center gap-2 bg-blue-600 text-white px-4 py-2 text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center justify-center gap-2 mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
           >
             <FiEdit size={16} /> Edit Profile
           </button>
@@ -296,11 +237,7 @@ export default function Profile() {
               disabled={isSaving}
               className="flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-70"
             >
-              {isSaving ? "Saving..." : (
-                <>
-                  <FiSave size={16} /> Save Changes
-                </>
-              )}
+              {isSaving ? "Saving..." : <><FiSave size={16} /> Save Changes</>}
             </button>
           </div>
         )}

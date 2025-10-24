@@ -63,10 +63,10 @@ type UserProfile = {
   residential_address?: string;
 };
 
-
 export default function Profile() {
   // Managers array: id, fullname, email
   const [managers, setManagers] = useState<{id: string; fullname: string; email: string;}[]>([]);
+  const [departments, setDepartments] = useState<{department_name: string}[]>([]);
   const [user, setUser] = useState<UserProfile>({
     email: "",
     fullname: "",
@@ -229,8 +229,8 @@ export default function Profile() {
           institution: typeof currentUser.institution === "string" ? currentUser.institution : "",
           grade: typeof currentUser.grade === "string" ? currentUser.grade : "",
           languages: typeof currentUser.languages === "string" ? currentUser.languages : "",
-          reports_to: typeof currentUser.reports_to === "string" ? currentUser.reports_to : "",
-          // Additional fields from API
+          reports_to: typeof currentUser.reports_to === "string" ? currentUser.reports_to : "",    
+                // Additional fields from API
           blood_group: typeof currentUser.blood_group === "string" ? currentUser.blood_group : "",
           account_number: typeof currentUser.account_number === "string" ? currentUser.account_number : "",
           father_name: typeof currentUser.father_name === "string" ? currentUser.father_name : "",
@@ -257,19 +257,39 @@ export default function Profile() {
       }
     };
 
-    // Fetch managers list
-    const fetchManagers = async () => {
+// Fetch managers list
+const fetchManagers = async () => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/managers/`, {
+      headers: { "Content-Type": "application/json" }
+    });
+    if (!response.ok) throw new Error("Failed to fetch managers list");
+    const data = await response.json();
+    
+    // FIX: Map the API response to match frontend expectations
+    const mappedManagers = Array.isArray(data) ? data.map(manager => ({
+      id: manager.email, // Use email as ID since that's unique
+      fullname: manager.fullname || "Unknown Manager",
+      email: manager.email
+    })) : [];
+    
+    setManagers(mappedManagers);
+  } catch {
+    setManagers([]);
+  }
+};
+
+    // Fetch departments list
+    const fetchDepartments = async () => {
       try {
-        // Adjust API endpoint as needed for your backend
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/?is_manager=true`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/departments/`, {
           headers: { "Content-Type": "application/json" }
         });
-        if (!response.ok) throw new Error("Failed to fetch managers list");
+        if (!response.ok) throw new Error("Failed to fetch departments list");
         const data = await response.json();
-        // Assume data is an array of {id, fullname, email}
-        setManagers(Array.isArray(data) ? data : []);
+        setDepartments(Array.isArray(data) ? data : []);
       } catch {
-        setManagers([]);
+        setDepartments([]);
       }
     };
 
@@ -279,6 +299,7 @@ export default function Profile() {
       if (parsed.email) {
         fetchUserData(parsed.email);
         fetchManagers();
+        fetchDepartments();
       }
     }
   }, []);
@@ -297,145 +318,131 @@ export default function Profile() {
     reader.readAsDataURL(file);
   };
 
-  // Save profile
- const handleSave = async () => {
-   setIsSaving(true);
-   try {
-     const fileInput = fileInputRef.current?.files?.[0];
-     // List of allowed fields (including additional info fields)
-     const allowedFields: (keyof UserProfile)[] = [
-       "fullname", "phone", "department", "designation", "date_of_birth",
-       "date_joined", "skills", "gender", "marital_status", "nationality",
-       "permanent_address", "emp_id", "employment_type", "work_location",
-       "team", "reports_to", "degree", "degree_passout_year", "institution",
-       "grade", "languages", "emergency_contact_name",
-       "emergency_contact_relationship",
-       "emergency_contact_no",
-       "blood_group", "account_number", "father_name", "father_contact",
-       "mother_name", "mother_contact", "wife_name", "home_address",
-       "total_siblings", "brothers", "sisters", "total_children",
-       "bank_name", "branch", "pf_no", "pf_uan", "ifsc", "residential_address",
-     ];
-     // Numeric fields to convert
-     const numericFields: (keyof UserProfile)[] = [
-       "total_siblings", "brothers", "sisters", "total_children", "degree_passout_year"
-     ];
-     const formData = new FormData();
-     // Only append the selected profile picture file (not the base64 string)
-     if (fileInput) {
-       formData.append("profile_picture", fileInput);
-     }
+// Save profile
+const handleSave = async () => {
+  setIsSaving(true);
+  try {
+    const fileInput = fileInputRef.current?.files?.[0];
 
-     // Prepare a copy of user with reports_to as manager ID
-     let reportsToValue = user.reports_to || "";
-     // If the value is not empty and managers are loaded
-     if (reportsToValue && managers.length > 0) {
-       // Try to find manager by ID (if already an ID), else by email or fullname
-       const manager =
-         managers.find((m) => m.id === reportsToValue) ||
-         managers.find((m) => m.email === reportsToValue) ||
-         managers.find((m) => m.fullname === reportsToValue);
-       reportsToValue = manager ? manager.id : "";
-     }
+    // List of allowed fields
+    const allowedFields: (keyof UserProfile)[] = [
+      "fullname", "phone", "department", "designation", "date_of_birth",
+      "date_joined", "skills", "gender", "marital_status", "nationality",
+      "permanent_address", "emp_id", "employment_type", "work_location",
+      "team", "reports_to", "degree", "degree_passout_year", "institution",
+      "grade", "languages", "emergency_contact_name",
+      "emergency_contact_relationship",
+      "emergency_contact_no",
+      "blood_group", "account_number", "father_name", "father_contact",
+      "mother_name", "mother_contact", "wife_name", "home_address",
+      "total_siblings", "brothers", "sisters", "total_children",
+      "bank_name", "branch", "pf_no", "pf_uan", "ifsc", "residential_address",
+    ];
 
-     allowedFields.forEach((field) => {
-       // Don't send localProfilePic (used only for preview)
-       if (field === "profile_picture") return;
-       const value = user[field];
-       // Special handling for reports_to: send manager ID
-       if (field === "reports_to") {
-         if (reportsToValue && typeof reportsToValue === "string" && reportsToValue.trim() !== "") {
-           formData.append("reports_to", reportsToValue);
-         }
-         return;
-       }
-       // Convert numeric fields to numbers if not empty
-       if (numericFields.includes(field)) {
-         if (typeof value === "string" && value.trim() !== "") {
-           const num = Number(value);
-           if (!isNaN(num)) {
-             formData.append(field, num.toString());
-           }
-         }
-       } else {
-         if (typeof value === "string" && value.trim() !== "") {
-           formData.append(field, value);
-         }
-       }
-     });
-     // Do NOT append email to FormData (handled by backend, avoid ForeignKey assignment error)
-     // if (user.email && user.email.trim() !== "") {
-     //   formData.append("email", user.email);
-     // }
-     const fetchOptions: RequestInit = {
-       method: "PATCH",
-       body: formData,
-       // Do NOT set Content-Type, browser handles boundary for FormData
-     };
-     const fetchUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(user.email)}/`;
-     const response = await fetch(
-       fetchUrl,
-       fetchOptions
-     );
-     // Log backend response status and text before parsing
-     const responseText = await response.text();
-     let data;
-     let isJSON = false;
-     try {
-       data = JSON.parse(responseText);
-       isJSON = true;
-     } catch {
-       data = null;
-       isJSON = false;
-     }
-     if (!response.ok) {
-       // If backend returned HTML (not JSON), show a generic error
-       let errorMsg = "An error occurred while saving your profile.";
-       if (isJSON && data?.error) {
-         errorMsg = data.error;
-       } else if (
-         typeof responseText === "string" &&
-         (responseText.startsWith("<!DOCTYPE html") ||
-           responseText.startsWith("<html"))
-       ) {
-         errorMsg = "Server error. Please try again later.";
-       } else if (typeof responseText === "string" && responseText.trim() !== "") {
-         // Show up to 200 chars of text, but not HTML
-         errorMsg = responseText.length > 500
-           ? responseText.slice(0, 500)
-           : responseText;
-       }
-       setSaveMessage({
-         type: "error",
-         text: errorMsg,
-       });
-       setIsSaving(false);
-       // Don't clear local image preview if backend fails
-       return;
-     }
-     // Merge backend response into user, but don't overwrite local image preview with broken/HTML data
-     setUser((prev) => {
-       // If localProfilePic is set, keep it as profile_picture for preview
-       if (localProfilePic) {
-         return { ...prev, ...data, profile_picture: localProfilePic };
-       }
-       return { ...prev, ...data };
-     });
-     setIsEditing(false);
-     setSaveMessage({ type: "success", text: "Profile updated successfully!" });
-     window.scrollTo({ top: 0, behavior: "smooth" });
-     // Clear localProfilePic on successful save
-     setLocalProfilePic(null);
-   } catch (e: unknown) {
-     setSaveMessage({
-       type: "error",
-       text: e instanceof Error ? e.message : "Failed to save profile",
-     });
-   } finally {
-     setIsSaving(false);
-     setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
-   }
- };
+    // Numeric fields to convert
+    const numericFields: (keyof UserProfile)[] = [
+      "total_siblings", "brothers", "sisters", "total_children", "degree_passout_year"
+    ];
+
+    const formData = new FormData();
+
+    // Append profile picture file
+    if (fileInput) {
+      formData.append("profile_picture", fileInput);
+    }
+
+    // Handle reports_to: send manager ID instead of email
+    if (user.reports_to && user.reports_to.trim() !== "") {
+      const manager = managers.find(m => m.email === user.reports_to);
+      if (manager) {
+        formData.append("reports_to", manager.id.toString());
+      } else {
+        console.warn("Selected manager not found, skipping reports_to");
+      }
+    }
+
+    // Append other allowed fields
+    allowedFields.forEach((field) => {
+      if (field === "profile_picture" || field === "reports_to") return;
+
+      const value = user[field];
+
+      if (numericFields.includes(field)) {
+        if (typeof value === "string" && value.trim() !== "") {
+          const num = Number(value);
+          if (!isNaN(num)) formData.append(field, num.toString());
+        }
+      } else {
+        if (typeof value === "string" && value.trim() !== "") {
+          formData.append(field, value);
+        }
+      }
+    });
+
+    const fetchUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(user.email)}/`;
+
+    console.log("Saving to URL:", fetchUrl);
+
+    const response = await fetch(fetchUrl, {
+      method: "PATCH",
+      body: formData, // FormData automatically sets proper multipart boundary
+    });
+
+    const responseText = await response.text();
+    console.log("Response status:", response.status);
+    console.log("Response text:", responseText);
+
+    let data;
+    let isJSON = false;
+    try {
+      data = JSON.parse(responseText);
+      isJSON = true;
+    } catch {
+      data = null;
+      isJSON = false;
+    }
+
+    if (!response.ok) {
+      let errorMsg = "An error occurred while saving your profile.";
+      if (isJSON && data?.error) {
+        errorMsg = data.error;
+      } else if (isJSON && data?.reports_to) {
+        errorMsg = `Manager error: ${Array.isArray(data.reports_to) ? data.reports_to[0] : data.reports_to}`;
+      } else if (typeof responseText === "string" && responseText.startsWith("<html")) {
+        errorMsg = "Server error. Please try again later.";
+      } else if (typeof responseText === "string" && responseText.trim() !== "") {
+        errorMsg = responseText.length > 500 ? responseText.slice(0, 500) : responseText;
+      }
+      setSaveMessage({ type: "error", text: errorMsg });
+      setIsSaving(false);
+      return;
+    }
+
+    // Merge backend response into user
+    setUser(prev => {
+      if (localProfilePic) {
+        return { ...prev, ...data, profile_picture: localProfilePic };
+      }
+      return { ...prev, ...data };
+    });
+
+    setIsEditing(false);
+    setSaveMessage({ type: "success", text: "Profile updated successfully!" });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setLocalProfilePic(null);
+
+  } catch (e: unknown) {
+    setSaveMessage({
+      type: "error",
+      text: e instanceof Error ? e.message : "Failed to save profile",
+    });
+  } finally {
+    setIsSaving(false);
+    setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
+  }
+};
+
+
 
   const handleCancel = () => {
     // Restore previous values
@@ -446,8 +453,6 @@ export default function Profile() {
     setIsEditing(false);
     setSaveMessage({ type: "", text: "" });
   };
-
-
 
   return (
     <DashboardLayout role="employee">
@@ -488,51 +493,50 @@ export default function Profile() {
           </div>
         )}
         {/* Profile Picture Section */}
-      {/* Profile Picture Section */}
-<section className="mb-8">
-  <h2 className="text-lg font-semibold text-gray-700 mb-2">Profile Picture</h2>
-  <div className="flex items-center gap-6">
-    <div className="relative flex-shrink-0">
-      {/* Profile image - only show if there is a profile picture */}
-      {(localProfilePic || (user.profile_picture && user.profile_picture !== "null")) && (
-        <Image
-          src={
-            localProfilePic
-              ? localProfilePic
-              : user.profile_picture!.replace(/^"|"$/g, "").replace(/@/g, "%40")
-          }
-          alt={user.fullname || "Profile"}
-          width={96}
-          height={96}
-          className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
-          unoptimized={true}
-          onError={() => {}}
-        />
-      )}
-    </div>
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-700 mb-2">Profile Picture</h2>
+          <div className="flex items-center gap-6">
+            <div className="relative flex-shrink-0">
+              {/* Profile image - only show if there is a profile picture */}
+              {(localProfilePic || (user.profile_picture && user.profile_picture !== "null")) && (
+                <Image
+                  src={
+                    localProfilePic
+                      ? localProfilePic
+                      : user.profile_picture!.replace(/^"|"$/g, "").replace(/@/g, "%40")
+                  }
+                  alt={user.fullname || "Profile"}
+                  width={96}
+                  height={96}
+                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-blue-500 shadow-md object-cover"
+                  unoptimized={true}
+                  onError={() => {}}
+                />
+              )}
+            </div>
 
-    {/* Edit button */}
-    {isEditing && (
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        className="flex items-center gap-1 px-3 py-2 text-sm font-medium bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition"
-      >
-        <FiCamera size={16} />
-        Edit
-      </button>
-    )}
+            {/* Edit button */}
+            {isEditing && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1 px-3 py-2 text-sm font-medium bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition"
+              >
+                <FiCamera size={16} />
+                Edit
+              </button>
+            )}
 
-    {/* Hidden file input */}
-    <input
-      type="file"
-      accept="image/*"
-      ref={fileInputRef}
-      onChange={handleImageUpload}
-      className="hidden"
-    />
-  </div>
-</section>
+            {/* Hidden file input */}
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+          </div>
+        </section>
         {/* Personal Information */}
 
         <section className="mb-8">
@@ -661,12 +665,11 @@ export default function Profile() {
                 className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
               >
                 <option value="">Select Department</option>
-                <option value="Engineering">Engineering</option>
-                <option value="Marketing">Marketing</option>
-                <option value="Sales">Sales</option>
-                <option value="HR">Human Resources</option>
-                <option value="Finance">Finance</option>
-                <option value="Operations">Operations</option>
+                {departments.map((dept, index) => (
+                  <option key={index} value={dept.department_name}>
+                    {dept.department_name}
+                  </option>
+                ))}
               </select>
             </div>
             {/* Designation */}
@@ -759,30 +762,27 @@ export default function Profile() {
                 placeholder="Enter team"
               />
             </div>
+            
             {/* Reports To */}
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Reports To</label>
-              <select
-                value={
-                  // Show the manager ID if present, else fallback to empty string
-                  user.reports_to && managers.some((m) => m.id === user.reports_to)
-                    ? user.reports_to
-                    : ""
-                }
-                onChange={(e) => {
-                  setUser({ ...user, reports_to: e.target.value });
-                }}
-                disabled={!isEditing}
-                className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-              >
-                <option value="">Select Manager</option>
-                {managers.map((manager) => (
-                  <option key={`${manager.id}-${manager.email}`} value={manager.id}>
-                    {manager.fullname} ({manager.email})
-                  </option>
-                ))}
-              </select>
-            </div>
+<div className="space-y-1">
+  <label className="block text-sm font-medium text-gray-700">Reports To</label>
+  <select
+    value={user.reports_to || ""}
+    onChange={(e) => {
+      setUser({ ...user, reports_to: e.target.value });
+    }}
+    disabled={!isEditing}
+    className="border border-gray-300 rounded-md p-2.5 sm:p-3 w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+  >
+    <option value="">Select Manager</option>
+    {managers.map((manager) => (
+      <option key={manager.email} value={manager.email}>
+        {manager.fullname} ({manager.email})
+      </option>
+    ))}
+  </select>
+</div>
+
           </div>
         </section>
         {/* Education & Skills */}
