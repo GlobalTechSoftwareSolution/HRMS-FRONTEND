@@ -235,6 +235,100 @@ export default function ReportsAndTasksPage() {
     doc.save("organization-report.pdf");
   };
 
+  // Task Card Component for Mobile
+  const TaskCard = ({ task }: { task: Task }) => {
+    const emp = employees.find(e => e.email === task.email);
+    const dept = emp?.department || "Not Assigned";
+    
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+        <div className="flex justify-between items-start mb-3">
+          <h3 className="font-semibold text-gray-800 text-lg">{task.title}</h3>
+          <button
+            onClick={() => openTaskModal(task)}
+            className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+          >
+            View
+          </button>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <span className="text-gray-600 text-sm">Email:</span>
+            <span className="text-gray-800 text-sm">{task.email}</span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-gray-600 text-sm">Department:</span>
+            <span className="text-gray-800 text-sm">{dept}</span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-gray-600 text-sm">Priority:</span>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
+              {task.priority}
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-gray-600 text-sm">Status:</span>
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
+              {task.status}
+            </span>
+          </div>
+          
+          {task.due_date && (
+            <div className="flex justify-between">
+              <span className="text-gray-600 text-sm">Due Date:</span>
+              <span className="text-gray-800 text-sm">{formatDate(task.due_date)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Report Card Component for Mobile
+  const ReportCard = ({ report }: { report: Report }) => {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+        <div className="flex justify-between items-start mb-3">
+          <h3 className="font-semibold text-gray-800 text-lg">{report.title}</h3>
+          <button
+            onClick={() => openReportModal(report)}
+            className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+          >
+            View
+          </button>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <span className="text-gray-600 text-sm">Email:</span>
+            <span className="text-gray-800 text-sm">{report.email}</span>
+          </div>
+          
+          <div className="flex flex-col">
+            <span className="text-gray-600 text-sm mb-1">Description:</span>
+            <span className="text-gray-800 text-sm line-clamp-2">{report.description}</span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span className="text-gray-600 text-sm">Date:</span>
+            <span className="text-gray-800 text-sm">{formatDate(report.date)}</span>
+          </div>
+          
+          {report.created_at && (
+            <div className="flex justify-between">
+              <span className="text-gray-600 text-sm">Created:</span>
+              <span className="text-gray-800 text-sm">{formatDate(report.created_at)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <DashboardLayout role="ceo">
       <div className="p-4 md:p-6 max-w-7xl mx-auto">
@@ -246,9 +340,10 @@ export default function ReportsAndTasksPage() {
             Monitor all organizational reports and tasks
           </p>
 
-          <div className="flex border-b border-gray-200">
+          {/* Tab Navigation */}
+          <div className="flex border-b border-gray-200 mb-4">
             <button
-              className={`py-3 px-6 font-medium text-sm transition-colors ${
+              className={`py-3 px-4 md:px-6 font-medium text-sm transition-colors flex-1 md:flex-none ${
                 activeTab === "tasks"
                   ? "text-blue-600 border-b-2 border-blue-600"
                   : "text-gray-500 hover:text-gray-700"
@@ -258,7 +353,7 @@ export default function ReportsAndTasksPage() {
               Tasks ({tasks.length})
             </button>
             <button
-              className={`py-3 px-6 font-medium text-sm transition-colors ${
+              className={`py-3 px-4 md:px-6 font-medium text-sm transition-colors flex-1 md:flex-none ${
                 activeTab === "reports"
                   ? "text-blue-600 border-b-2 border-blue-600"
                   : "text-gray-500 hover:text-gray-700"
@@ -269,133 +364,171 @@ export default function ReportsAndTasksPage() {
             </button>
           </div>
 
+          {/* Download PDF Button */}
           <button
             onClick={downloadCombinedPDF}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 mt-4"
+            className="w-full md:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
             Download Professional PDF
           </button>
         </div>
 
-        {/* TASKS TABLE */}
-        {activeTab === "tasks" && (
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        )}
+
+        {/* TASKS SECTION */}
+        {activeTab === "tasks" && !isLoading && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            {isLoading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            {tasks.length === 0 ? (
+              <div className="text-center py-16 text-gray-500">
+                <div className="text-4xl mb-4">📋</div>
+                <p className="text-lg">No tasks available</p>
+                <p className="text-sm text-gray-400 mt-2">Tasks will appear here once created</p>
               </div>
-            ) : tasks.length === 0 ? (
-              <div className="text-center py-16 text-gray-500">No tasks available</div>
             ) : (
-              <div className="hidden md:block overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {["Email", "Title", "Department", "Priority", "Status", "Actions"].map(
-                        (h) => (
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {["Email", "Title", "Department", "Priority", "Status", "Actions"].map(
+                          (h) => (
+                            <th
+                              key={h}
+                              className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                            >
+                              {h}
+                            </th>
+                          )
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {tasks.map((task) => {
+                        const emp = employees.find(e => e.email === task.email);
+                        const dept = emp?.department || "Not Assigned";
+                        return (
+                          <tr key={task.task_id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {task.email}
+                            </td>
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                              {task.title}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-500">
+                              {dept}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+                                  task.priority
+                                )}`}
+                              >
+                                {task.priority}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                  task.status
+                                )}`}
+                              >
+                                {task.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <button
+                                onClick={() => openTaskModal(task)}
+                                className="text-blue-600 hover:text-blue-800 font-medium text-sm transition-colors"
+                              >
+                                View Details
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden p-4">
+                  {tasks.map((task) => (
+                    <TaskCard key={task.task_id} task={task} />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* REPORTS SECTION */}
+        {activeTab === "reports" && !isLoading && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            {reports.length === 0 ? (
+              <div className="text-center py-16 text-gray-500">
+                <div className="text-4xl mb-4">📊</div>
+                <p className="text-lg">No reports available</p>
+                <p className="text-sm text-gray-400 mt-2">Reports will appear here once created</p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {["Email", "Title", "Description", "Date", "Actions"].map((h) => (
                           <th
                             key={h}
                             className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                           >
                             {h}
                           </th>
-                        )
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {tasks.map((task) => {
-                      const emp = employees.find(e => e.email === task.email);
-                      const dept = emp?.department || "Not Assigned";
-                      return (
-                        <tr key={task.task_id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">{task.email}</td>
-                          <td className="px-6 py-4">{task.title}</td>
-                          <td className="px-6 py-4">{dept}</td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-                                task.priority
-                              )}`}
-                            >
-                              {task.priority}
-                            </span>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {reports.map((report) => (
+                        <tr key={report.task_id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {report.email}
                           </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                                task.status
-                              )}`}
-                            >
-                              {task.status}
-                            </span>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                            {report.title}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 text-sm text-gray-600 max-w-xs">
+                            <div className="line-clamp-2">{report.description}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                            {formatDate(report.date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <button
-                              onClick={() => openTaskModal(task)}
-                              className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                              onClick={() => openReportModal(report)}
+                              className="text-blue-600 hover:text-blue-800 font-medium text-sm transition-colors"
                             >
-                              View
+                              View Details
                             </button>
                           </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* REPORTS TABLE */}
-        {activeTab === "reports" && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            {isLoading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-              </div>
-            ) : reports.length === 0 ? (
-              <div className="text-center py-16 text-gray-500">No reports available</div>
-            ) : (
-              <div className="hidden md:block overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {["Email", "Title", "Description", "Date", "Actions"].map((h) => (
-                        <th
-                          key={h}
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
-                          {h}
-                        </th>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {reports.map((report) => (
-                      <tr key={report.task_id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">{report.email}</td>
-                        <td className="px-6 py-4 font-medium">{report.title}</td>
-                        <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
-                          {report.description}
-                        </td>
-                        <td className="px-6 py-4 text-gray-600 text-sm">
-                          {formatDate(report.date)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <button
-                            onClick={() => openReportModal(report)}
-                            className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                          >
-                            View
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden p-4">
+                  {reports.map((report) => (
+                    <ReportCard key={report.task_id} report={report} />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -405,42 +538,45 @@ export default function ReportsAndTasksPage() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
               <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold">{selectedTask.title}</h2>
+                <h2 className="text-2xl font-bold text-gray-800">{selectedTask.title}</h2>
                 <button
                   onClick={closeModals}
-                  className="text-gray-500 hover:text-gray-700 text-xl ml-4"
+                  className="text-gray-500 hover:text-gray-700 text-xl ml-4 transition-colors"
                 >
                   &times;
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <strong>Email: </strong> {selectedTask.email}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <strong className="text-gray-600">Email: </strong> 
+                  <span className="text-gray-800">{selectedTask.email}</span>
                 </div>
-                <div>
-                  <strong>Department: </strong> {selectedTask.department}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <strong className="text-gray-600">Department: </strong> 
+                  <span className="text-gray-800">{selectedTask.department}</span>
                 </div>
-                <div>
-                  <strong>Priority: </strong>{" "}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <strong className="text-gray-600">Priority: </strong>{" "}
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(selectedTask.priority)}`}>
                     {selectedTask.priority}
                   </span>
                 </div>
-                <div>
-                  <strong>Status: </strong>{" "}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <strong className="text-gray-600">Status: </strong>{" "}
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedTask.status)}`}>
                     {selectedTask.status}
                   </span>
                 </div>
                 {selectedTask.due_date && (
-                  <div>
-                    <strong>Due Date: </strong> {formatDate(selectedTask.due_date)}
+                  <div className="bg-gray-50 p-3 rounded-lg md:col-span-2">
+                    <strong className="text-gray-600">Due Date: </strong> 
+                    <span className="text-gray-800">{formatDate(selectedTask.due_date)}</span>
                   </div>
                 )}
               </div>
               <div className="mt-4">
-                <strong>Description: </strong>
-                <p className="mt-2 text-gray-700">{selectedTask.description}</p>
+                <strong className="text-gray-600 block mb-2">Description: </strong>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">{selectedTask.description}</p>
               </div>
             </div>
           </div>
@@ -451,37 +587,41 @@ export default function ReportsAndTasksPage() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
               <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold">{selectedReport.title}</h2>
+                <h2 className="text-2xl font-bold text-gray-800">{selectedReport.title}</h2>
                 <button
                   onClick={closeModals}
-                  className="text-gray-500 hover:text-gray-700 text-xl ml-4"
+                  className="text-gray-500 hover:text-gray-700 text-xl ml-4 transition-colors"
                 >
                   &times;
                 </button>
               </div>
-              <div>
-                <p>
-                  <strong>Email:</strong> {selectedReport.email}
-                </p>
-                <p className="mt-2">
-                  <strong>Description:</strong> {selectedReport.description}
-                </p>
+              <div className="space-y-4">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <strong className="text-gray-600">Email:</strong> 
+                  <span className="text-gray-800 ml-2">{selectedReport.email}</span>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <strong className="text-gray-600">Description:</strong> 
+                  <p className="text-gray-700 mt-1">{selectedReport.description}</p>
+                </div>
                 {selectedReport.content && (
-                  <p className="mt-2">
-                    <strong>Content:</strong> {selectedReport.content}
-                  </p>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <strong className="text-gray-600">Content:</strong> 
+                    <p className="text-gray-700 mt-1">{selectedReport.content}</p>
+                  </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <div>
-                    <strong>Date:</strong> {formatDate(selectedReport.date)}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <strong className="text-gray-600">Date:</strong> 
+                    <span className="text-gray-800 block mt-1">{formatDate(selectedReport.date)}</span>
                   </div>
-                  <div>
-                    <strong>Created At:</strong>{" "}
-                    {formatDate(selectedReport.created_at)}
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <strong className="text-gray-600">Created At:</strong> 
+                    <span className="text-gray-800 block mt-1">{formatDate(selectedReport.created_at)}</span>
                   </div>
-                  <div>
-                    <strong>Updated At:</strong>{" "}
-                    {formatDate(selectedReport.updated_at)}
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <strong className="text-gray-600">Updated At:</strong> 
+                    <span className="text-gray-800 block mt-1">{formatDate(selectedReport.updated_at)}</span>
                   </div>
                 </div>
               </div>

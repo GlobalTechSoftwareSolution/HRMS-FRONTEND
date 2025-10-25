@@ -1,6 +1,5 @@
 "use client";
 import React from "react";
-import { Github } from "lucide-react";
 import { motion } from "framer-motion";
 
 const Mainpage: React.FC = () => {
@@ -42,14 +41,6 @@ const Mainpage: React.FC = () => {
           className="inline-flex items-center justify-center bg-red-500 text-white py-3 px-8 rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-transform duration-300 font-semibold text-lg"
         >
            Try Demo
-        </a>
-        <a
-          href="https://github.com/GlobalTechSoftwareSolution"
-          target="_blank"
-          className="inline-flex items-center justify-center border border-gray-400 py-3 px-8 rounded-full text-lg font-medium text-gray-800 hover:bg-gray-100 hover:scale-105 transition-transform duration-300"
-        >
-          <Github className="w-5 h-5 mr-2" />
-          View on Github
         </a>
       </motion.div>
 

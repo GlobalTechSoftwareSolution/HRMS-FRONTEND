@@ -211,7 +211,7 @@ export default function LeaveSection() {
 
   return (
     <DashboardLayout role="employee">
-      <div className="space-y-8 max-w-4xl mx-auto">
+      <div className="space-y-8 max-w-4xl mx-auto px-4 sm:px-6">
         {/* Header */}
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-800">Leave Management</h2>
@@ -246,7 +246,7 @@ export default function LeaveSection() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Start Date
@@ -273,7 +273,7 @@ export default function LeaveSection() {
             </div>
           </div>
 
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="text-sm text-gray-500">
               {startDate && endDate && (
                 <span>
@@ -290,7 +290,7 @@ export default function LeaveSection() {
             <button
               onClick={handleAddLeave}
               disabled={isSubmitting}
-              className="bg-blue-600 text-white px-5 py-2.5 rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:bg-blue-400 flex items-center"
+              className="bg-blue-600 text-white px-5 py-2.5 rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:bg-blue-400 flex items-center w-full sm:w-auto justify-center"
             >
               {isSubmitting ? (
                 <>
@@ -307,7 +307,9 @@ export default function LeaveSection() {
 
         {/* Leave History */}
         {loading ? (
-          <p>Loading leaves...</p>
+          <div className="text-center py-8">
+            <p className="text-gray-600">Loading leaves...</p>
+          </div>
         ) : (
           <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
             <h3 className="text-lg font-semibold mb-4 text-gray-700 flex items-center">
@@ -321,58 +323,102 @@ export default function LeaveSection() {
                 <p className="text-sm mt-1">Submit your first request above</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 text-left text-sm text-gray-600">
-                      <th className="pb-3">Reason</th>
-                      <th className="pb-3">Period</th>
-                      <th className="pb-3">Duration</th>
-                      <th className="pb-3">Submitted</th>
-                      <th className="pb-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {leaves.map((leave) => (
-                      <tr
-                        key={leave.id}
-                        className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="py-4 pr-4">{leave.reason}</td>
-                        <td className="py-4 pr-4">
-                          <div>{formatDate(leave.startDate)}</div>
-                          <div className="text-gray-400 text-sm">
-                            to {formatDate(leave.endDate)}
-                          </div>
-                        </td>
-                        <td className="py-4 pr-4">{leave.daysRequested} day(s)</td>
-                        <td className="py-4 pr-4">{formatDate(leave.submittedDate)}</td>
-                        <td className="py-4">
-                          <div
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              leave.status.toLowerCase() === "pending"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : leave.status.toLowerCase() === "approved"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
-                          >
-                            <span className="mr-1.5">{getStatusIcon(leave.status)}</span>
-                            {leave.status}
-                          </div>
-                        </td>
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-left text-sm text-gray-600">
+                        <th className="pb-3">Reason</th>
+                        <th className="pb-3">Period</th>
+                        <th className="pb-3">Duration</th>
+                        <th className="pb-3">Submitted</th>
+                        <th className="pb-3">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {leaves.map((leave) => (
+                        <tr
+                          key={leave.id}
+                          className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="py-4 pr-4">{leave.reason}</td>
+                          <td className="py-4 pr-4">
+                            <div>{formatDate(leave.startDate)}</div>
+                            <div className="text-gray-400 text-sm">
+                              to {formatDate(leave.endDate)}
+                            </div>
+                          </td>
+                          <td className="py-4 pr-4">{leave.daysRequested} day(s)</td>
+                          <td className="py-4 pr-4">{formatDate(leave.submittedDate)}</td>
+                          <td className="py-4">
+                            <div
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                leave.status.toLowerCase() === "pending"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : leave.status.toLowerCase() === "approved"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              <span className="mr-1.5">{getStatusIcon(leave.status)}</span>
+                              {leave.status}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4">
+                  {leaves.map((leave) => (
+                    <div
+                      key={leave.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <h4 className="font-semibold text-gray-800 text-lg">{leave.reason}</h4>
+                        <div
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                            leave.status.toLowerCase() === "pending"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : leave.status.toLowerCase() === "approved"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          <span className="mr-1.5">{getStatusIcon(leave.status)}</span>
+                          {leave.status}
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2 text-sm text-gray-600">
+                        <div className="flex justify-between">
+                          <span className="font-medium">Period:</span>
+                          <span>{formatDate(leave.startDate)} - {formatDate(leave.endDate)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-medium">Duration:</span>
+                          <span>{leave.daysRequested} day(s)</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="font-medium">Submitted:</span>
+                          <span>{formatDate(leave.submittedDate)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
       </div>
       {dialogOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full mx-4">
             <h3 className="text-lg font-semibold text-gray-800 mb-3">Notice</h3>
             <p className="text-gray-600 mb-5">{dialogMessage}</p>
             <button

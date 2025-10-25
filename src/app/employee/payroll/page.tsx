@@ -11,31 +11,38 @@ import {
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 type PayrollAPIItem = {
+  email: string;
+  basic_salary: string;
+  STD: number;
+  LOP: number;
   month: string;
-  year: string | number;
-  basic_salary: string | number;
+  year: number;
   status: string;
   pay_date: string;
-  email: string;
 };
 
 type PayrollRecord = {
   id: number;
   month: string;
   basicSalary: number;
+  stdDays: number;
+  lopDays: number;
   status: "paid" | "pending" | "processing";
   paymentDate: string;
   email: string;
+  netPay: number;
 };
 
 type EmployeeData = {
-  name: string;
   email: string;
-  employee_id: string;
-  doj: string;
-  location: string;
+  fullname: string;
+  phone: string;
   department: string;
   designation: string;
+  date_joined: string;
+  emp_id: string;
+  work_location: string;
+  team: string;
   blood_group: string;
   reports_to: string;
   account_number: string;
@@ -51,6 +58,12 @@ type EmployeeData = {
   pf_uan: string;
   ifsc: string;
   languages: string;
+};
+
+type AttendanceData = {
+  present_days?: number;
+  absent_days?: number;
+  total_days?: number;
 };
 
 type PayslipData = {
@@ -74,13 +87,14 @@ type PayslipData = {
   pfUan?: string;
   ifsc?: string;
   branch?: string;
-  earnings: Record<string, number | string>;
-  deductions: Record<string, number | string>;
+  earnings: Record<string, number>;
+  deductions: Record<string, number>;
 };
 
 export default function PayrollDashboard() {
   const [payrollData, setPayrollData] = useState<PayrollRecord[]>([]);
   const [employeeData, setEmployeeData] = useState<EmployeeData | null>(null);
+  const [attendanceData, setAttendanceData] = useState<AttendanceData | null>(null);
   const [filterYear, setFilterYear] = useState<string>("2025");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [loading, setLoading] = useState(true);
@@ -103,9 +117,54 @@ export default function PayrollDashboard() {
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(userEmail)}/`
         );
 
-        if (employeeResponse.ok) {
-          const employeeData = await employeeResponse.json();
-          setEmployeeData(employeeData);
+        if (!employeeResponse.ok) {
+          throw new Error("Failed to fetch employee data");
+        }
+
+        const employeeData = await employeeResponse.json();
+        setEmployeeData(employeeData);
+
+        // Fetch attendance data for STD days
+        let presentDays = 0;
+        let absentDays = 0;
+        
+        try {
+          const attendanceResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_attendance/${encodeURIComponent(userEmail)}/`
+          );
+          
+          if (attendanceResponse.ok) {
+            const attendanceData = await attendanceResponse.json();
+            setAttendanceData(attendanceData);
+            
+            // Extract present days from attendance data
+            if (attendanceData && typeof attendanceData === 'object') {
+              presentDays = attendanceData.present_days || attendanceData.total_days || 0;
+            } else if (Array.isArray(attendanceData)) {
+              presentDays = attendanceData.length;
+            }
+          }
+        } catch (attendanceErr) {
+          console.warn("Failed to fetch attendance data:", attendanceErr);
+        }
+
+        // Fetch absent data for LOP days
+        try {
+          const absentResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_absent/${encodeURIComponent(userEmail)}/`
+          );
+          
+          if (absentResponse.ok) {
+            const absentData = await absentResponse.json();
+            // If absentData is an array, count the days, if it's an object with count, use that
+            if (Array.isArray(absentData)) {
+              absentDays = absentData.length;
+            } else if (absentData && typeof absentData === 'object') {
+              absentDays = absentData.absent_days || absentData.count || 0;
+            }
+          }
+        } catch (absentErr) {
+          console.warn("Failed to fetch absent data:", absentErr);
         }
 
         // Fetch payroll data
@@ -114,29 +173,39 @@ export default function PayrollDashboard() {
         );
 
         if (!payrollResponse.ok) {
-          setPayrollData([]);
-          return;
+          throw new Error("Failed to fetch payroll data");
         }
 
-        const data: { payroll?: PayrollAPIItem; payrolls?: PayrollAPIItem[] } =
-          await payrollResponse.json();
+        const payrollApiData = await payrollResponse.json();
 
-        const payrollArray: PayrollAPIItem[] = data.payroll
-          ? [data.payroll]
-          : data.payrolls || [];
+        // Handle both single payroll and payrolls array
+        const payrollArray: PayrollAPIItem[] = payrollApiData.payroll 
+          ? [payrollApiData.payroll] 
+          : payrollApiData.payrolls || [];
 
-        const mappedData: PayrollRecord[] = payrollArray.map((item, index) => ({
-          id: index + 1,
-          month: `${item.month} ${item.year}`,
-          basicSalary: Number(item.basic_salary) || 0,
-          status: (item.status || "pending").toLowerCase() as "paid" | "pending" | "processing",
-          paymentDate: item.pay_date || "",
-          email: item.email,
-        }));
+        const mappedData: PayrollRecord[] = payrollArray.map((item, index) => {
+          const basicSalary = Number(item.basic_salary) || 0;
+          const stdDays = presentDays || item.STD || 22; // Use attendance data first
+          const lopDays = absentDays || item.LOP || 0;
+          const netPay = calculateNetPay(basicSalary);
 
-        setPayrollData(mappedData.filter((item) => item.email === userEmail));
+          return {
+            id: index + 1,
+            month: `${item.month} ${item.year}`,
+            basicSalary: basicSalary,
+            stdDays: stdDays,
+            lopDays: lopDays,
+            status: (item.status || "pending").toLowerCase() as "paid" | "pending" | "processing",
+            paymentDate: item.pay_date || "",
+            email: item.email,
+            netPay: netPay,
+          };
+        });
+
+        setPayrollData(mappedData);
       } catch (err) {
         console.error("Error fetching data:", err);
+        setError(err instanceof Error ? err.message : "Failed to load data");
         setPayrollData([]);
       } finally {
         setLoading(false);
@@ -146,7 +215,24 @@ export default function PayrollDashboard() {
     fetchData();
   }, []);
 
-  const calculateNetPay = (record: PayrollRecord) => record.basicSalary;
+  const calculateNetPay = (basicSalary: number) => {
+    // Calculate earnings
+    const hra = Math.round(basicSalary * 0.4);
+    const travelAllowance = 1600;
+    const medicalAllowance = 1250;
+    const specialAllowance = Math.round(basicSalary * 0.15);
+    
+    const grossEarnings = basicSalary + hra + travelAllowance + medicalAllowance + specialAllowance;
+    
+    // Calculate deductions
+    const pf = Math.round(basicSalary * 0.12);
+    const professionalTax = 200;
+    const incomeTax = Math.round(basicSalary * 0.05);
+    
+    const grossDeductions = pf + professionalTax + incomeTax;
+    
+    return grossEarnings - grossDeductions;
+  };
 
   const getStatusBadge = (status: PayrollRecord["status"]) => {
     const statusClasses = {
@@ -167,26 +253,62 @@ export default function PayrollDashboard() {
     return matchesYear && matchesStatus;
   });
 
-  const overallNetPay = payrollData.reduce((acc, rec) => acc + calculateNetPay(rec), 0);
+// Get the logged-in employee email
+const employeeEmail = employeeData?.email || "";
+
+// Filter payrolls for this employee
+const employeePayrolls = payrollData.filter((rec) => rec.email === employeeEmail);
+
+// Get the latest/current month record (assuming payrollData is sorted by month descending)
+const currentMonthRecord = employeePayrolls.length > 0 ? employeePayrolls[0] : null;
+
+// Current month net pay = basic salary of the latest month
+const currentMonthNetPay = currentMonthRecord ? currentMonthRecord.basicSalary : 0;
+
+// Overall net pay = sum of basic salaries of all months
+const overallNetPay = employeePayrolls.reduce((acc, rec) => acc + rec.basicSalary, 0);
+
 
   const formatCurrency = (v: number | string) =>
     Math.round(Number(v || 0)).toLocaleString("en-IN");
 
-  // Enhanced PDF generator with real employee data
+  // Enhanced PDF generator with real employee data from APIs
   const downloadPayrollPDF = async (record: PayrollRecord) => {
     try {
-      // Use actual employee data or fallback to defaults
-      const employeeName = employeeData?.name || record.email.split("@")[0] || "Employee";
-      const employeeId = employeeData?.employee_id || `EMP-${String(record.id).padStart(4, "0")}`;
-      const doj = employeeData?.doj || "Not Available";
-      const location = employeeData?.location || "Bangalore";
-      const department = employeeData?.department || "Not Available";
-      const bankName = employeeData?.bank_name || "Not Available";
-      const bankAccount = employeeData?.account_number ? `XXXX${employeeData.account_number.slice(-4)}` : "XXXX1234";
-      const pfNumber = employeeData?.pf_no || "Not Available";
-      const pfUan = employeeData?.pf_uan || "Not Available";
-      const _ifsc = employeeData?.ifsc || "Not Available";
-      const _branch = employeeData?.branch || "Not Available";
+      if (!employeeData) {
+        throw new Error("Employee data not available");
+      }
+
+      // Use actual employee data from API
+      const employeeName = employeeData.fullname || record.email.split("@")[0] || "Employee";
+      const employeeId = employeeData.emp_id || `EMP-${String(record.id).padStart(4, "0")}`;
+      const doj = employeeData.date_joined || "Not Available";
+      const  department = employeeData.department ||employeeData.home_address || "Not Available";
+      const bankName = employeeData.bank_name || "Not Available";
+      const bankAccount = employeeData.account_number ? `XXXX${employeeData.account_number.slice(-4)}` : "XXXX1234";
+      const pfNumber = employeeData.pf_no || "Not Available";
+      const pfUan = employeeData.pf_uan || "Not Available";
+      const _ifsc = employeeData.ifsc || "Not Available";
+      const _branch = employeeData.branch || "Not Available";
+      const location = employeeData.work_location || "Not Available";
+
+      // Calculate earnings and deductions based on basic salary
+      const basicSalary = record.basicSalary;
+      
+      // Earnings
+      const hra = Math.round(basicSalary * 0.4);
+      const travelAllowance = 1600;
+      const medicalAllowance = 1250;
+      const specialAllowance = Math.round(basicSalary * 0.15);
+      
+      // Deductions
+      const pf = Math.round(basicSalary * 0.12);
+      const professionalTax = 200;
+      const incomeTax = Math.round(basicSalary * 0.05);
+
+      const grossEarnings = basicSalary + hra + travelAllowance + medicalAllowance + specialAllowance;
+      const grossDeductions = pf + professionalTax + incomeTax;
+      const netPay = grossEarnings - grossDeductions;
 
       const payslip: PayslipData = {
         companyName: process.env.NEXT_PUBLIC_COMPANY_NAME || "Global Tech Software Solutions",
@@ -197,33 +319,33 @@ export default function PayrollDashboard() {
         bank: bankName,
         bankAccount: bankAccount,
         doj: doj,
-        lopDays: 0,
+        lopDays: record.lopDays,
         pfNumber: pfNumber,
-        stdDays: 22,
-        location: location,
-        workedDays: 22,
+        stdDays: record.stdDays,
+        workedDays: record.stdDays - record.lopDays,
         department: department,
-        managementLevel: employeeData?.designation || "Not Available",
+        managementLevel: employeeData.designation || "Not Available",
         facility: "Bengaluru Office",
         entity: "Global Tech Software Solutions",
         pfUan: pfUan,
         ifsc: _ifsc,
         branch: _branch,
+        location: location,
         earnings: {
-          "Basic Salary": record.basicSalary,
+          "Basic Salary": basicSalary,
           "House Rent Allowance": 0,
           "Travel Allowance": 0,
           "Medical Allowance": 0,
           "Special Allowance": 0,
         },
         deductions: {
-          "Provident Fund": 1800,
-          "Professional Tax": 200,
+          "Provident Fund": pf,
+          "Professional Tax": professionalTax,
           "Income Tax": 0,
         },
       };
 
-      // PDF generation code remains the same as before
+      // PDF generation code
       const pdfDoc = await PDFDocument.create();
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -323,7 +445,6 @@ export default function PayrollDashboard() {
         ["LOP Days", payslip.lopDays],
         ["PF No.", payslip.pfNumber],
         ["STD Days", payslip.stdDays],
-        ["Location", payslip.location],
         ["Worked Days", payslip.workedDays],
         ["Department", payslip.department],
         ["Management Level", payslip.managementLevel],
@@ -332,6 +453,7 @@ export default function PayrollDashboard() {
         ["PF - UAN", payslip.pfUan],
         ["IFSC Code", payslip.ifsc],
         ["Branch", payslip.branch],
+        ["Location", payslip.location],
       ];
 
       for (let i = 0; i < Math.ceil(infoPairs.length / 2); i++) {
@@ -422,9 +544,9 @@ export default function PayrollDashboard() {
       }
 
       // Totals
-      const grossEarnings = earnings.reduce((a, [, v]) => a + Number(v), 0);
-      const grossDeductions = deductions.reduce((a, [, v]) => a + Number(v), 0);
-      const netPay = grossEarnings - grossDeductions;
+      const grossEarningsCalc = earnings.reduce((a, [, v]) => a + Number(v), 0);
+      const grossDeductionsCalc = deductions.reduce((a, [, v]) => a + Number(v), 0);
+      const netPayCalc = grossEarningsCalc - grossDeductionsCalc;
       const totalsY = tableY - rows * 18 - 8;
 
       page.drawRectangle({
@@ -441,7 +563,7 @@ export default function PayrollDashboard() {
         size: 10,
         font: boldFont,
       });
-      page.drawText(formatCurrency(grossEarnings), {
+      page.drawText(formatCurrency(grossEarningsCalc), {
         x: startX + colWidths[0] + 6,
         y: totalsY + 7,
         size: 10,
@@ -455,7 +577,7 @@ export default function PayrollDashboard() {
         size: 10,
         font: boldFont,
       });
-      page.drawText(formatCurrency(grossDeductions), {
+      page.drawText(formatCurrency(grossDeductionsCalc), {
         x: dedX + colWidths[3] + 6,
         y: totalsY + 7,
         size: 10,
@@ -480,7 +602,7 @@ export default function PayrollDashboard() {
         color: rgb(0.02, 0.2, 0.55),
       });
 
-      page.drawText(formatCurrency(netPay) + "/-", {
+      page.drawText(formatCurrency(netPayCalc) + "/-", {
         x: startX + totalWidth - 95,
         y: netY + 8,
         size: 12,
@@ -576,33 +698,29 @@ export default function PayrollDashboard() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-          {filteredData.length > 0 && (
-            <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-blue-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-500 text-xs sm:text-sm">Overall Net Pay</p>
-                  <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">₹{overallNetPay.toLocaleString()}</p>
-                </div>
-                <div className="p-2 sm:p-3 bg-blue-100 rounded-lg">
-                  <FiTrendingUp className="text-blue-600 text-lg sm:text-xl" />
-                </div>
+          <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-xs sm:text-sm">Overall Net Pay</p>
+                <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">₹{formatCurrency(overallNetPay)}</p>
+              </div>
+              <div className="p-2 sm:p-3 bg-blue-100 rounded-lg">
+                <FiTrendingUp className="text-blue-600 text-lg sm:text-xl" />
               </div>
             </div>
-          )}
+          </div>
 
-          {filteredData.length > 0 && (
-            <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-green-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-500 text-xs sm:text-sm">Current Month Net Pay</p>
-                  <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">₹{calculateNetPay(filteredData[0]).toLocaleString()}</p>
-                </div>
-                <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
-                  <FiDollarSign className="text-green-600 text-lg sm:text-xl" />
-                </div>
+          <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border-l-4 border-green-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-xs sm:text-sm">Current Month Net Pay</p>
+                <p className="text-lg sm:text-2xl font-bold text-gray-800 mt-1">₹{formatCurrency(currentMonthNetPay)}</p>
+              </div>
+              <div className="p-2 sm:p-3 bg-green-100 rounded-lg">
+                <FiDollarSign className="text-green-600 text-lg sm:text-xl" />
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Payroll Table */}
@@ -611,7 +729,7 @@ export default function PayrollDashboard() {
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {["Month", "Basic Salary", "Net Pay", "Status", "Payment Date", "Payslip"].map((head) => (
+                  {["Month", "Basic Salary", "STD Days", "LOP Days", "Net Pay", "Status", "Payment Date", "Payslip"].map((head) => (
                     <th
                       key={head}
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -627,8 +745,10 @@ export default function PayrollDashboard() {
                     <tr key={record.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-gray-700 font-medium">{record.month}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-700">₹{record.basicSalary.toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{record.stdDays}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{record.lopDays}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-blue-700 font-semibold">
-                        ₹{calculateNetPay(record).toLocaleString()}
+                        ₹{record.basicSalary.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(record.status)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-500">{record.paymentDate}</td>
@@ -644,7 +764,7 @@ export default function PayrollDashboard() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-16 text-center text-gray-400">
+                    <td colSpan={8} className="px-6 py-16 text-center text-gray-400">
                       <div className="flex flex-col items-center justify-center gap-3">
                         <span className="text-4xl">💸</span>
                         <h3 className="text-lg font-semibold">No payroll records yet</h3>
@@ -671,7 +791,9 @@ export default function PayrollDashboard() {
                   <div className="space-y-2">
                     <p><b>Month:</b> {record.month}</p>
                     <p><b>Basic Salary:</b> ₹{record.basicSalary.toLocaleString()}</p>
-                    <p><b>Net Pay:</b> ₹{calculateNetPay(record).toLocaleString()}</p>
+                    <p><b>STD Days:</b> {record.stdDays}</p>
+                    <p><b>LOP Days:</b> {record.lopDays}</p>
+                    <p><b>Net Pay:</b> ₹{record.netPay.toLocaleString()}</p>
                     <p><b>Status:</b> {getStatusBadge(record.status)}</p>
                     <p><b>Payment Date:</b> {record.paymentDate}</p>
                     <button
