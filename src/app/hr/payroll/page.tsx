@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PDFDocument, rgb, StandardFonts, PDFFont } from "pdf-lib";
 import { Plus, Eye, Download, X, CheckCircle, AlertCircle, Info } from "lucide-react";
-import {  eachDayOfInterval, isWeekend } from 'date-fns';
+// import {  eachDayOfInterval, isWeekend } from 'date-fns';
 
 type PayslipData = {
   id: string;
@@ -104,9 +104,6 @@ export default function HRPayrollDashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [attendance, setAttendance] = useState<Attendance[]>([]);
-  const [absentData, setAbsentData] = useState<AbsentData[]>([]);
-
   const [formData, setFormData] = useState<CreatePayrollForm>({
     email: "",
     basic_salary: "",
@@ -134,130 +131,136 @@ export default function HRPayrollDashboard() {
   };
 
   // Function to fetch STD days from attendance API
-  const fetchSTDDays = async (email: string, month: string, year: number): Promise<number> => {
-    try {
-      console.log(`📊 Fetching STD days for ${email} - ${month} ${year}`);
-      
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_attendance/${encodeURIComponent(email)}/`
-      );
-      
-      if (!response.ok) {
-        console.warn(`❌ Failed to fetch attendance for ${email}`);
-        return 22;
-      }
-
-      const attendanceData = await response.json();
-      console.log(`✅ Raw attendance data for ${email}:`, attendanceData);
-
-      let presentDays = 0;
-      const monthIndex = getMonthIndex(month);
-      
-      if (Array.isArray(attendanceData)) {
-        // Filter attendance for the specific month and year
-        const monthAttendance = attendanceData.filter((record: Attendance) => {
-          if (!record.date) return false;
-          try {
-            const recordDate = new Date(record.date);
-            return recordDate.getMonth() === monthIndex && 
-                   recordDate.getFullYear() === year &&
-                   record.check_in && 
-                   record.check_out;
-          } catch (e) {
-            return false;
-          }
-        });
-        presentDays = monthAttendance.length;
-        console.log(`📈 Filtered ${monthAttendance.length} attendance records for ${month} ${year}`);
+  const fetchSTDDays = useCallback(
+    async (email: string, month: string, year: number): Promise<number> => {
+      try {
+        console.log(`📊 Fetching STD days for ${email} - ${month} ${year}`);
         
-      } else if (attendanceData.present_days !== undefined) {
-        presentDays = attendanceData.present_days;
-      } else if (attendanceData.total_days !== undefined) {
-        presentDays = attendanceData.total_days;
-      } else if (typeof attendanceData === 'number') {
-        presentDays = attendanceData;
-      } else if (attendanceData.count !== undefined) {
-        presentDays = attendanceData.count;
-      }
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_attendance/${encodeURIComponent(email)}/`
+        );
+        
+        if (!response.ok) {
+          console.warn(`❌ Failed to fetch attendance for ${email}`);
+          return 22;
+        }
 
-      if (presentDays === 0) {
-        console.log(`ℹ️ No attendance data found, using default 22 days for ${email}`);
+        const attendanceData = await response.json();
+        console.log(`✅ Raw attendance data for ${email}:`, attendanceData);
+
+        let presentDays = 0;
+        const monthIndex = getMonthIndex(month);
+        
+        if (Array.isArray(attendanceData)) {
+          // Filter attendance for the specific month and year
+          const monthAttendance = attendanceData.filter((record: Attendance) => {
+            if (!record.date) return false;
+            try {
+              const recordDate = new Date(record.date);
+              return recordDate.getMonth() === monthIndex && 
+                     recordDate.getFullYear() === year &&
+                     record.check_in && 
+                     record.check_out;
+            } catch {
+              return false;
+            }
+          });
+          presentDays = monthAttendance.length;
+          console.log(`📈 Filtered ${monthAttendance.length} attendance records for ${month} ${year}`);
+          
+        } else if (attendanceData.present_days !== undefined) {
+          presentDays = attendanceData.present_days;
+        } else if (attendanceData.total_days !== undefined) {
+          presentDays = attendanceData.total_days;
+        } else if (typeof attendanceData === 'number') {
+          presentDays = attendanceData;
+        } else if (attendanceData.count !== undefined) {
+          presentDays = attendanceData.count;
+        }
+
+        if (presentDays === 0) {
+          console.log(`ℹ️ No attendance data found, using default 22 days for ${email}`);
+          return 22;
+        }
+
+        console.log(`✅ Calculated STD days for ${email}: ${presentDays}`);
+        return presentDays;
+
+      } catch (error) {
+        console.error(`🚨 Error fetching STD days for ${email}:`, error);
         return 22;
       }
-
-      console.log(`✅ Calculated STD days for ${email}: ${presentDays}`);
-      return presentDays;
-
-    } catch (error) {
-      console.error(`🚨 Error fetching STD days for ${email}:`, error);
-      return 22;
-    }
-  };
+    },
+    []
+  );
 
   // Function to fetch LOP days from absent API
-  const fetchLOPDays = async (email: string, month: string, year: number): Promise<number> => {
-    try {
-      console.log(`📊 Fetching LOP days for ${email} - ${month} ${year}`);
-      
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_absent/${encodeURIComponent(email)}/`
-      );
-      
-      if (!response.ok) {
-        console.warn(`❌ Failed to fetch absent data for ${email}`);
+  const fetchLOPDays = useCallback(
+    async (email: string, month: string, year: number): Promise<number> => {
+      try {
+        console.log(`📊 Fetching LOP days for ${email} - ${month} ${year}`);
+        
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_absent/${encodeURIComponent(email)}/`
+        );
+        
+        if (!response.ok) {
+          console.warn(`❌ Failed to fetch absent data for ${email}`);
+          return 0;
+        }
+
+        const absentData = await response.json();
+        console.log(`✅ Absent data for ${email}:`, absentData);
+
+        let lopDays = 0;
+        const monthIndex = getMonthIndex(month);
+        
+        if (Array.isArray(absentData)) {
+          const monthAbsent = absentData.filter((record: AbsentData) => {
+            if (!record.date) return false;
+            const recordDate = new Date(record.date);
+            return recordDate.getMonth() === monthIndex && 
+                   recordDate.getFullYear() === year;
+          });
+          lopDays = monthAbsent.length;
+        } else if (absentData.absent_days !== undefined) {
+          lopDays = absentData.absent_days;
+        } else if (absentData.count !== undefined) {
+          lopDays = absentData.count;
+        }
+
+        console.log(`📉 Calculated LOP days for ${email}: ${lopDays}`);
+        return lopDays;
+
+      } catch (error) {
+        console.error(`🚨 Error fetching LOP days for ${email}:`, error);
         return 0;
       }
-
-      const absentData = await response.json();
-      console.log(`✅ Absent data for ${email}:`, absentData);
-
-      let lopDays = 0;
-      const monthIndex = getMonthIndex(month);
-      
-      if (Array.isArray(absentData)) {
-        const monthAbsent = absentData.filter((record: AbsentData) => {
-          if (!record.date) return false;
-          const recordDate = new Date(record.date);
-          return recordDate.getMonth() === monthIndex && 
-                 recordDate.getFullYear() === year;
-        });
-        lopDays = monthAbsent.length;
-      } else if (absentData.absent_days !== undefined) {
-        lopDays = absentData.absent_days;
-      } else if (absentData.count !== undefined) {
-        lopDays = absentData.count;
-      }
-
-      console.log(`📉 Calculated LOP days for ${email}: ${lopDays}`);
-      return lopDays;
-
-    } catch (error) {
-      console.error(`🚨 Error fetching LOP days for ${email}:`, error);
-      return 0;
-    }
-  };
+    },
+    []
+  );
 
   // Calculate total working days in a month
-  const calculateTotalWorkingDays = (month: string, year: number): number => {
-    try {
-      const monthIndex = getMonthIndex(month);
-      if (monthIndex === -1) return 22;
-      
-      const firstDay = new Date(year, monthIndex, 1);
-      const lastDay = new Date(year, monthIndex + 1, 0);
-      
-      const monthDates = eachDayOfInterval({
-        start: firstDay,
-        end: lastDay
-      });
-
-      const workingDates = monthDates.filter(date => !isWeekend(date));
-      return workingDates.length;
-    } catch (error) {
-      console.error("Error calculating total working days:", error);
-      return 22;
-    }
-  };
+  // const calculateTotalWorkingDays = (month: string, year: number): number => {
+  //   try {
+  //     const monthIndex = getMonthIndex(month);
+  //     if (monthIndex === -1) return 22;
+  //     
+  //     const firstDay = new Date(year, monthIndex, 1);
+  //     const lastDay = new Date(year, monthIndex + 1, 0);
+  //     
+  //     const monthDates = eachDayOfInterval({
+  //       start: firstDay,
+  //       end: lastDay
+  //     });
+  //
+  //     const workingDates = monthDates.filter(date => !isWeekend(date));
+  //     return workingDates.length;
+  //   } catch (error) {
+  //     console.error("Error calculating total working days:", error);
+  //     return 22;
+  //   }
+  // };
 
   const addNotification = (type: NotificationType, title: string, message: string) => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -313,9 +316,7 @@ export default function HRPayrollDashboard() {
             
             // Fetch STD and LOP days for this employee and period
             const stdDays = await fetchSTDDays(payroll.email, payroll.month, parseInt(payroll.year));
-            const lopDays = await fetchLOPDays(payroll.email, payroll.month, parseInt(payroll.year));
-            const totalWorkingDays = calculateTotalWorkingDays(payroll.month, parseInt(payroll.year));
-            
+            const lopDays = await fetchLOPDays(payroll.email, payroll.month, parseInt(payroll.year));            
             // Calculate earnings and deductions based on basic salary
             const basicSalary = payroll.basic_salary || 0;
             
@@ -364,15 +365,13 @@ export default function HRPayrollDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchSTDDays, fetchLOPDays]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const handleCreatePayroll = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleCreatePayroll = async () => {
     if (!formData.email || !formData.basic_salary || !formData.month || !formData.year) {
       addNotification('error', 'Validation Error', 'Please fill in all required fields.');
       return;
@@ -445,8 +444,11 @@ export default function HRPayrollDashboard() {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+  const handleInputChange = (
+    // e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = event.target;
     setFormData(prev => ({
       ...prev,
       [name]: value

@@ -1,6 +1,5 @@
 'use client';
 
-import DashboardLayout from '@/components/DashboardLayout';
 import { useEffect, useState } from 'react';
 
 interface Project {
@@ -12,7 +11,7 @@ interface Project {
   status?: string;
   assigned_to?: string;
   members?: string[];
-  [key: string]: any;
+  [key: string]: string | number | string[] | undefined;
 }
 
 const ProjectPage = () => {
@@ -40,9 +39,13 @@ const ProjectPage = () => {
         } else {
           setProjects([]);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
-        setError(err.message || 'Unknown error');
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Unknown error');
+        }
       } finally {
         setLoading(false);
       }

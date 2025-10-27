@@ -100,21 +100,41 @@ export default function AdminDashboard() {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/careers/`
       );
-      // Transform string data to arrays
-      const transformedCareers = res.data.map((career: any) => ({
+      // Transform string data to arrays, safely cast to string
+      const transformedCareers = res.data.map((career: Career) => ({
         ...career,
-        responsibilities: Array.isArray(career.responsibilities) 
-          ? career.responsibilities 
-          : career.responsibilities?.split(",").map((s: string) => s.trim()).filter(Boolean) || [],
-        requirements: Array.isArray(career.requirements) 
-          ? career.requirements 
-          : career.requirements?.split(",").map((s: string) => s.trim()).filter(Boolean) || [],
-        benefits: Array.isArray(career.benefits) 
-          ? career.benefits 
-          : career.benefits?.split(",").map((s: string) => s.trim()).filter(Boolean) || [],
-        skills: Array.isArray(career.skills) 
-          ? career.skills 
-          : career.skills?.split(",").map((s: string) => s.trim()).filter(Boolean) || [],
+        responsibilities: Array.isArray(career.responsibilities)
+          ? career.responsibilities
+          : typeof career.responsibilities === "string"
+          ? (career.responsibilities as string)
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [],
+        requirements: Array.isArray(career.requirements)
+          ? career.requirements
+          : typeof career.requirements === "string"
+          ? (career.requirements as string)
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [],
+        benefits: Array.isArray(career.benefits)
+          ? career.benefits
+          : typeof career.benefits === "string"
+          ? (career.benefits as string)
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [],
+        skills: Array.isArray(career.skills)
+          ? career.skills
+          : typeof career.skills === "string"
+          ? (career.skills as string)
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [],
       }));
       setCareers(transformedCareers);
     } catch (err) {
@@ -155,16 +175,18 @@ export default function AdminDashboard() {
       } else {
         throw new Error('Failed to delete career');
       }
-    } catch (err: any) {
-      console.error("Error deleting career:", err);
-      
-      if (err.response?.status === 404) {
-        alert('Career not found. It may have already been deleted.');
-      } else if (err.response?.status === 403) {
-        alert('You do not have permission to delete this career.');
-      } else {
-        alert(`Failed to delete career: ${err.response?.data?.message || err.message || 'Please try again.'}`);
-      }
+    } catch (err: unknown) {
+      console.error("Error creating career:", err);
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" &&
+            err !== null &&
+            "response" in err &&
+            (err as { response?: { data?: { message?: string } } }).response
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : "Unknown error";
+      alert(`Failed to create career: ${errorMessage}`);
     }
   };
 
@@ -232,9 +254,15 @@ export default function AdminDashboard() {
         education: "",
       });
       fetchCareers();
-    } catch (err: any) {
-      console.error("Error creating career:", err);
-      alert(`Failed to create career: ${err.response?.data?.message || err.message}`);
+    } catch (err: unknown) {
+      console.error("Error deleting career:", err);
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "response" in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : "Unknown error";
+      alert(`Failed to delete career: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -284,15 +312,15 @@ export default function AdminDashboard() {
     return value as string;
   };
 
-  // Helper function to render list items safely
-  const renderListItems = (data: any, renderItem: (item: string, index: number) => JSX.Element) => {
+
+  const renderListItems = (
+    data: string[] | string | null | undefined,
+    renderItem: (item: string, index: number) => React.ReactElement
+  ) => {
     if (Array.isArray(data)) {
       return data.map((item, index) => renderItem(item, index));
-    } else if (typeof data === 'string') {
-      return data.split(',').map((item, index) => renderItem(item.trim(), index));
-    } else {
-      return [renderItem('No items listed', 0)];
     }
+    return null;
   };
 
   return (

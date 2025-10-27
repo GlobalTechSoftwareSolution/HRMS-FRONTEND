@@ -8,7 +8,7 @@ import { PieChart } from "react-minimal-pie-chart";
 type AttendanceRecord = {
     id: string;
     date: string;
-    status: "Present" | "Absent" | "Late" | "Half Day" | "Working In" | string;
+    status: "Present" | "Absent" | "Working In" | "Late" | "Half Day" | string;
     checkIn: string;
     checkOut: string | null;
     hoursWorked: string | null;
@@ -41,9 +41,6 @@ type AbsenceRecord = {
     department: string;
     date: string;
 };
-
-
-
 
 export default function AttendancePortal() {
     const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
@@ -125,71 +122,63 @@ export default function AttendancePortal() {
         fetchAttendance();
     }, []);
 
-
-
-
     useEffect(() => {
-    const fetchAbsences = async () => {
-        if (!loggedInEmail) return;
-        setLoadingAbsences(true);
-        try {
-            const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_absent/${encodeURIComponent(loggedInEmail)}/`
-            );
-            if (!res.ok) throw new Error("Failed to fetch absences");
-            const data: AbsenceRecord[] = await res.json();
-            setAbsences(data || []);
+        const fetchAbsences = async () => {
+            if (!loggedInEmail) return;
+            setLoadingAbsences(true);
+            try {
+                const res = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_absent/${encodeURIComponent(loggedInEmail)}/`
+                );
+                if (!res.ok) throw new Error("Failed to fetch absences");
+                const data: AbsenceRecord[] = await res.json();
+                setAbsences(data || []);
 
-            // Merge absences into attendance
-            setFetchedAttendance(prev => {
-                const normalizedEmail = loggedInEmail.trim().toLowerCase();
-                const merged = [...prev];
+                // Merge absences into attendance
+                setFetchedAttendance(prev => {
+                    const normalizedEmail = loggedInEmail.trim().toLowerCase();
+                    const merged = [...prev];
 
-                data.forEach((absence, idx) => {
-                    const existsIndex = merged.findIndex(
-                        rec =>
-                            rec.date === absence.date &&
-                            rec.email?.trim().toLowerCase() === normalizedEmail
-                    );
-                    const absenceRecord: AttendanceRecord = {
-                        id: `absence-${idx}`,
-                        date: absence.date,
-                        status: "Absent",
-                        checkIn: "-",
-                        checkOut: "-",
-                        hoursWorked: "-",
-                        email: absence.email,
-                        fullname: absence.fullname,
-                        department: absence.department,
-                    };
+                    data.forEach((absence, idx) => {
+                        const existsIndex = merged.findIndex(
+                            rec =>
+                                rec.date === absence.date &&
+                                rec.email?.trim().toLowerCase() === normalizedEmail
+                        );
+                        const absenceRecord: AttendanceRecord = {
+                            id: `absence-${idx}`,
+                            date: absence.date,
+                            status: "Absent",
+                            checkIn: "-",
+                            checkOut: "-",
+                            hoursWorked: "-",
+                            email: absence.email,
+                            fullname: absence.fullname,
+                            department: absence.department,
+                        };
 
-                    if (existsIndex === -1) {
-                        merged.push(absenceRecord);
-                    } else {
-                        // override only if existing is empty or null
-                        const existing = merged[existsIndex];
-                        if (!existing.checkIn || existing.checkIn === "-" || existing.checkIn === "null") {
-                            merged[existsIndex] = absenceRecord;
+                        if (existsIndex === -1) {
+                            merged.push(absenceRecord);
+                        } else {
+                            // override only if existing is empty or null
+                            const existing = merged[existsIndex];
+                            if (!existing.checkIn || existing.checkIn === "-" || existing.checkIn === "null") {
+                                merged[existsIndex] = absenceRecord;
+                            }
                         }
-                    }
+                    });
+
+                    // Sort by date descending
+                    return merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 });
-
-                // Sort by date descending
-                return merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            });
-        } catch (err) {
-            console.error("Error fetching absences:", err);
-        } finally {
-            setLoadingAbsences(false);
-        }
-    };
-    fetchAbsences();
-}, [loggedInEmail]);
-
-
-
-
-
+            } catch (err) {
+                console.error("Error fetching absences:", err);
+            } finally {
+                setLoadingAbsences(false);
+            }
+        };
+        fetchAbsences();
+    }, [loggedInEmail]);
 
     useEffect(() => {
         const fetchLeaves = async () => {
@@ -388,7 +377,7 @@ export default function AttendancePortal() {
     };
 
     const monthSummary = (() => {
-        if (!isClient || !loggedInEmail) return { present: 0, absent: 0, workingIn: 0, late: 0, halfDay: 0 };
+        if (!isClient || !loggedInEmail) return { present: 0, absent: 0, workingIn: 0, late: 0, halfDay: 0, sunday: 0 };
 
         const normalizedEmail = (loggedInEmail || "").trim().toLowerCase();
         const filtered = fetchedAttendance.filter(rec => {
@@ -401,16 +390,32 @@ export default function AttendancePortal() {
             );
         });
 
-        let present = 0, absent = 0, workingIn = 0, late = 0, halfDay = 0;
+        let present = 0, absent = 0, workingIn = 0, late = 0, halfDay = 0, sunday = 0;
+        
+        // Count Sundays in the current month
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month, day);
+            if (date.getDay() === 0) {
+                sunday++;
+            }
+        }
+
         filtered.forEach(rec => {
+            const recordDate = new Date(rec.date);
+            if (recordDate.getDay() === 0) {
+                // Sunday records are handled separately
+                return;
+            }
+            
             if (rec.status === "Absent") {
                 absent++;
             } else if (rec.status === "Late") {
                 late++;
-                present++; // Count late as present for overall attendance
             } else if (rec.status === "Half Day") {
                 halfDay++;
-                present++; // Count half day as present for overall attendance
             } else if (rec.checkIn && rec.checkIn !== "-" && rec.checkIn !== "null") {
                 if (rec.checkOut && rec.checkOut !== "-" && rec.checkOut !== "null") {
                     present++;
@@ -422,16 +427,16 @@ export default function AttendancePortal() {
             }
         });
 
-        return { present, absent, workingIn, late, halfDay };
+        return { present, absent, workingIn, late, halfDay, sunday };
     })();
-    
 
     const chartData = [
         { title: "Present", value: monthSummary.present, color: "#10b981" },
-        { title: "Absent", value: monthSummary.absent, color: "#ef4444" },
-        { title: "Working In", value: monthSummary.workingIn, color: "#f59e0b" },
+        { title: "Absent", value: monthSummary.absent, color: "#f97316" },
+        { title: "Working In", value: monthSummary.workingIn, color: "#eab308" },
         { title: "Late", value: monthSummary.late, color: "#8b5cf6" },
         { title: "Half Day", value: monthSummary.halfDay, color: "#06b6d4" },
+        { title: "Sunday", value: monthSummary.sunday, color: "#ef4444" },
     ].filter(item => item.value > 0);
 
     // Enhanced stats calculation
@@ -466,6 +471,84 @@ export default function AttendancePortal() {
     const totalAbsences = absences.filter(absence => 
         absence.email.toLowerCase() === (loggedInEmail || "").toLowerCase()
     ).length;
+
+    // Helper function for status colors
+    const getStatusColor = (status: string): string => {
+        switch (status) {
+            case "Present":
+                return "bg-green-100 text-green-800";
+            case "Absent":
+                return "bg-orange-100 text-orange-800";
+            case "Working In":
+                return "bg-yellow-100 text-yellow-800";
+            case "Late":
+                return "bg-purple-100 text-purple-800";
+            case "Half Day":
+                return "bg-cyan-100 text-cyan-800";
+            case "Sunday":
+                return "bg-red-100 text-red-800";
+            default:
+                return "bg-gray-100 text-gray-800";
+        }
+    };
+
+    const getTileClassName = (date: Date): string => {
+        if (!loggedInEmail) return "";
+
+        const dateStr = formatDateForComparison(date);
+        const normalizedEmail = loggedInEmail.trim().toLowerCase();
+
+        // Check if it's Sunday
+        if (date.getDay() === 0) return "calendar-sunday";
+
+        // Check absences first
+        const absenceMatch = absences.find(
+            abs => abs.date === dateStr && abs.email?.trim().toLowerCase() === normalizedEmail
+        );
+        if (absenceMatch) return "calendar-absent";
+
+        // Then check attendance
+        const record = fetchedAttendance.find(
+            rec => formatDateForComparison(rec.date) === dateStr &&
+                   rec.email?.trim().toLowerCase() === normalizedEmail
+        );
+
+        if (record) {
+            switch (record.status) {
+                case "Present": return "calendar-present";
+                case "Working In": return "calendar-workingin";
+                case "Late": return "calendar-late";
+                case "Half Day": return "calendar-halfday";
+                case "Absent": return "calendar-absent";
+                default:
+                    // Fallback based on check-in/out
+                    if (record.checkIn && record.checkIn !== "-" && record.checkIn !== "null") {
+                        if (record.checkOut && record.checkOut !== "-" && record.checkOut !== "null") 
+                            return "calendar-present";
+                        return "calendar-workingin";
+                    }
+                    return "calendar-absent";
+            }
+        }
+
+        // Default for other days
+        return "";
+    };
+
+    // Create Sunday record for display
+    const createSundayRecord = (date: Date): AttendanceRecord => {
+        return {
+            id: `sunday-${date.toISOString()}`,
+            date: date.toISOString().split('T')[0],
+            status: "Sunday",
+            checkIn: "-",
+            checkOut: "-",
+            hoursWorked: "-",
+            email: loggedInEmail || "",
+            fullname: "Sunday",
+            department: "Weekend"
+        };
+    };
 
     return (
         <DashboardLayout role="employee">
@@ -532,8 +615,8 @@ export default function AttendancePortal() {
                                     {totalAbsences}
                                 </div>
                             </div>
-                            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                                <span className="text-red-600 text-lg">⚠️</span>
+                            <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                                <span className="text-orange-600 text-lg">⚠️</span>
                             </div>
                         </div>
                     </div>
@@ -563,18 +646,68 @@ export default function AttendancePortal() {
                                         tileContent={({ date, view }) => {
                                             if (view !== "month") return null;
                                             const dateStr = formatDateForComparison(date);
+                                            const normalizedEmail = (loggedInEmail || "").trim().toLowerCase();
+                                            
+                                            // Check if it's Sunday
+                                            if (date.getDay() === 0) {
+                                                const sundayRecord = createSundayRecord(date);
+                                                return (
+                                                    <div
+                                                        onMouseOver={e => {
+                                                            const rect = (e.target as HTMLElement).getBoundingClientRect();
+                                                            setHoveredRecord(sundayRecord);
+                                                            setHoveredPosition({
+                                                                x: rect.left + rect.width / 2,
+                                                                y: rect.top + rect.height,
+                                                            });
+                                                        }}
+                                                        onMouseMove={e => {
+                                                            setHoveredPosition({
+                                                                x: e.clientX,
+                                                                y: e.clientY + 10,
+                                                            });
+                                                        }}
+                                                        onMouseOut={() => {
+                                                            setHoveredRecord(null);
+                                                            setHoveredPosition(null);
+                                                        }}
+                                                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 2, cursor: "pointer" }}
+                                                    />
+                                                );
+                                            }
+
+                                            // Check for attendance record
                                             const record = fetchedAttendance.find(rec => {
                                                 const recordDate = formatDateForComparison(new Date(rec.date));
                                                 const recordEmail = (rec.email || "").trim().toLowerCase();
-                                                const currentEmail = (loggedInEmail || "").trim().toLowerCase();
-                                                return recordDate === dateStr && recordEmail === currentEmail;
+                                                return recordDate === dateStr && recordEmail === normalizedEmail;
                                             });
-                                            if (!record) return null;
+
+                                            // Check for absence
+                                            const absence = absences.find(abs => 
+                                                abs.date === dateStr && 
+                                                abs.email?.trim().toLowerCase() === normalizedEmail
+                                            );
+
+                                            const displayRecord = record || (absence ? {
+                                                id: `absence-${dateStr}`,
+                                                date: dateStr,
+                                                status: "Absent",
+                                                checkIn: "-",
+                                                checkOut: "-",
+                                                hoursWorked: "-",
+                                                email: normalizedEmail,
+                                                fullname: absence?.fullname,
+                                                department: absence?.department,
+                                            } as AttendanceRecord : null);
+
+                                            if (!displayRecord) return null;
+
                                             return (
                                                 <div
                                                     onMouseOver={e => {
                                                         const rect = (e.target as HTMLElement).getBoundingClientRect();
-                                                        setHoveredRecord(record);
+                                                        setHoveredRecord(displayRecord);
                                                         setHoveredPosition({
                                                             x: rect.left + rect.width / 2,
                                                             y: rect.top + rect.height,
@@ -622,37 +755,41 @@ export default function AttendancePortal() {
                                                     {hoveredRecord.status}
                                                 </span>
                                             </div>
-                                            {hoveredRecord.fullname && (
+                                            {hoveredRecord.fullname && hoveredRecord.fullname !== "Sunday" && (
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-gray-600">Employee:</span>
                                                     <span className="font-medium">{hoveredRecord.fullname}</span>
                                                 </div>
                                             )}
-                                            {hoveredRecord.department && (
+                                            {hoveredRecord.department && hoveredRecord.department !== "Weekend" && (
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-gray-600">Department:</span>
                                                     <span className="font-medium">{hoveredRecord.department}</span>
                                                 </div>
                                             )}
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-gray-600">Check-in:</span>
-                                                <span className="text-green-700 font-medium">{formatTime(hoveredRecord.checkIn)}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-gray-600">Check-out:</span>
-                                                <span className="text-red-700 font-medium">{formatTime(hoveredRecord.checkOut)}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-gray-600">Hours:</span>
-                                                <span className="text-blue-700 font-medium">{calculateHoursWorked(hoveredRecord)}</span>
-                                            </div>
+                                            {hoveredRecord.status !== "Sunday" && (
+                                                <>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-gray-600">Check-in:</span>
+                                                        <span className="text-green-700 font-medium">{formatTime(hoveredRecord.checkIn)}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-gray-600">Check-out:</span>
+                                                        <span className="text-red-700 font-medium">{formatTime(hoveredRecord.checkOut)}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-gray-600">Hours:</span>
+                                                        <span className="text-blue-700 font-medium">{calculateHoursWorked(hoveredRecord)}</span>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 )}
                             </div>
 
                             {/* Selected Date Card */}
-                            {selectedDate && selectedDateRecord && (
+                            {selectedDate && (
                                 <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg animate-fade-in">
                                     <div className="flex items-center justify-between mb-2 sm:mb-3">
                                         <h3 className="text-base sm:text-lg font-semibold text-blue-800">
@@ -674,70 +811,70 @@ export default function AttendancePortal() {
                                         </button>
                                     </div>
 
-                                    <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 text-sm">
-                                        <div className="space-y-2">
-                                            {selectedDateRecord.fullname && (
+                                    {selectedDateRecord ? (
+                                        <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 text-sm">
+                                            <div className="space-y-2">
+                                                {selectedDateRecord.fullname && selectedDateRecord.fullname !== "Sunday" && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600">Employee:</span>
+                                                        <span className="font-medium">{selectedDateRecord.fullname}</span>
+                                                    </div>
+                                                )}
+                                                {selectedDateRecord.department && selectedDateRecord.department !== "Weekend" && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600">Department:</span>
+                                                        <span className="font-medium">{selectedDateRecord.department}</span>
+                                                    </div>
+                                                )}
+                                                {selectedDateRecord.status !== "Sunday" && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600">Check-in:</span>
+                                                        <span className="font-medium text-green-600">
+                                                            {formatTime(selectedDateRecord.checkIn)}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="space-y-2">
                                                 <div className="flex justify-between">
-                                                    <span className="text-gray-600">Employee:</span>
-                                                    <span className="font-medium">{selectedDateRecord.fullname}</span>
+                                                    <span className="text-gray-600">Status:</span>
+                                                    <span className={`font-medium px-2 py-1 rounded text-xs sm:text-sm ${getStatusColor(selectedDateRecord.status)}`}>
+                                                        {selectedDateRecord.status}
+                                                    </span>
                                                 </div>
-                                            )}
-                                            {selectedDateRecord.department && (
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600">Department:</span>
-                                                    <span className="font-medium">{selectedDateRecord.department}</span>
-                                                </div>
-                                            )}
-                                            <div className="flex justify-between">
-                                                <span className="text-gray-600">Check-in:</span>
-                                                <span className="font-medium text-green-600">
-                                                    {formatTime(selectedDateRecord.checkIn)}
-                                                </span>
+                                                {selectedDateRecord.status !== "Sunday" && (
+                                                    <>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">Check-out:</span>
+                                                            <span className="font-medium text-red-600">
+                                                                {formatTime(selectedDateRecord.checkOut)}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-gray-600">Hours:</span>
+                                                            <span className="font-medium text-blue-600">
+                                                                {calculateHoursWorked(selectedDateRecord)}
+                                                            </span>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between">
+                                    ) : new Date(selectedDate).getDay() === 0 ? (
+                                        // Sunday card
+                                        <div className="text-sm">
+                                            <div className="flex justify-between items-center mb-2">
                                                 <span className="text-gray-600">Status:</span>
-                                                <span className={`font-medium px-2 py-1 rounded text-xs sm:text-sm ${getStatusColor(selectedDateRecord.status)}`}>
-                                                    {selectedDateRecord.status}
+                                                <span className={`font-medium px-2 py-1 rounded text-xs sm:text-sm ${getStatusColor("Sunday")}`}>
+                                                    Sunday
                                                 </span>
                                             </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-gray-600">Check-out:</span>
-                                                <span className="font-medium text-red-600">
-                                                    {formatTime(selectedDateRecord.checkOut)}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-gray-600">Hours:</span>
-                                                <span className="font-medium text-blue-600">
-                                                    {calculateHoursWorked(selectedDateRecord)}
-                                                </span>
-                                            </div>
+                                            <p className="text-gray-600 text-sm">Weekend - No work scheduled</p>
                                         </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {selectedDate && !selectedDateRecord && (
-                                <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-gray-50 border border-gray-200 rounded-lg animate-fade-in">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <h3 className="text-base sm:text-lg font-semibold text-gray-800">
-                                            {new Date(selectedDate).toLocaleDateString('en-US', {
-                                                weekday: 'long',
-                                                year: 'numeric',
-                                                month: 'long',
-                                                day: 'numeric'
-                                            })}
-                                        </h3>
-                                        <button
-                                            onClick={() => setSelectedDate(null)}
-                                            className="text-gray-600 hover:text-gray-800 text-sm font-medium"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                    <p className="text-gray-500 text-sm">No attendance record found for this date.</p>
+                                    ) : (
+                                        // No record found
+                                        <p className="text-gray-500 text-sm">No attendance record found for this date.</p>
+                                    )}
                                 </div>
                             )}
 
@@ -756,16 +893,8 @@ export default function AttendancePortal() {
                                     <span className="text-gray-600">Working</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className="inline-block w-3 h-3 rounded-sm bg-gray-100 border border-gray-400"></span>
+                                    <span className="inline-block w-3 h-3 rounded-sm bg-orange-100 border border-orange-400"></span>
                                     <span className="text-gray-600">Absent</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="inline-block w-3 h-3 rounded-sm bg-purple-100 border border-purple-400"></span>
-                                    <span className="text-gray-600">Late</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="inline-block w-3 h-3 rounded-sm bg-cyan-100 border border-cyan-400"></span>
-                                    <span className="text-gray-600">Half Day</span>
                                 </div>
                             </div>
                         </div>
@@ -804,7 +933,7 @@ export default function AttendancePortal() {
 
                             {/* Detailed Summary */}
                             <div className="space-y-2 text-xs">
-                                {chartData.map((item, index) => (
+                                {chartData.map((item,) => (
                                     <div key={item.title} className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <span 
@@ -832,10 +961,10 @@ export default function AttendancePortal() {
                                {absences
                                     .filter(absence => absence.email.toLowerCase() === (loggedInEmail || "").toLowerCase())
                                     .map(absence => (
-                                        <div key={absence.date + '-' + (absence.email || '')} className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                        <div key={absence.date + '-' + (absence.email || '')} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                                             <div className="flex items-center justify-between mb-2">
-                                                <h3 className="font-semibold text-red-800">Absence Record</h3>
-                                                <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">Absent</span>
+                                                <h3 className="font-semibold text-orange-800">Absence Record</h3>
+                                                <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Absent</span>
                                             </div>
                                             <div className="space-y-1 text-sm">
                                                 <div className="flex justify-between">
@@ -988,7 +1117,7 @@ export default function AttendancePortal() {
                 @media (min-width: 640px) {
                     .react-calendar__navigation__label {
                         font-size: 1rem;
-                    }
+                        }
                 }
 
                 .react-calendar__month-view__weekdays {
@@ -1117,9 +1246,10 @@ export default function AttendancePortal() {
                 }
 
                 .calendar-absent {
-                    background: #f3f4f6 !important;
-                    color: #6b7280 !important;
-                    border: 2px solid #9ca3af !important;
+                    background: #ffedd5 !important;
+                    color: #9a3412 !important;
+                    font-weight: 600;
+                    border: 2px solid #ea580c !important;
                 }
 
                 .calendar-late {
@@ -1242,67 +1372,6 @@ export default function AttendancePortal() {
             `}</style>
         </DashboardLayout>
     );
-
-    // Helper function for status colors
-    function getStatusColor(status: string): string {
-        switch (status) {
-            case "Present":
-                return "bg-green-100 text-green-800";
-            case "Absent":
-                return "bg-red-100 text-red-800";
-            case "Working In":
-                return "bg-yellow-100 text-yellow-800";
-            case "Late":
-                return "bg-purple-100 text-purple-800";
-            case "Half Day":
-                return "bg-cyan-100 text-cyan-800";
-            default:
-                return "bg-gray-100 text-gray-800";
-        }
-    }
-
-  function getTileClassName(date: Date): string {
-    if (!loggedInEmail) return "";
-
-    const dateStr = formatDateForComparison(date);
-    const normalizedEmail = loggedInEmail.trim().toLowerCase();
-
-    // Check absences first
-    const absenceMatch = absences.find(
-        abs => abs.date === dateStr && abs.email?.trim().toLowerCase() === normalizedEmail
-    );
-    if (absenceMatch) return "calendar-absent";
-
-    // Then check attendance
-    const record = fetchedAttendance.find(
-        rec => formatDateForComparison(rec.date) === dateStr &&
-               rec.email?.trim().toLowerCase() === normalizedEmail
-    );
-
-    if (record) {
-        switch (record.status) {
-            case "Present": return "calendar-present";
-            case "Working In": return "calendar-workingin";
-            case "Late": return "calendar-late";
-            case "Half Day": return "calendar-halfday";
-            case "Absent": return "calendar-absent";
-            default:
-                // Fallback based on check-in/out
-                if (record.checkIn && record.checkIn !== "-" && record.checkIn !== "null") {
-                    if (record.checkOut && record.checkOut !== "-" && record.checkOut !== "null") 
-                        return "calendar-present";
-                    return "calendar-workingin";
-                }
-                return "calendar-absent";
-        }
-    }
-
-    // Sunday
-    if (date.getDay() === 0) return "calendar-sunday";
-
-    // Default for other days
-    return "";
-}
 }
 
 function AttendanceRecordsWithDatePicker({
@@ -1391,13 +1460,15 @@ function AttendanceRecordsWithDatePicker({
             case "Present":
                 return "bg-green-100 text-green-800";
             case "Absent":
-                return "bg-red-100 text-red-800";
+                return "bg-orange-100 text-orange-800";
             case "Working In":
                 return "bg-yellow-100 text-yellow-800";
             case "Late":
                 return "bg-purple-100 text-purple-800";
             case "Half Day":
                 return "bg-cyan-100 text-cyan-800";
+            case "Sunday":
+                return "bg-red-100 text-red-800";
             default:
                 return "bg-gray-100 text-gray-800";
         }
@@ -1408,7 +1479,7 @@ function AttendanceRecordsWithDatePicker({
             {filteredRecords.map(record => (
                 <div
                     key={record.id}
-                    className={`bg-white rounded-lg border p-3 shadow-sm flex flex-col gap-1 ${record.status === "Absent" ? "border-red-200 bg-red-50" : ""}`}
+                    className={`bg-white rounded-lg border p-3 shadow-sm flex flex-col gap-1 ${record.status === "Absent" ? "border-orange-200 bg-orange-50" : record.status === "Sunday" ? "border-red-200 bg-red-50" : ""}`}
                     style={{ minWidth: 0 }}
                 >
                     <div className="flex justify-between text-sm">
@@ -1417,30 +1488,39 @@ function AttendanceRecordsWithDatePicker({
                             {record.status}
                         </span>
                     </div>
-                    {record.fullname && (
+                    {record.fullname && record.fullname !== "Sunday" && (
                         <div className="flex justify-between text-xs">
                             <span>Employee:</span>
                             <span className="font-medium">{record.fullname}</span>
                         </div>
                     )}
-                    <div className="flex justify-between text-xs">
-                        <span>Check-in:</span>
-                        <span className={`font-medium ${record.status === "Absent" ? "text-red-700" : "text-green-700"}`}>
-                            {record.checkIn === "-" || record.checkIn === "null" ? "-" : record.checkIn}
-                        </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                        <span>Check-out:</span>
-                        <span className={`font-medium ${record.status === "Absent" ? "text-red-700" : "text-red-700"}`}>
-                            {record.checkOut === "-" || record.checkOut === "null" ? "-" : record.checkOut}
-                        </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                        <span>Hours:</span>
-                        <span className={`font-medium ${record.status === "Absent" ? "text-red-700" : "text-blue-700"}`}>
-                            {calcHoursWorked(record)}
-                        </span>
-                    </div>
+                    {record.status !== "Sunday" && (
+                        <>
+                            <div className="flex justify-between text-xs">
+                                <span>Check-in:</span>
+                                <span className={`font-medium ${record.status === "Absent" ? "text-orange-700" : "text-green-700"}`}>
+                                    {record.checkIn === "-" || record.checkIn === "null" ? "-" : record.checkIn}
+                                </span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                                <span>Check-out:</span>
+                                <span className={`font-medium ${record.status === "Absent" ? "text-orange-700" : "text-red-700"}`}>
+                                    {record.checkOut === "-" || record.checkOut === "null" ? "-" : record.checkOut}
+                                </span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                                <span>Hours:</span>
+                                <span className={`font-medium ${record.status === "Absent" ? "text-orange-700" : "text-blue-700"}`}>
+                                    {calcHoursWorked(record)}
+                                </span>
+                            </div>
+                        </>
+                    )}
+                    {record.status === "Sunday" && (
+                        <div className="text-xs text-gray-600 text-center py-1">
+                            Weekend - No work scheduled
+                        </div>
+                    )}
                 </div>
             ))}
         </div>

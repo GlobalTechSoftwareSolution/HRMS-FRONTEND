@@ -94,7 +94,7 @@ type PayslipData = {
 export default function PayrollDashboard() {
   const [payrollData, setPayrollData] = useState<PayrollRecord[]>([]);
   const [employeeData, setEmployeeData] = useState<EmployeeData | null>(null);
-  const [attendanceData, setAttendanceData] = useState<AttendanceData | null>(null);
+  const [, setAttendanceData] = useState<AttendanceData | null>(null);
   const [filterYear, setFilterYear] = useState<string>("2025");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [loading, setLoading] = useState(true);
@@ -187,7 +187,6 @@ export default function PayrollDashboard() {
           const basicSalary = Number(item.basic_salary) || 0;
           const stdDays = presentDays || item.STD || 22; // Use attendance data first
           const lopDays = absentDays || item.LOP || 0;
-          const netPay = calculateNetPay(basicSalary);
 
           return {
             id: index + 1,
@@ -198,7 +197,7 @@ export default function PayrollDashboard() {
             status: (item.status || "pending").toLowerCase() as "paid" | "pending" | "processing",
             paymentDate: item.pay_date || "",
             email: item.email,
-            netPay: netPay,
+            netPay: calculateNetPay(basicSalary),
           };
         });
 
@@ -294,21 +293,9 @@ const overallNetPay = employeePayrolls.reduce((acc, rec) => acc + rec.basicSalar
 
       // Calculate earnings and deductions based on basic salary
       const basicSalary = record.basicSalary;
-      
-      // Earnings
-      const hra = Math.round(basicSalary * 0.4);
-      const travelAllowance = 1600;
-      const medicalAllowance = 1250;
-      const specialAllowance = Math.round(basicSalary * 0.15);
-      
       // Deductions
       const pf = Math.round(basicSalary * 0.12);
       const professionalTax = 200;
-      const incomeTax = Math.round(basicSalary * 0.05);
-
-      const grossEarnings = basicSalary + hra + travelAllowance + medicalAllowance + specialAllowance;
-      const grossDeductions = pf + professionalTax + incomeTax;
-      const netPay = grossEarnings - grossDeductions;
 
       const payslip: PayslipData = {
         companyName: process.env.NEXT_PUBLIC_COMPANY_NAME || "Global Tech Software Solutions",
