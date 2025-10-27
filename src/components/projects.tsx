@@ -54,6 +54,15 @@ const ProjectPage = () => {
     fetchProjects();
   }, []);
 
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   if (loading) return <div className="p-6">Loading projects...</div>;
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
 
@@ -80,11 +89,11 @@ const ProjectPage = () => {
                 <div className="mt-4 text-sm text-gray-500 space-y-1">
                   <p>
                     <span className="font-medium text-gray-700">Start:</span>{' '}
-                    {project.start_date ? new Date(project.start_date).toLocaleDateString() : 'N/A'}
+                    {formatDate(project.start_date)}
                   </p>
                   <p>
                     <span className="font-medium text-gray-700">End:</span>{' '}
-                    {project.end_date ? new Date(project.end_date).toLocaleDateString() : 'N/A'}
+                    {formatDate(project.end_date)}
                   </p>
                   <p>
                     <span className="font-medium text-gray-700">Status:</span> {project.status || 'N/A'}
@@ -120,13 +129,13 @@ const ProjectPage = () => {
                   <div className="bg-gray-100 rounded-lg p-4 shadow">
                     <h3 className="text-lg font-semibold mb-2">Start Date</h3>
                     <p className="text-gray-800">
-                      {selectedProject.start_date ? new Date(selectedProject.start_date).toLocaleDateString() : 'N/A'}
+                      {formatDate(selectedProject.start_date)}
                     </p>
                   </div>
                   <div className="bg-gray-100 rounded-lg p-4 shadow">
                     <h3 className="text-lg font-semibold mb-2">End Date</h3>
                     <p className="text-gray-800">
-                      {selectedProject.end_date ? new Date(selectedProject.end_date).toLocaleDateString() : 'N/A'}
+                      {formatDate(selectedProject.end_date)}
                     </p>
                   </div>
                   <div className="bg-gray-100 rounded-lg p-4 shadow">
@@ -151,7 +160,7 @@ const ProjectPage = () => {
                   <div className="space-y-2 text-gray-700 text-sm">
                     {Object.entries(selectedProject).map(([key, value]) => {
                       if (
-                        ['id', 'title', 'description', 'start_date', 'end_date', 'status', 'assigned_to', 'members'].includes(key) ||
+                        ['id', 'title', 'description', 'start_date', 'end_date', 'status', 'assigned_to', 'members', 'created_at', 'updated_at', 'email', 'name'].includes(key) ||
                         value === undefined ||
                         value === null
                       ) {
@@ -169,6 +178,12 @@ const ProjectPage = () => {
                         <span className="font-semibold">Assigned To:</span> {selectedProject.assigned_to}
                       </p>
                     )}
+                    <p>
+                      <span className="font-semibold">Name:</span> {selectedProject.name || 'N/A'}<br />
+                      <span className="font-semibold">Created At:</span> {formatDateTime(selectedProject.created_at as string)}<br />
+                      <span className="font-semibold">Updated At:</span> {formatDateTime(selectedProject.updated_at as string)}<br />
+                      <span className="font-semibold">Email:</span> {selectedProject.email || 'N/A'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -181,3 +196,17 @@ const ProjectPage = () => {
 };
 
 export default ProjectPage;
+// Helper to format date and time for created_at and updated_at fields
+function formatDateTime(dateString?: string) {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'N/A';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  let hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12 || 12;
+  return `${day}/${month}/${year} ${hours}:${minutes} ${ampm}`;
+}

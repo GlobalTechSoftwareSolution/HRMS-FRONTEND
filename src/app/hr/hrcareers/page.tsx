@@ -18,7 +18,7 @@ import {
   GraduationCap,
   FileText,
   MapPin,
-  DollarSign,
+  IndianRupee,
   BookOpen,
   Clock,
   Trash2
@@ -100,42 +100,44 @@ export default function AdminDashboard() {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/careers/`
       );
-      // Transform string data to arrays, safely cast to string
-      const transformedCareers = res.data.map((career: Career) => ({
-        ...career,
-        responsibilities: Array.isArray(career.responsibilities)
-          ? career.responsibilities
-          : typeof career.responsibilities === "string"
-          ? (career.responsibilities as string)
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : [],
-        requirements: Array.isArray(career.requirements)
-          ? career.requirements
-          : typeof career.requirements === "string"
-          ? (career.requirements as string)
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : [],
-        benefits: Array.isArray(career.benefits)
-          ? career.benefits
-          : typeof career.benefits === "string"
-          ? (career.benefits as string)
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : [],
-        skills: Array.isArray(career.skills)
-          ? career.skills
-          : typeof career.skills === "string"
-          ? (career.skills as string)
-              .split(",")
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : [],
-      }));
+      // Transform string data to arrays
+      const transformedCareers = res.data.map(
+        (career: Record<string, unknown> & Partial<Career>) => ({
+          ...career,
+          responsibilities: Array.isArray(career.responsibilities)
+            ? career.responsibilities
+            : typeof career.responsibilities === "string"
+              ? (career.responsibilities as string)
+                  .split(",")
+                  .map((s: string) => s.trim())
+                  .filter(Boolean)
+              : [],
+          requirements: Array.isArray(career.requirements)
+            ? career.requirements
+            : typeof career.requirements === "string"
+              ? (career.requirements as string)
+                  .split(",")
+                  .map((s: string) => s.trim())
+                  .filter(Boolean)
+              : [],
+          benefits: Array.isArray(career.benefits)
+            ? career.benefits
+            : typeof career.benefits === "string"
+              ? (career.benefits as string)
+                  .split(",")
+                  .map((s: string) => s.trim())
+                  .filter(Boolean)
+              : [],
+          skills: Array.isArray(career.skills)
+            ? career.skills
+            : typeof career.skills === "string"
+              ? (career.skills as string)
+                  .split(",")
+                  .map((s: string) => s.trim())
+                  .filter(Boolean)
+              : [],
+        })
+      );
       setCareers(transformedCareers);
     } catch (err) {
       console.error("Error fetching careers:", err);
@@ -176,17 +178,18 @@ export default function AdminDashboard() {
         throw new Error('Failed to delete career');
       }
     } catch (err: unknown) {
-      console.error("Error creating career:", err);
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : typeof err === "object" &&
-            err !== null &&
-            "response" in err &&
-            (err as { response?: { data?: { message?: string } } }).response
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : "Unknown error";
-      alert(`Failed to create career: ${errorMessage}`);
+      console.error("Error deleting career:", err);
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 404) {
+          alert('Career not found. It may have already been deleted.');
+        } else if (err.response?.status === 403) {
+          alert('You do not have permission to delete this career.');
+        } else {
+          alert(`Failed to delete career: ${err.response?.data?.message || err.message || 'Please try again.'}`);
+        }
+      } else {
+        console.error('Unexpected error deleting career:', err);
+      }
     }
   };
 
@@ -255,14 +258,12 @@ export default function AdminDashboard() {
       });
       fetchCareers();
     } catch (err: unknown) {
-      console.error("Error deleting career:", err);
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : typeof err === "object" && err !== null && "response" in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : "Unknown error";
-      alert(`Failed to delete career: ${errorMessage}`);
+      console.error("Error creating career:", err);
+      if (axios.isAxiosError(err)) {
+        alert(`Failed to create career: ${err.response?.data?.message || err.message}`);
+      } else {
+        alert("Failed to create career: An unexpected error occurred.");
+      }
     } finally {
       setLoading(false);
     }
@@ -300,7 +301,7 @@ export default function AdminDashboard() {
 
   // Predefined options for form
   const jobTypes = ["Full-time", "Part-time", "Contract", "Remote", "Hybrid"];
-  const departments = ["Engineering", "Design", "Marketing", "Sales", "HR", "Finance", "Operations"];
+  const departments = ["Tech", "Marketing", "Sales"," HR", "Finance", "Operations", "Customer Support"];
   const experienceLevels = ["Entry Level", "Junior", "Mid Level", "Senior", "Lead", "Executive"];
 
   // Helper function to get field value safely
@@ -312,15 +313,18 @@ export default function AdminDashboard() {
     return value as string;
   };
 
-
+  // Helper function to render list items safely
   const renderListItems = (
-    data: string[] | string | null | undefined,
-    renderItem: (item: string, index: number) => React.ReactElement
+    data: string[] | string | undefined,
+    renderItem: (item: string, index: number) => React.ReactNode
   ) => {
     if (Array.isArray(data)) {
       return data.map((item, index) => renderItem(item, index));
+    } else if (typeof data === 'string') {
+      return data.split(',').map((item, index) => renderItem(item.trim(), index));
+    } else {
+      return [renderItem('No items listed', 0)];
     }
-    return null;
   };
 
   return (
@@ -826,7 +830,7 @@ export default function AdminDashboard() {
                       Salary Range *
                     </label>
                     <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 sm:w-4 sm:h-4" />
+                      <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 sm:w-4 sm:h-4" />
                       <input
                         name="salary"
                         placeholder="e.g., ₹8-15 LPA"
@@ -955,7 +959,7 @@ export default function AdminDashboard() {
                     { icon: MapPin, label: "Location", value: showCareerDetail.location },
                     { icon: Briefcase, label: "Type", value: showCareerDetail.type },
                     { icon: User, label: "Experience", value: showCareerDetail.experience },
-                    { icon: DollarSign, label: "Salary", value: showCareerDetail.salary },
+                    { icon: IndianRupee, label: "Salary", value: showCareerDetail.salary },
                     { icon: BookOpen, label: "Education", value: showCareerDetail.education },
                   ].map((item, index) => (
                     <div key={index} className="bg-gray-50 rounded-lg sm:rounded-xl p-2 sm:p-4 text-center">

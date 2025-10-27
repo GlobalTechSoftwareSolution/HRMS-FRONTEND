@@ -1,6 +1,16 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+// Reusable date formatter for consistent dd/mm/yyyy formatting
+const formatDate = (dateStr?: string | number | null) => {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "—";
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
 import Image from 'next/image';
 import DashboardLayout from '@/components/DashboardLayout';
 import axios from 'axios';
@@ -526,7 +536,7 @@ const DocumentPage = () => {
                                 {key.replace(/_/g, ' ')}:
                               </span>
                               <span className="text-gray-900 text-right text-xs sm:text-sm truncate max-w-[50%]">
-                                {value?.toString() || 'Not provided'}
+                                {key.includes('date') ? formatDate(value?.toString()) : (value?.toString() || 'Not provided')}
                               </span>
                             </div>
                           ))}
@@ -663,7 +673,7 @@ const DocumentPage = () => {
                                 )}
 
                                 <p className="text-xs text-gray-500 mt-2">
-                                  Awarded on {award.created_at ? new Date(award.created_at).toLocaleDateString() : 'N/A'}
+                                  Awarded on {formatDate(award.created_at)}
                                 </p>
                                 <div className="flex justify-end mt-2 sm:mt-3 gap-1 sm:gap-2">
                                   <button

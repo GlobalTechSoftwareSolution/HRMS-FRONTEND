@@ -1,525 +1,587 @@
-'use client';
-import { useEffect, useState } from "react";
-import DashboardLayout from "@/components/DashboardLayout";
-import { Eye, Trash2, Download, User, Mail, Building, Phone, Calendar, Briefcase, X, AlertCircle } from "lucide-react";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+"use client";
 
-type Employee = {
-  id: number;
-  email: string;
-  fullname: string;
-  department: string | null;
-  designation: string | null;
-  date_joined: string | null;
-  phone: string | null;
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import DashboardLayout from "@/components/DashboardLayout";
+import Image from "next/image";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { X, ChevronLeft, Mail, Phone, Calendar, Building, Briefcase, Download, User, Users, LogOut } from "lucide-react";
+
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return "—";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "—";
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 };
 
-export default function Offboarding() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [viewMode, setViewMode] = useState<"list" | "details">("list");
-  const [showRemoveModal, setShowRemoveModal] = useState(false);
-  const [terminationReason, setTerminationReason] = useState("");
-  const [processing, setProcessing] = useState(false);
+interface Employee {
+  id?: number;
+  email: string;
+  fullname: string;
+  phone?: string;
+  department?: string;
+  designation?: string;
+  date_joined?: string;
+  profile_picture?: string;
+  reason_for_resignation?: string;
+  description?: string;
+  releaved_date?: string;
+  releaved?: string;
+}
 
+const EmployeeList = () => {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [releavedEmployees, setReleavedEmployees] = useState<Employee[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedReleavedEmployee, setSelectedReleavedEmployee] = useState<Employee | null>(null);
+  const [showRemoveForm, setShowRemoveForm] = useState<Employee | null>(null);
+  const [terminationReason, setTerminationReason] = useState("");
+  const [terminationDate, setTerminationDate] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"active" | "releaved">("active");
+
+  const EMPLOYEES_API = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`;
+  const RELEAVED_API = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_releaved/`
+  const POST_RELEAVED_API = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/releaved/`;
+
+  // Fetch Employees + Releaved
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem("authToken");
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-          }
-        );
-
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`HTTP error! status: ${res.status} ${text}`);
-        }
-
-        const data = await res.json();
-        setEmployees(data as Employee[]);
-        setError("");
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          console.error("Failed to fetch employees:", err.message);
-        } else {
-          console.error("Failed to fetch employees:", err);
-        }
-        setError("Failed to fetch employees. Please check your backend or network.");
+        const [activeRes, releavedRes] = await Promise.all([
+          axios.get(EMPLOYEES_API),
+          axios.get(RELEAVED_API),
+        ]);
+        setEmployees(activeRes.data || []);
+        setReleavedEmployees(releavedRes.data || []);
+      } catch (err) {
+        console.error("Error fetching employees:", err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchEmployees();
-  }, []);
+  }, [EMPLOYEES_API, RELEAVED_API]);
 
-  const handleViewDetails = (employee: Employee) => {
-    setSelectedEmployee(employee);
-    setViewMode("details");
+  // Generate Termination PDF
+  const generateTerminationPDF = async (
+    employee: Employee,
+    reason: string,
+    date: string
+  ) => {
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([600, 750]);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const { width, height } = page.getSize();
+
+    page.drawText("EMPLOYEE TERMINATION DOCUMENT", {
+      x: 100,
+      y: height - 60,
+      size: 18,
+      font: bold,
+      color: rgb(0, 0, 0.6),
+    });
+
+    page.drawLine({
+      start: { x: 40, y: height - 70 },
+      end: { x: width - 40, y: height - 70 },
+      thickness: 1,
+      color: rgb(0, 0, 0.6),
+    });
+
+    let y = height - 110;
+    const text = (label: string, value?: string) => {
+      page.drawText(`${label}: ${value || "N/A"}`, { x: 60, y, size: 12, font });
+      y -= 18;
+    };
+
+    page.drawText("Employee Information", {
+      x: 60,
+      y,
+      size: 14,
+      font: bold,
+    });
+    y -= 25;
+    text("Name", employee.fullname);
+    text("Email", employee.email);
+    text("Department", employee.department);
+    text("Designation", employee.designation);
+    text("Phone", employee.phone);
+    text("Date Joined", formatDate(employee.date_joined));
+
+    y -= 20;
+    page.drawText("Termination Details", {
+      x: 60,
+      y,
+      size: 14,
+      font: bold,
+    });
+    y -= 25;
+    text("Termination Date", formatDate(date));
+    text("Termination Reason", reason);
+
+    y -= 30;
+    page.drawText(
+      `This document certifies that ${employee.fullname} has been officially offboarded.`,
+      { x: 60, y, size: 12, font }
+    );
+
+    y -= 40;
+    page.drawText("HR Manager Signature: ____________________", {
+      x: 60,
+      y,
+      size: 12,
+      font,
+    });
+    page.drawText(`Date: ${formatDate(date)}`, { x: 400, y, size: 12, font });
+
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${employee.fullname}_Termination.pdf`;
+    link.click();
   };
 
-  const handleRemoveEmployee = (employee: Employee) => {
-    setSelectedEmployee(employee);
-    setShowRemoveModal(true);
-  };
-
-  const handleConfirmRemoval = async () => {
-    if (!selectedEmployee || !terminationReason) return;
+  // Remove Employee
+  const handleRemoveEmployee = async () => {
+    if (!showRemoveForm || !terminationReason || !terminationDate) {
+      alert("Please fill in all fields.");
+      return;
+    }
 
     try {
-      setProcessing(true);
+      await generateTerminationPDF(showRemoveForm, terminationReason, terminationDate);
 
-      // Generate termination PDF
-      const pdfBlob = await generateTerminationPDF(selectedEmployee, terminationReason);
-      const url = window.URL.createObjectURL(pdfBlob);
-      const a = document.createElement("a");
-      a.style.display = "none";
-      a.href = url;
-      a.download = `termination_${selectedEmployee.email}_${new Date()
-        .toISOString()
-        .split("T")[0]}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
+      await axios.post(POST_RELEAVED_API, {
+        email: showRemoveForm.email,
+        fullname: showRemoveForm.fullname,
+        department: showRemoveForm.department,
+        designation: showRemoveForm.designation,
+        description: terminationReason,
+        releaved: terminationDate,
+      });
 
-      // DELETE request using email
-      const token = localStorage.getItem("authToken");
-      const deleteResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(
-          selectedEmployee.email
-        )}/`,
-        { 
-          method: "DELETE",
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        }
+      alert("Employee removed successfully.");
+
+      setEmployees((prev) =>
+        prev.filter((e) => e.email !== showRemoveForm.email)
       );
+      setReleavedEmployees((prev) => [...prev, showRemoveForm]);
 
-      if (!deleteResponse.ok) {
-        throw new Error(`Failed to delete user: ${deleteResponse.status}`);
-      }
-
-      // Remove employee from local state by email
-      setEmployees(employees.filter((emp) => emp.email !== selectedEmployee.email));
-      setShowRemoveModal(false);
+      setShowRemoveForm(null);
       setTerminationReason("");
-      setSelectedEmployee(null);
-
-      alert(
-        `${selectedEmployee.fullname} has been successfully offboarded. PDF downloaded.`
-      );
+      setTerminationDate("");
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        console.error("Error during offboarding:", err.message);
+      if (axios.isAxiosError(err)) {
+        console.error("Error removing employee:", err.response?.data || err.message);
       } else {
-        console.error("Error during offboarding:", err);
+        console.error("Unexpected error:", err);
       }
-      setError("Failed to complete offboarding process.");
-    } finally {
-      setProcessing(false);
+      alert("Failed to remove employee.");
     }
   };
 
-  const generateTerminationPDF = async (
-  employee: Employee,
-  reason: string
-): Promise<Blob> => {
-  const pdfDoc = await PDFDocument.create();
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const page = pdfDoc.addPage([595.28, 842]); // A4
-  const { width, height } = page.getSize();
-
-  let y = height - 60;
-
-  // 🔹 Header
-  const title = "EMPLOYEE TERMINATION DOCUMENT";
-  page.drawText(title, {
-    x: width / 2 - font.widthOfTextAtSize(title, 18) / 2,
-    y,
-    size: 18,
-    font: boldFont,
-    color: rgb(0, 0, 0.5),
-  });
-
-  y -= 30;
-  page.drawLine({
-    start: { x: 50, y },
-    end: { x: width - 50, y },
-    thickness: 1.2,
-    color: rgb(0.2, 0.2, 0.5),
-  });
-  y -= 40;
-
-  // 🔹 Employee Information Section
-  page.drawText("Employee Information", {
-    x: 50,
-    y,
-    size: 13,
-    font: boldFont,
-    color: rgb(0.1, 0.1, 0.1),
-  });
-
-  y -= 20;
-  const info = [
-    ["Name", employee.fullname],
-    ["Email", employee.email],
-    ["Department", employee.department || "N/A"],
-    ["Designation", employee.designation || "N/A"],
-    ["Phone", employee.phone || "N/A"],
-    ["Date Joined", employee.date_joined || "N/A"],
-  ];
-
-  info.forEach(([label, value]) => {
-    page.drawText(`${label}:`, {
-      x: 60,
-      y,
-      size: 11,
-      font: boldFont,
-      color: rgb(0, 0, 0),
-    });
-    page.drawText(value, {
-      x: 160,
-      y,
-      size: 11,
-      font,
-      color: rgb(0.2, 0.2, 0.2),
-    });
-    y -= 18;
-  });
-
-  y -= 25;
-
-  // 🔹 Termination Details Section
-  page.drawText("Termination Details", {
-    x: 50,
-    y,
-    size: 13,
-    font: boldFont,
-    color: rgb(0.1, 0.1, 0.1),
-  });
-
-  y -= 20;
-  const details = [
-    ["Termination Date", new Date().toLocaleDateString()],
-    ["Termination Reason", reason],
-  ];
-
-  details.forEach(([label, value]) => {
-    page.drawText(`${label}:`, {
-      x: 60,
-      y,
-      size: 11,
-      font: boldFont,
-      color: rgb(0, 0, 0),
-    });
-    page.drawText(value, {
-      x: 200,
-      y,
-      size: 11,
-      font,
-      color: rgb(0.2, 0.2, 0.2),
-    });
-    y -= 18;
-  });
-
-  y -= 40;
-
-  // 🔹 Statement
-  const statement = `This document certifies that ${employee.fullname} has been officially offboarded from the company.`;
-  page.drawText(statement, {
-    x: 50,
-    y,
-    size: 11,
-    font,
-    color: rgb(0.1, 0.1, 0.1),
-    maxWidth: width - 100,
-  });
-
-  y -= 60;
-
-  // 🔹 Signature
-  page.drawText("HR Manager Signature: ___________________", {
-    x: 50,
-    y,
-    size: 11,
-    font,
-    color: rgb(0, 0, 0),
-  });
-  page.drawText(`Date: ${new Date().toLocaleDateString()}`, {
-    x: width - 200,
-    y,
-    size: 11,
-    font,
-    color: rgb(0, 0, 0),
-  });
-
-  // 🔹 Footer
-  page.drawLine({
-    start: { x: 50, y: 50 },
-    end: { x: width - 50, y: 50 },
-    thickness: 0.5,
-    color: rgb(0.6, 0.6, 0.6),
-  });
-  page.drawText("Confidential • Generated by HR System", {
-    x: width / 2 - font.widthOfTextAtSize("Confidential • Generated by HR System", 9) / 2,
-    y: 35,
-    size: 9,
-    font,
-    color: rgb(0.4, 0.4, 0.4),
-  });
-
-  // ✅ FIX: use .buffer so TypeScript treats it as ArrayBuffer
-  // ✅ FIX: Ensure Blob gets a Uint8Array, not ArrayBufferLike
-const pdfBytes = await pdfDoc.save();
-return new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
-
-};
-
+  if (loading) {
+    return (
+     <DashboardLayout role="hr">
+       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-lg">Loading employees...</p>
+        </div>
+      </div>
+     </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout role="hr">
-      <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
-        {viewMode === "list" ? (
-          <>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-2 sm:space-y-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mt-5 mb-5">Employee Management</h1>
-              <div className="text-sm text-gray-500">
-                {employees.length} employee{employees.length !== 1 ? 's' : ''} found
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6 text-black">
+      {/* Header */}
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Employee Management</h1>
+            <p className="text-gray-600 mt-2">Manage your team members and offboarding process</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="bg-white rounded-lg px-4 py-2 shadow-sm">
+              <div className="flex items-center space-x-2">
+                <Users className="w-5 h-5 text-blue-600" />
+                <span className="text-sm font-medium">
+                  {employees.length} Active • {releavedEmployees.length} Releaved
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        {!selectedEmployee && !selectedReleavedEmployee && (
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            {/* Tab Navigation */}
+            <div className="border-b">
+              <div className="flex">
+                <button
+                  onClick={() => setActiveTab("active")}
+                  className={`flex items-center px-6 py-4 font-medium text-sm transition-all ${
+                    activeTab === "active"
+                      ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <User className="w-4 h-4 mr-2" />
+                  Active Employees ({employees.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab("releaved")}
+                  className={`flex items-center px-6 py-4 font-medium text-sm transition-all ${
+                    activeTab === "releaved"
+                      ? "text-red-600 border-b-2 border-red-600 bg-red-50"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Releaved Employees ({releavedEmployees.length})
+                </button>
               </div>
             </div>
 
-            {loading ? (
-              <div className="flex justify-center items-center h-48 sm:h-64">
-                <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-blue-500"></div>
-              </div>
-            ) : error ? (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-                {error}
-              </div>
-            ) : (
-              <>
-                {/* 🔹 Table for medium+ screens */}
-                <div className="hidden sm:block bg-white rounded-lg shadow overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 table-auto mt-5 mb-5">
-                    <thead className="bg-gray-100 mt-3 mb-5">
-                      <tr>
-                        <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                        <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                        <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
-                        <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Join Date</th>
-                        <th className="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {employees.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="px-6 py-4 text-center text-gray-500 text-sm">
-                            No employees found
-                          </td>
-                        </tr>
-                      ) : (
-                        employees.map((emp) => (
-                          <tr key={emp.email} className="hover:bg-gray-50 transition mt-5 p-5">
-                            <td className="md:px-8 md:py-5 whitespace-nowrap mt-5 text-xl">
-                              <div className="flex items-center space-x-3">
-                                <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                  <User className="h-5 w-5 text-blue-600" />
-                                </div>
-                                <div className="text-sm">
-                                  <div className="font-medium text-gray-900">{emp.fullname}</div>
-                                  <div className="text-gray-500">{emp.email}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-3 text-sm text-gray-900">{emp.department || "-"}</td>
-                            <td className="px-6 py-3 text-sm text-gray-900">{emp.designation || "-"}</td>
-                            <td className="px-6 py-3 text-sm text-gray-500">
-                              {emp.date_joined ? new Date(emp.date_joined).toLocaleDateString() : "-"}
-                            </td>
-                            <td className="px-6 py-3 text-sm font-medium">
-                              <div className="flex space-x-2">
-                                <button
-                                  onClick={() => handleViewDetails(emp)}
-                                  className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md flex items-center"
-                                >
-                                  <Eye className="h-4 w-4 mr-1" /> View
-                                </button>
-                                <button
-                                  onClick={() => handleRemoveEmployee(emp)}
-                                  className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md flex items-center"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-1" /> Remove
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+            {/* Employee Grid */}
+            <div className="p-6">
+              {activeTab === "active" ? (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {employees.map((emp) => (
+                    <div
+                      key={emp.email}
+                      className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-blue-200"
+                    >
+                      <div className="flex flex-col items-center text-center">
+                        <div className="relative mb-4">
+                          <Image
+                            src={emp.profile_picture || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"}
+                            alt={emp.fullname}
+                            width={150}
+                            height={150}
+                            className="w-20 h-20 rounded-full object-cover border-4 border-blue-50"
+                          />
+                          <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
+                        </div>
+                        
+                        <h3 className="font-bold text-lg text-gray-900 mb-1">
+                          {emp.fullname}
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-3 flex items-center">
+                          <Mail className="w-3 h-3 mr-1" />
+                          {emp.email}
+                        </p>
+                        
+                        <div className="w-full space-y-2 mb-4">
+                          {emp.department && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-500 flex items-center">
+                                <Building className="w-3 h-3 mr-1" />
+                                Department
+                              </span>
+                              <span className="font-medium text-gray-900">{emp.department}</span>
+                            </div>
+                          )}
+                          {emp.designation && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-500 flex items-center">
+                                <Briefcase className="w-3 h-3 mr-1" />
+                                Role
+                              </span>
+                              <span className="font-medium text-gray-900">{emp.designation}</span>
+                            </div>
+                          )}
+                        </div>
 
-                {/* 🔹 Card view for small screens */}
-                <div className="grid grid-cols-1 gap-4 sm:hidden">
-                  {employees.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500 bg-white rounded-lg shadow">
-                      No employees found
-                    </div>
-                  ) : (
-                    employees.map((emp) => (
-                      <div
-                        key={emp.email}
-                        className="bg-white rounded-lg shadow p-4 space-y-3"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <User className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-900">{emp.fullname}</div>
-                            <div className="text-sm text-gray-500">{emp.email}</div>
-                          </div>
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          <p><span className="font-medium">Dept:</span> {emp.department || "-"}</p>
-                          <p><span className="font-medium">Role:</span> {emp.designation || "-"}</p>
-                          <p><span className="font-medium">Joined:</span> {emp.date_joined ? new Date(emp.date_joined).toLocaleDateString() : "-"}</p>
-                        </div>
-                        <div className="flex space-x-2">
+                        <div className="flex gap-2 w-full">
                           <button
-                            onClick={() => handleViewDetails(emp)}
-                            className="flex-1 bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-2 rounded-md flex items-center justify-center"
+                            onClick={() => setSelectedEmployee(emp)}
+                            className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                           >
-                            <Eye className="h-4 w-4 mr-1" /> View
+                            View
                           </button>
                           <button
-                            onClick={() => handleRemoveEmployee(emp)}
-                            className="flex-1 bg-red-50 text-red-600 hover:bg-red-100 px-3 py-2 rounded-md flex items-center justify-center"
+                            onClick={() => setShowRemoveForm(emp)}
+                            className="flex-1 bg-red-600 text-white py-2 px-3 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
                           >
-                            <Trash2 className="h-4 w-4 mr-1" /> Remove
+                            Remove
                           </button>
                         </div>
                       </div>
-                    ))
-                  )}
+                    </div>
+                  ))}
                 </div>
-              </>
-            )}
-          </>
-        ) : (
-          selectedEmployee && (
-            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-              {/* Details view */}
-              <button onClick={() => setViewMode("list")} className="text-blue-600 hover:text-blue-800 mb-4 flex items-center">← Back to list</button>
-              <div className="border-b border-gray-200 pb-4 mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Employee Details</h2>
-                <p className="text-gray-600 text-sm sm:text-base">Complete information about the employee</p>
-              </div>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {releavedEmployees.map((emp) => (
+                    <div
+                      key={emp.email}
+                      className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-red-200"
+                    >
+                      <div className="flex flex-col items-center text-center">
+                        <div className="relative mb-4">
+                          <Image
+                            src={emp.profile_picture || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"}
+                            alt={emp.fullname}
+                            width={150}
+                            height={150}
+                            className="w-20 h-20 rounded-full object-cover border-4 border-red-50 grayscale"
+                          />
+                          <div className="absolute bottom-0 right-0 w-5 h-5 bg-red-500 rounded-full border-2 border-white"></div>
+                        </div>
+                        
+                        <h3 className="font-bold text-lg text-gray-900 mb-1">
+                          {emp.fullname}
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-3 flex items-center">
+                          <Mail className="w-3 h-3 mr-1" />
+                          {emp.email}
+                        </p>
+                        
+                        <div className="w-full space-y-2 mb-4">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">Reason</span>
+                            <span className="font-medium text-red-600 text-xs text-right">
+                              {emp.reason_for_resignation || emp.description || "Not specified"}
+                            </span>
+                          </div>
+                        </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                <div className="flex items-center">
-                  <div className="bg-blue-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4"><User className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" /></div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-500">Full Name</p>
-                    <p className="font-medium text-sm sm:text-base">{selectedEmployee.fullname}</p>
-                  </div>
+                        <button
+                          onClick={() => setSelectedReleavedEmployee(emp)}
+                          className="w-full bg-gray-600 text-white py-2 px-3 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                        >
+                          View Details
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center">
-                  <div className="bg-green-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4"><Mail className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" /></div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-500">Email</p>
-                    <p className="font-medium text-sm sm:text-base">{selectedEmployee.email}</p>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <div className="bg-purple-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4"><Building className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" /></div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-500">Department</p>
-                    <p className="font-medium text-sm sm:text-base">{selectedEmployee.department || "Not assigned"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <div className="bg-yellow-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4"><Briefcase className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600" /></div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-500">Designation</p>
-                    <p className="font-medium text-sm sm:text-base">{selectedEmployee.designation || "Not assigned"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <div className="bg-red-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4"><Phone className="h-5 w-5 sm:h-6 sm:w-6 text-red-600" /></div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-500">Phone</p>
-                    <p className="font-medium text-sm sm:text-base">{selectedEmployee.phone || "Not provided"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <div className="bg-indigo-100 p-2 sm:p-3 rounded-full mr-3 sm:mr-4"><Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-600" /></div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-500">Date Joined</p>
-                    <p className="font-medium text-sm sm:text-base">{selectedEmployee.date_joined ? new Date(selectedEmployee.date_joined).toLocaleDateString() : "Not available"}</p>
-                  </div>
-                </div>
-              </div>
+              )}
 
-              <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                <button onClick={() => handleRemoveEmployee(selectedEmployee)} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center"><Trash2 className="h-4 w-4 mr-2" /> Initiate Offboarding</button>
-              </div>
+              {(activeTab === "active" && employees.length === 0) && (
+                <div className="text-center py-12">
+                  <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Employees</h3>
+                  <p className="text-gray-500">There are currently no active employees in the system.</p>
+                </div>
+              )}
+
+              {(activeTab === "releaved" && releavedEmployees.length === 0) && (
+                <div className="text-center py-12">
+                  <LogOut className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Releaved Employees</h3>
+                  <p className="text-gray-500">No employees have been releaved yet.</p>
+                </div>
+              )}
             </div>
-          )
+          </div>
         )}
 
-        {/* Remove Modal */}
-        {showRemoveModal && selectedEmployee && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-md w-full">
-              <div className="p-4 sm:p-6 border-b border-gray-200 flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-900">Confirm Employee Offboarding</h3>
-                <button onClick={() => { setShowRemoveModal(false); setTerminationReason(""); }} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
-              </div>
-              <div className="p-4 sm:p-6 space-y-4">
-                <div className="bg-red-50 border border-red-200 rounded-md p-3 flex items-start">
-                  <AlertCircle className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
-                  <p className="text-red-700 text-sm">You are about to offboard {selectedEmployee.fullname}. This action will generate termination documentation and remove the employee from the system.</p>
+        {/* Employee Detail View */}
+        {(selectedEmployee || selectedReleavedEmployee) && (
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div className="border-b border-gray-200">
+                <div className="flex items-center justify-between p-6">
+                  <button
+                    onClick={() => {
+                      setSelectedEmployee(null);
+                      setSelectedReleavedEmployee(null);
+                    }}
+                    className="flex items-center text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5 mr-1" />
+                    Back to list
+                  </button>
+                  {selectedEmployee && (
+                    <button
+                      onClick={() => setShowRemoveForm(selectedEmployee)}
+                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Remove Employee
+                    </button>
+                  )}
                 </div>
+              </div>
 
-                <div>
-                  <h4 className="font-medium text-gray-700 mb-2 text-sm sm:text-base">Employee Details</h4>
-                  <div className="bg-gray-50 p-3 rounded-md text-sm sm:text-base space-y-1">
-                    <p><span className="font-medium">Name:</span> {selectedEmployee.fullname}</p>
-                    <p><span className="font-medium">Email:</span> {selectedEmployee.email}</p>
-                    <p><span className="font-medium">Department:</span> {selectedEmployee.department || "N/A"}</p>
-                    <p><span className="font-medium">Designation:</span> {selectedEmployee.designation || "N/A"}</p>
+              <div className="p-8">
+                <div className="flex flex-col lg:flex-row items-start space-y-6 lg:space-y-0 lg:space-x-8">
+                  <div className="flex-shrink-0">
+                    <Image
+                      src={
+                        selectedEmployee?.profile_picture ||
+                        selectedReleavedEmployee?.profile_picture ||
+                        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face"
+                      }
+                      alt={selectedEmployee?.fullname || selectedReleavedEmployee?.fullname || ""}
+                      width={200}
+                      height={200}
+                      className="w-32 h-32 rounded-2xl object-cover border-4 border-blue-50"
+                    />
+                  </div>
+
+                  <div className="flex-1 grid md:grid-cols-2 gap-6">
+                    <div className="space-y-6">
+                      <div>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                          {selectedEmployee?.fullname || selectedReleavedEmployee?.fullname}
+                        </h2>
+                        <p className="text-gray-600 flex items-center">
+                          <Mail className="w-4 h-4 mr-2" />
+                          {selectedEmployee?.email || selectedReleavedEmployee?.email}
+                        </p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center text-gray-700">
+                          <Building className="w-4 h-4 mr-3 text-blue-600" />
+                          <span className="font-medium mr-2">Department:</span>
+                          <span>{selectedEmployee?.department || selectedReleavedEmployee?.department || "—"}</span>
+                        </div>
+                        <div className="flex items-center text-gray-700">
+                          <Briefcase className="w-4 h-4 mr-3 text-blue-600" />
+                          <span className="font-medium mr-2">Designation:</span>
+                          <span>{selectedEmployee?.designation || selectedReleavedEmployee?.designation || "—"}</span>
+                        </div>
+                        <div className="flex items-center text-gray-700">
+                          <Phone className="w-4 h-4 mr-3 text-blue-600" />
+                          <span className="font-medium mr-2">Phone:</span>
+                          <span>{selectedEmployee?.phone || selectedReleavedEmployee?.phone || "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div className="flex items-center text-gray-700">
+                          <Calendar className="w-4 h-4 mr-3 text-blue-600" />
+                          <span className="font-medium mr-2">Date Joined:</span>
+                          <span>
+                            {formatDate(selectedEmployee?.date_joined || selectedReleavedEmployee?.date_joined)}
+                          </span>
+                        </div>
+
+                      {selectedReleavedEmployee && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                          <h4 className="font-semibold text-red-800 mb-2 flex items-center">
+                            <LogOut className="w-4 h-4 mr-2" />
+                            Termination Details
+                          </h4>
+                          <p className="text-red-700 text-sm">
+                            <strong>Reason:</strong> {selectedReleavedEmployee.description || selectedReleavedEmployee.reason_for_resignation || "Not specified"}
+                          </p>
+                          {selectedReleavedEmployee.releaved && (
+                            <p className="text-red-700 text-sm mt-1">
+                              <strong>Date:</strong> {formatDate(selectedReleavedEmployee.releaved)}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {selectedEmployee && (
+                        <button
+                          onClick={() =>
+                            generateTerminationPDF(
+                              selectedEmployee,
+                              "Employee details export",
+                              formatDate(new Date().toISOString())
+                            )
+                          }
+                          className="flex items-center text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Export Employee Details
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Remove Employee Modal */}
+        {showRemoveForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl p-6 max-w-md w-full relative shadow-2xl border border-red-100">
+              <button
+                onClick={() => setShowRemoveForm(null)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={24} />
+              </button>
+              
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <LogOut className="w-8 h-8 text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Remove Employee</h2>
+                <p className="text-gray-600">
+                  You are about to remove <strong>{showRemoveForm.fullname}</strong> from the system.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Termination Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={terminationDate}
+                    onChange={(e) => setTerminationDate(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                </div>
 
                 <div>
-                  <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-1">Reason for Termination *</label>
-                  <textarea id="reason" rows={3} className="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base" placeholder="Please provide the reason for termination..." value={terminationReason} onChange={(e) => setTerminationReason(e.target.value)} required></textarea>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Termination Reason <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={terminationReason}
+                    onChange={(e) => setTerminationReason(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    rows={4}
+                    placeholder="Please provide the reason for termination..."
+                  />
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 p-4 sm:p-6 border-t border-gray-200">
-                <button onClick={() => { setShowRemoveModal(false); setTerminationReason(""); }} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button onClick={handleConfirmRemoval} disabled={!terminationReason.trim() || processing} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
-                  {processing ? <><div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>Processing...</> : <><Download className="h-4 w-4 mr-2" />Confirm & Download PDF</>}
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowRemoveForm(null)}
+                  className="flex-1 bg-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRemoveEmployee}
+                  className="flex-1 bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Confirm Removal
                 </button>
               </div>
             </div>
           </div>
         )}
       </div>
+    </div>
     </DashboardLayout>
   );
-}
+};
+
+export default EmployeeList;

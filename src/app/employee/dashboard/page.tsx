@@ -45,7 +45,7 @@ export default function DashboardOverview() {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [leaveData, setLeaveData] = useState<LeaveRecord[]>([]);
 
-  const totalPossibleHours = 200;
+  const totalPossibleHours = 8
 
   const fetchDashboardData = async () => {
     try {
@@ -144,12 +144,7 @@ export default function DashboardOverview() {
             </p>
           </div>
           <div className="text-xs sm:text-sm text-gray-500 bg-white px-3 sm:px-4 py-2 rounded-lg shadow-sm w-fit">
-            {new Date().toLocaleDateString("en-US", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+            {new Date().toLocaleDateString("en-GB")}
           </div>
         </div>
 
@@ -228,9 +223,19 @@ export default function DashboardOverview() {
               return (
                 <div key={rec.date} className="bg-gray-50 p-3 rounded-lg shadow-sm flex justify-between items-center">
                   <div>
-                    <p className="text-gray-700 font-medium">{rec.date}</p>
+                    <p className="text-gray-700 font-medium">
+                      {new Date(rec.date).toLocaleDateString("en-GB")}
+                    </p>
                     <p className="text-gray-500 text-sm">
-                      {rec.checkIn ?? "-"} - {rec.checkOut ?? "-"}
+                      {rec.checkIn
+                        ? new Date(`${rec.date}T${rec.checkIn}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+                        : "-"}
+                      {" "}
+                      - 
+                      {" "}
+                      {rec.checkOut
+                        ? new Date(`${rec.date}T${rec.checkOut}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+                        : "-"}
                     </p>
                   </div>
                   <span className="text-gray-700 font-bold">{hours} hrs</span>
@@ -257,7 +262,7 @@ export default function DashboardOverview() {
                     className="bg-gray-50 p-3 rounded-lg shadow-sm flex flex-col sm:flex-row sm:justify-between gap-1"
                   >
                     <div className="text-gray-700 font-medium">
-                      {l.start_date} - {l.end_date}
+                      {new Date(l.start_date).toLocaleDateString("en-GB")} - {new Date(l.end_date).toLocaleDateString("en-GB")}
                       <span className="text-gray-500 text-sm ml-2">
                         ({Math.max(
                           1,

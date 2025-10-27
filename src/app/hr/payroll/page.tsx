@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PDFDocument, rgb, StandardFonts, PDFFont } from "pdf-lib";
 import { Plus, Eye, Download, X, CheckCircle, AlertCircle, Info } from "lucide-react";
@@ -112,6 +112,36 @@ export default function HRPayrollDashboard() {
     status: "Paid",
     pay_date: new Date().toISOString().split('T')[0],
   });
+
+  // --- Month filter state ---
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+
+  const filteredPayslips = useMemo(() => {
+    const monthFiltered = payslips.filter((p) => {
+      // Try to parse period as "Month Year"
+      if (!p.period) return false;
+      const [monthStr, yearStr] = p.period.split(" ");
+      const monthIndex = [
+        "january", "february", "march", "april", "may", "june",
+        "july", "august", "september", "october", "november", "december"
+      ].indexOf(monthStr?.toLowerCase());
+      const yearNum = Number(yearStr);
+      return (
+        monthIndex === selectedMonth &&
+        yearNum === selectedYear
+      );
+    });
+    // Remove duplicates by employeeId-period
+    const uniqueMap = new Map();
+    monthFiltered.forEach((p) => {
+      const key = `${p.employeeId}-${p.period}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, p);
+      }
+    });
+    return Array.from(uniqueMap.values());
+  }, [payslips, selectedMonth, selectedYear]);
 
   // Helper function to convert month name to index (0-11)
   const getMonthIndex = (monthName: string): number => {
@@ -1288,7 +1318,21 @@ export default function HRPayrollDashboard() {
                 </button>
               </div>
 
-              {payslips.length === 0 ? (
+              {/* Month Picker */}
+              <div className="flex justify-end items-center mb-4 gap-3">
+                <input
+                  type="month"
+                  value={`${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`}
+                  onChange={(e) => {
+                    const [year, month] = e.target.value.split("-").map(Number);
+                    setSelectedYear(year);
+                    setSelectedMonth(month - 1);
+                  }}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+
+              {filteredPayslips.length === 0 ? (
                 <div className="text-center py-12 sm:py-16 bg-white rounded-xl shadow-lg">
                   <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
                     <svg className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1307,7 +1351,7 @@ export default function HRPayrollDashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {payslips.map((payslip) => (
+                  {filteredPayslips.map((payslip) => (
                     <div
                       key={payslip.id}
                       className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6 hover:shadow-xl transition-all duration-300"

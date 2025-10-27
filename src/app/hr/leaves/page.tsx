@@ -170,12 +170,12 @@ export default function HRLeavePage() {
                       <td className="p-4 font-medium">{leave.employeeId}</td>
                       <td className="p-4 max-w-xs truncate">{leave.reason}</td>
                       <td className="p-4">
-                        {leave.startDate} → {leave.endDate}
+                        {new Date(leave.startDate).toLocaleDateString("en-GB")} → {new Date(leave.endDate).toLocaleDateString("en-GB")}
                       </td>
                       <td className="p-4 text-center">
                         {calculateDays(leave.startDate, leave.endDate)}
                       </td>
-                      <td className="p-4">{leave.submittedDate}</td>
+                      <td className="p-4">{new Date(leave.submittedDate).toLocaleDateString("en-GB")}</td>
                       <td className="p-4">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -222,7 +222,7 @@ export default function HRLeavePage() {
                   <p className="text-sm text-gray-600 mb-1 truncate">{leave.reason}</p>
                   <div className="flex justify-between text-sm text-gray-500">
                     <span>
-                      {leave.startDate} → {leave.endDate}
+                      {new Date(leave.startDate).toLocaleDateString("en-GB")} → {new Date(leave.endDate).toLocaleDateString("en-GB")}
                     </span>
                     <span>{calculateDays(leave.startDate, leave.endDate)} day(s)</span>
                   </div>
@@ -282,14 +282,14 @@ export default function HRLeavePage() {
                   <p className="font-medium">{selectedLeave.reason}</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Start Date</p>
-                    <p className="font-medium">{selectedLeave.startDate}</p>
+                    <p className="font-medium">{new Date(selectedLeave.startDate).toLocaleDateString("en-GB")}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">End Date</p>
-                    <p className="font-medium">{selectedLeave.endDate}</p>
+                    <p className="font-medium">{new Date(selectedLeave.endDate).toLocaleDateString("en-GB")}</p>
                   </div>
                 </div>
 
@@ -302,7 +302,7 @@ export default function HRLeavePage() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Submitted On</p>
-                    <p className="font-medium">{selectedLeave.submittedDate}</p>
+                    <p className="font-medium">{new Date(selectedLeave.submittedDate).toLocaleDateString("en-GB")}</p>
                   </div>
                 </div>
 

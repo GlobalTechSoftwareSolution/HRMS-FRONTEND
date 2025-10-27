@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -21,12 +22,17 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 
+
+
+
 type Holiday = {
   date: string;
   summary: string;
   type: "Government" | "Bank" | "Festival" | "Jayanthi";
   description?: string;
 }
+
+
 
 type AttendanceRecord = {
   email: string;
@@ -59,6 +65,7 @@ type Employee = {
 import { useRouter } from "next/navigation";
 
 export default function ManagerDashboard() {
+  // Helper to format date as DD/MM/YYYY
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     const day = String(d.getDate()).padStart(2, "0");
@@ -66,12 +73,12 @@ export default function ManagerDashboard() {
     const year = d.getFullYear();
     return `${day}/${month}/${year}`;
   };
-
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
+  // --- For mini calendar selection (full attendance list) ---
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [holidays] = useState<Holiday[]>([]);
   const [leaves, setLeaves] = useState<
@@ -82,10 +89,12 @@ export default function ManagerDashboard() {
       [key: string]: unknown;
     }[]
   >([]);
+  // Attendance filter for attendance cards
+  // null = all, "checked-in" = only checked-in, "absent" = only absent
   const [attendanceFilter, setAttendanceFilter] = useState<null | "checked-in" | "absent">(null);
   const router = useRouter();
 
-  // Fetch Attendance
+  // ---------------- Fetch Attendance ----------------
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -130,7 +139,7 @@ export default function ManagerDashboard() {
     fetchData();
   }, []);
 
-  // Fetch Employees
+  // ---------------- Fetch Employees ----------------
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
@@ -152,21 +161,23 @@ export default function ManagerDashboard() {
   }, []);
 
   const today = new Date().toISOString().split("T")[0];
+  // Build attendance for selected date (or today if none selected): include absent employees as well
   const effectiveDate = selectedDate || today;
   const effectiveDateObj = new Date(effectiveDate);
   const isFutureDate = effectiveDateObj > new Date(today);
   const attendanceRecordsForDate = attendance.filter((a) => a.date === effectiveDate);
-  
+  // Map email to attendance record for the date for quick lookup
   const attendanceMap: Record<string, AttendanceRecord> = {};
   attendanceRecordsForDate.forEach((rec) => {
     attendanceMap[rec.email] = rec;
   });
-
+  // Compose full list: for each employee, get their attendance record for the date, or fill as absent
   const dateAttendance = employees.map((emp) => {
     const rec = attendanceMap[emp.email];
     if (rec) {
       return rec;
     } else {
+      // Absent employee
       return {
         email: emp.email,
         fullname: emp.fullname,
@@ -178,13 +189,14 @@ export default function ManagerDashboard() {
       };
     }
   });
-
+  console.log("Computed dateAttendance for", effectiveDate, ":", dateAttendance);
+  // Filtered attendance for KPI cards click
   const filteredDateAttendance = attendanceFilter === "checked-in"
     ? dateAttendance.filter((a) => a.check_in)
     : attendanceFilter === "absent"
     ? dateAttendance.filter((a) => !a.check_in)
     : dateAttendance;
-
+  // Calculate checked-in and absent safely to prevent negative values
   const employeesForDate = employees.filter(emp =>
     dateAttendance.some(a => a.email === emp.email && a.date <= today)
   );
@@ -193,7 +205,7 @@ export default function ManagerDashboard() {
     dateAttendance.find(a => a.email === emp.email && a.date <= today)?.check_in
   ).length;
 
-  const absent = Math.max(employeesForDate.length - checkedIn, 0);
+  const absent = Math.max(employeesForDate.length - checkedIn, 0); // ensure not negative
 
   const totalHoursForDate = dateAttendance.reduce(
     (acc, a) => acc + (a.hours.hrs * 3600 + a.hours.mins * 60 + a.hours.secs),
@@ -207,18 +219,22 @@ export default function ManagerDashboard() {
   })();
 
   // Recharts Data Preparation
+  // Pie Chart: Attendance Distribution
   const attendancePieData = [
     { name: "Checked In", value: checkedIn },
     { name: "Absent", value: absent },
   ];
-  const pieColors = ["#34d399", "#f87171"];
+  const pieColors = ["#34d399", "#f87171"]; // green, red
 
+  // ---------------- Bar Chart: Daily Hours Worked per Employee (for selected date) ----------------
+  // If selectedDate is set, show hours for that date, else show for today
   const barChartData = dateAttendance.map((rec) => ({
     name: rec.fullname.length > 14 ? rec.fullname.slice(0, 12) + "…" : rec.fullname,
     hours: Number((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600).toFixed(2)),
   }));
 
-  // PDF Generation
+  // ---------------- PDF Generation ----------------
+  // Download PDF for selected date or today
   const downloadPDF = async () => {
     const jsPDFModule = (await import("jspdf")).default;
     const autoTableModule = (await import("jspdf-autotable")).default;
@@ -229,9 +245,13 @@ export default function ManagerDashboard() {
       format: "A4",
     });
 
+    // Add company logo and name at the top
+    // Fetch the logo as base64
+    // Use the actual hosted logo URL
     const logoUrl = "https://www.globaltechsoftwaresolutions.com/_next/image?url=%2Flogo%2FGlobal.jpg&w=64&q=75";
     let logoBase64: string | undefined;
     try {
+      // Fetch the image and convert to base64
       const response = await fetch(logoUrl);
       const blob = await response.blob();
       const toBase64 = (blob: Blob) =>
@@ -252,6 +272,7 @@ export default function ManagerDashboard() {
 
     let y = 30;
     if (logoBase64) {
+      // Add the logo (width: 70, height: 70)
       doc.addImage(
         logoBase64,
         "PNG",
@@ -260,9 +281,9 @@ export default function ManagerDashboard() {
         70,
         70
       );
-      y += 80;
+      y += 80; // Larger gap after bigger logo
     }
-
+    // Add company name
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
     doc.text(
@@ -271,8 +292,9 @@ export default function ManagerDashboard() {
       y,
       { align: "center" }
     );
-    y += 35;
+    y += 35; // More spacing after company name
 
+    // Title
     doc.setFontSize(20);
     doc.text(
       `${selectedDate ? formatDate(selectedDate) : "Today's"} Attendance Report`,
@@ -280,7 +302,7 @@ export default function ManagerDashboard() {
       y,
       { align: "center" }
     );
-    y += 30;
+    y += 30; // More spacing after title
 
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
@@ -360,41 +382,49 @@ export default function ManagerDashboard() {
     );
   };
 
-  useEffect(() => {
-    const fetchLeaves = async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/leaves`);
-        if (!res.ok) throw new Error("Failed to fetch leaves");
-        const data = await res.json();
-        setLeaves(data);
-      } catch (err) {
-        console.error("Error fetching leaves:", err);
-      }
-    };
-    fetchLeaves();
-  }, []);
 
-  const calendarEvents = [
-    ...holidays.map((h) => ({
-      title: `${h.summary} (${h.type})`,
-      start: h.date,
-      backgroundColor:
-        h.type === "Government"
-          ? "#3b82f6"
-          : h.type === "Bank"
-          ? "#a855f7"
-          : h.type === "Jayanthi"
-          ? "#22c55e"
-          : "#f97316",
-      textColor: "#fff",
-    })),
-    ...leaves.map((l) => ({
-      title: `${l.employee_name || "Employee"} - ${l.status}`,
-      start: l.date,
-      backgroundColor: l.status === "Approved" ? "#eab308" : "#f97316",
-      textColor: "#000",
-    })),
-  ];
+
+  
+
+
+
+useEffect(() => {
+  const fetchLeaves = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/leaves`);
+      if (!res.ok) throw new Error("Failed to fetch leaves");
+      const data = await res.json();
+      setLeaves(data);
+    } catch (err) {
+      console.error("Error fetching leaves:", err);
+    }
+  };
+  fetchLeaves();
+}, []);
+
+const calendarEvents = [
+  ...holidays.map((h) => ({
+    title: `${h.summary} (${h.type})`,
+    start: h.date,
+    backgroundColor:
+      h.type === "Government"
+        ? "#3b82f6"
+        : h.type === "Bank"
+        ? "#a855f7"
+        : h.type === "Jayanthi"
+        ? "#22c55e"
+        : "#f97316",
+    textColor: "#fff",
+  })),
+  ...leaves.map((l) => ({
+    title: `${l.employee_name || "Employee"} - ${l.status}`,
+    start: l.date,
+    backgroundColor: l.status === "Approved" ? "#eab308" : "#f97316",
+    textColor: "#000",
+  })),
+];
+
+
 
   return (
     <>
@@ -404,430 +434,351 @@ export default function ManagerDashboard() {
           border-radius: 8px;
           transition: background-color 0.3s ease;
         }
-
-        /* Mobile-first responsive styles */
-        @media (max-width: 640px) {
-          .fc .fc-toolbar {
-            flex-direction: column;
-            gap: 0.5rem;
-          }
-          
-          .fc .fc-toolbar-title {
-            font-size: 1.2rem !important;
-            margin: 0.5rem 0;
-          }
-          
-          .fc .fc-button {
-            padding: 0.3rem 0.6rem;
-            font-size: 0.8rem;
-          }
-          
-          .fc-daygrid-day-frame {
-            min-height: 40px !important;
-          }
-          
-          .fc-daygrid-day-number {
-            font-size: 0.8rem;
-          }
-          
-          .fc-event {
-            font-size: 0.7rem;
-            padding: 1px 3px;
-          }
-        }
-
-        @media (max-width: 768px) {
-          .chart-container {
-            height: 300px !important;
-          }
-          
-          .attendance-card {
-            min-height: 180px;
-          }
-          
-          .kpi-card {
-            padding: 1rem !important;
-          }
-        }
-
-        @media (max-width: 1024px) {
-          .grid-cols-responsive {
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          }
-        }
-
-        /* Print styles */
-        @media print {
-          .no-print {
-            display: none !important;
-          }
-          
-          .print-full-width {
-            width: 100% !important;
-          }
-        }
       `}</style>
-      
       <DashboardLayout role="ceo">
-        <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
-          {/* Header */}
-          <motion.h1
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6 text-gray-800 text-center sm:text-left"
-          >
-            CEO ATTENDANCE 📋
-          </motion.h1>
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <motion.h1
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 text-gray-800"
+        >
+          CEO ATTENDANCE 📋
+        </motion.h1>
 
-          {/* KPI Cards - Responsive Grid */}
-          <motion.div
-            className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            {[
-              {
-                title: "Total Employees",
-                value: totalEmployees,
-                color: "bg-gradient-to-r from-blue-400 to-blue-600",
-                onClick: () => router.push("/employee"),
-              },
-              {
-                title: "Checked In",
-                value: checkedIn,
-                color: "bg-gradient-to-r from-green-400 to-green-600",
-                onClick: () => {
-                  setAttendanceFilter("checked-in");
-                  setTimeout(() => {
-                    const section = document.getElementById("attendance-section");
-                    if (section) {
-                      section.scrollIntoView({ behavior: "smooth" });
-                    }
-                  }, 0);
-                },
-              },
-              {
-                title: "Absent",
-                value: absent,
-                color: "bg-gradient-to-r from-red-400 to-red-600",
-                onClick: () => {
-                  setAttendanceFilter("absent");
-                  setTimeout(() => {
-                    const section = document.getElementById("attendance-section");
-                    if (section) {
-                      section.scrollIntoView({ behavior: "smooth" });
-                    }
-                  }, 0);
-                },
-              },
-              {
-                title: "Total Hours",
-                value: totalHoursForDateDisplay,
-                color: "bg-gradient-to-r from-purple-400 to-purple-600",
-                onClick: () => {
-                  setAttendanceFilter(null);
-                  setTimeout(() => {
-                    const section = document.getElementById("attendance-section");
-                    if (section) {
-                      section.scrollIntoView({ behavior: "smooth" });
-                    }
-                  }, 0);
-                },
-              },
-            ].map((kpi) => (
-              <motion.div
-                key={kpi.title}
-                className={`kpi-card rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 text-white shadow-lg flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color} cursor-pointer min-h-[80px] sm:min-h-[100px]`}
-                onClick={kpi.onClick}
-                tabIndex={0}
-                role="button"
-                onKeyDown={e => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    kpi.onClick();
+        {/* KPI Cards */}
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          {[
+            {
+              title: "Total Employees",
+              value: totalEmployees,
+              color: "bg-gradient-to-r from-blue-400 to-blue-600",
+              onClick: () => router.push("/ceo/employees/"),
+            },
+            {
+              title: "Checked In",
+              value: checkedIn,
+              color: "bg-gradient-to-r from-green-400 to-green-600",
+              onClick: () => {
+                setAttendanceFilter("checked-in");
+                setTimeout(() => {
+                  const section = document.getElementById("attendance-section");
+                  if (section) {
+                    section.scrollIntoView({ behavior: "smooth" });
                   }
-                }}
-              >
-                <p className="text-xs sm:text-sm font-medium opacity-90 mb-1 sm:mb-2">{kpi.title}</p>
-                <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold truncate">
-                  {kpi.value}
-                </p>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          {/* Charts Section - Stack on mobile */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8 mb-6 sm:mb-8 md:mb-10">
-            {/* Pie Chart */}
-            <div className="bg-white rounded-lg sm:rounded-xl shadow-md p-4 sm:p-6 flex flex-col items-center">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-3 sm:mb-4">Attendance Distribution</h3>
-              <div className="w-full h-64 sm:h-72 md:h-80 chart-container">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={attendancePieData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={70}
-                      label={(props) => {
-                        const { name, percent } = props as unknown as { name: string; percent: number };
-                        return `${name} (${(percent * 100).toFixed(0)}%)`;
-                      }}
-                    >
-                      {attendancePieData.map((entry, idx) => {
-                        return <Cell key={`cell-${entry.name}`} fill={pieColors[idx % pieColors.length]} />;
-                      })}
-                    </Pie>
-                    <RechartsTooltip />
-                    <RechartsLegend verticalAlign="bottom" height={36} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Bar Chart */}
-            <div className="bg-white rounded-lg sm:rounded-xl shadow-md p-4 sm:p-6 flex flex-col items-center">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-3 sm:mb-4">
-                Hours Worked Per Employee ({selectedDate ? formatDate(selectedDate) : "Today"})
-              </h3>
-              <div className="w-full h-64 sm:h-72 md:h-80 chart-container">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barChartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="name" 
-                      angle={-45}
-                      textAnchor="end"
-                      height={60}
-                      interval={0}
-                      fontSize={10}
-                    />
-                    <YAxis label={{ value: "Hours", angle: -90, position: "insideLeft", fontSize: 12 }} />
-                    <RechartsTooltip />
-                    <Bar dataKey="hours" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          {/* Today's/Selected Date Attendance + Download PDF */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-            <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-700 text-center sm:text-left w-full sm:w-auto">
-              {selectedDate ? `${formatDate(selectedDate)} Attendance` : "Today's Attendance"}
-            </h2>
-            <button
-              onClick={downloadPDF}
-              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm sm:text-base transition-colors duration-200"
+                }, 0);
+              },
+            },
+            {
+              title: "Absent",
+              value: absent,
+              color: "bg-gradient-to-r from-red-400 to-red-600",
+              onClick: () => {
+                setAttendanceFilter("absent");
+                setTimeout(() => {
+                  const section = document.getElementById("attendance-section");
+                  if (section) {
+                    section.scrollIntoView({ behavior: "smooth" });
+                  }
+                }, 0);
+              },
+            },
+            {
+              title: "Total Hours",
+              value: totalHoursForDateDisplay,
+              color: "bg-gradient-to-r from-purple-400 to-purple-600",
+              onClick: () => {
+                setAttendanceFilter(null);
+                setTimeout(() => {
+                  const section = document.getElementById("attendance-section");
+                  if (section) {
+                    section.scrollIntoView({ behavior: "smooth" });
+                  }
+                }, 0);
+              },
+            },
+          ].map((kpi) => (
+            <motion.div
+              key={kpi.title}
+              className={`rounded-2xl p-4 sm:p-6 text-white shadow-lg flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color} cursor-pointer`}
+              onClick={kpi.onClick}
+              tabIndex={0}
+              role="button"
+              onKeyDown={e => {
+                if (e.key === "Enter" || e.key === " ") {
+                  kpi.onClick();
+                }
+              }}
             >
-              Download PDF
-            </button>
-          </div>
+              <p className="text-sm sm:text-base font-medium opacity-90">{kpi.title}</p>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold">{kpi.value}</p>
+            </motion.div>
+          ))}
+        </motion.div>
 
-          {/* Date Attendance Cards - Responsive Grid */}
-          <motion.div
-            id="attendance-section"
-            className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-6 sm:mb-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
+        {/* Charts Section */}
+        {/* Charts Section */}
+        {/* Always show charts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+          {/* Pie Chart - Attendance Distribution */}
+          <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
+            <h3 className="text-lg font-semibold text-gray-700 mb-4">Attendance Distribution</h3>
+            <div className="w-full h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={attendancePieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={(props) => {
+                      const { name, percent } = props as unknown as { name: string; percent: number };
+                      return `${name} (${(percent * 100).toFixed(0)}%)`;
+                    }}
+                  >
+                    {attendancePieData.map((entry, idx) => {
+                      return <Cell key={`cell-${entry.name}`} fill={pieColors[idx % pieColors.length]} />;
+                    })}
+                  </Pie>
+                  <RechartsTooltip />
+                  <RechartsLegend verticalAlign="bottom" />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          {/* Bar Chart - Hours Worked per Employee */}
+          <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
+            <h3 className="text-lg font-semibold text-gray-700 mb-4">
+              Hours Worked Per Employee ({selectedDate ? formatDate(selectedDate) : "Today"})
+            </h3>
+            <div className="w-full h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis label={{ value: "Hours", angle: -90, position: "insideLeft", fontSize: 12 }} />
+                  <RechartsTooltip />
+                  <Bar dataKey="hours" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Today's/Selected Date Attendance + Download PDF */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-700">
+            {selectedDate ? `${formatDate(selectedDate)} Attendance` : "Today's Attendance"}
+          </h2>
+          <button
+            onClick={downloadPDF}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg sm:mt-5 sm:mb-5 hover:bg-blue-700"
           >
-            {loading || loadingEmployees ? (
-              Array.from({ length: 4 }).map((_, idx) => (
-                <div
-                  key={idx}
-                  className="animate-pulse bg-white shadow-lg rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 flex flex-col gap-2 sm:gap-3 attendance-card"
-                >
-                  <div className="h-4 sm:h-5 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-3 sm:h-4 bg-gray-200 rounded w-1/2"></div>
-                  <div className="h-3 sm:h-4 bg-gray-200 rounded w-full"></div>
-                </div>
-              ))
-            ) : (
-              (() => {
-                if (isFutureDate) {
-                  return (
-                    <div className="col-span-full flex items-center justify-center py-12 sm:py-16">
-                      <span className="italic text-gray-400 text-base sm:text-lg">Future Date</span>
-                    </div>
-                  );
-                }
-                if (
-                  selectedDate &&
-                  dateAttendance.length > 0 &&
-                  dateAttendance.every(a => !a.check_in)
-                ) {
-                  return (
-                    <div className="col-span-full flex items-center justify-center py-12 sm:py-16">
-                      <span className="italic text-gray-400 text-base sm:text-lg">Leave / No Attendance</span>
-                    </div>
-                  );
-                }
-                if (filteredDateAttendance.length) {
-                  return (
-                    <AnimatePresence>
-                      {filteredDateAttendance.map((rec, idx) => (
-                        <motion.div
-                          key={`${rec.email}-${rec.date}`}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          transition={{ duration: 0.3, delay: idx * 0.05 }}
-                          className="attendance-card bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-sm p-3 sm:p-4 md:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
-                        >
-                          <div className="mb-2 sm:mb-3 md:mb-4">
-                            <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-800 line-clamp-1">
-                              {rec.fullname}
-                            </h3>
-                            <p className="text-xs text-gray-500 break-words mt-1 line-clamp-1">
-                              {rec.email}
-                            </p>
-                          </div>
-                          <div className="mb-2 sm:mb-3">
-                            <p className="text-xs text-gray-400">Check-in / Check-out</p>
-                            <div className="flex flex-col xs:flex-row gap-1 xs:gap-2 mt-1">
-                              <span
-                                className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                                } text-center`}
-                              >
-                                {rec.check_in
-                                  ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                  : "Absent"}
-                              </span>
-                              <span
-                                className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  rec.check_out
-                                    ? "bg-green-100 text-green-700"
-                                    : rec.check_in
-                                    ? "bg-orange-100 text-orange-700"
-                                    : "bg-red-100 text-red-700"
-                                } text-center`}
-                              >
-                                {rec.check_out
-                                  ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                  : rec.check_in
-                                  ? "Pending"
-                                  : "Absent"}
-                              </span>
-                            </div>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-400 mb-1">Worked Hours</p>
-                            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <motion.div
-                                initial={{ width: 0 }}
-                                animate={{
-                                  width: `${
-                                    rec.check_in
-                                      ? Math.min(
-                                          ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
-                                          100
-                                        )
-                                      : 0
-                                  }%`
-                                }}
-                                transition={{ duration: 1 }}
-                                className={`h-2 ${rec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
-                              />
-                            </div>
-                            <p className="text-xs text-center text-gray-600 mt-1">
-                              {rec.check_in
-                                ? `${rec.hours.hrs}h ${rec.hours.mins}m`
-                                : "Absent"}
-                            </p>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  );
-                }
+            Download PDF
+          </button>
+        </div>
+
+        {/* Date Attendance Cards */}
+        <motion.div
+          id="attendance-section"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mb-8"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.5 }}
+        >
+          {loading || loadingEmployees ? (
+            Array.from({ length: 4 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="animate-pulse bg-white shadow-lg rounded-xl p-4 sm:p-6 flex flex-col gap-3"
+              >
+                <div className="h-5 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-4 bg-gray-200 rounded w-full"></div>
+              </div>
+            ))
+          ) : (
+            (() => {
+              // If selected/focused date is in the future, show "Future Date"
+              if (isFutureDate) {
                 return (
-                  <div className="col-span-full text-center text-gray-500 p-4 sm:p-6 md:p-8 bg-white rounded-lg sm:rounded-xl shadow-lg">
-                    No attendance records for this date.
+                  <div className="col-span-full flex items-center justify-center py-16">
+                    <span className="italic text-gray-400 text-lg">Future Date</span>
                   </div>
                 );
-              })()
-            )}
-          </motion.div>
-
-          {/* Full Attendance List */}
-          <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">
-            Full Attendance Records
-          </h2>
-          
-          {/* Calendar for filtering */}
-          <div className="mb-4 sm:mb-6 flex flex-col items-center">
-            <div className="bg-white p-3 sm:p-4 rounded-lg sm:rounded-xl shadow-md w-full max-w-5xl">
-              {selectedDate && (
-                <div className="mb-2 text-center text-sm sm:text-base text-gray-700 font-semibold px-2">
-                  Showing attendance for: {new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              }
+              // If all employees are absent for the selected date, show single "Leave / No Attendance" card
+              if (
+                selectedDate &&
+                dateAttendance.length > 0 &&
+                dateAttendance.every(a => !a.check_in)
+              ) {
+                return (
+                  <div className="col-span-full flex items-center justify-center py-16">
+                    <span className="italic text-gray-400 text-lg">Leave / No Attendance</span>
+                  </div>
+                );
+              }
+              // If not in the future, show cards or message
+              if (filteredDateAttendance.length) {
+                return (
+                  <AnimatePresence>
+                    {filteredDateAttendance.map((rec, idx) => (
+                      <motion.div
+                        key={`${rec.email}-${rec.date}`}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.3, delay: idx * 0.05 }}
+                        className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
+                      >
+                        <div className="mb-3 sm:mb-4">
+                          <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.fullname}</h3>
+                          <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
+                        </div>
+                        <div className="mb-2 sm:mb-3">
+                          <p className="text-xs text-gray-400">Check-in / Check-out</p>
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            <span
+                              className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {rec.check_in
+                                ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
+                                : "Absent"}
+                            </span>
+                            <span
+                              className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                rec.check_out
+                                  ? "bg-green-100 text-green-700"
+                                  : rec.check_in
+                                  ? "bg-orange-100 text-orange-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {rec.check_out
+                                ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
+                                : rec.check_in
+                                ? "Pending"
+                                : "Absent"}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
+                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{
+                                width: `${
+                                  rec.check_in
+                                    ? Math.min(
+                                        ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
+                                        100
+                                      )
+                                    : 0
+                                }%`
+                              }}
+                              transition={{ duration: 1 }}
+                              className={`h-2 ${rec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
+                            />
+                          </div>
+                          <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
+                            {rec.check_in
+                              ? `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`
+                              : "Absent"}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                );
+              }
+              // If no attendance cards for date, and not in the future
+              return (
+                <div className="col-span-full text-center text-gray-500 p-6 sm:p-8 bg-white rounded-xl shadow-lg">
+                  No attendance records for this date.
                 </div>
-              )}
-              <div className="mx-auto w-full max-w-full">
-                <FullCalendar
-                  plugins={[dayGridPlugin, interactionPlugin]}
-                  initialView="dayGridMonth"
-                  height="auto"
-                  contentHeight="auto"
-                  showNonCurrentDates={false}
-                  events={calendarEvents}
-                  eventClick={(info) => {
-                    const clickedDate = info.event.startStr.split("T")[0];
-                    setSelectedDate(clickedDate);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                    const cell = info.el.closest(".fc-daygrid-day") as HTMLElement | null;
-                    if (cell) {
-                      document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach(el => el.classList.remove("highlight-day"));
-                      cell.classList.add("highlight-day");
-                    }
-                  }}
-                  dateClick={(arg) => {
-                    const local = new Date(arg.date.getTime() - arg.date.getTimezoneOffset() * 60000);
-                    const dateStr = local.toISOString().split("T")[0];
-                    if (dateStr !== selectedDate) setSelectedDate(dateStr);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                    const cell = arg.dayEl as HTMLElement;
-                    if (cell) {
-                      document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach(el => el.classList.remove("highlight-day"));
-                      cell.classList.add("highlight-day");
-                    }
-                  }}
-                  headerToolbar={{
-                    left: "prev,next today",
-                    center: "title",
-                    right: "dayGridMonth,dayGridWeek",
-                  }}
-                />
-              </div>
-            </div>
-            {selectedDate && (
-              <button
-                onClick={() => setSelectedDate(null)}
-                className="mt-3 px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200 transition text-sm sm:text-base"
-              >
-                Clear Date Filter
-              </button>
-            )}
-          </div>
+              );
+            })()
+          )}
+        </motion.div>
 
-          {/* Full Attendance Records Grid */}
-          <motion.div
-            className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 grid-cols-responsive"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.5 }}
-          >
-            {loading || loadingEmployees ? (
-              <div className="col-span-full text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-gray-500 mt-2">Loading attendance data...</p>
+        {/* Full Attendance List */}
+        <h2 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">Full Attendance Records</h2>
+        {/* Calendar for filtering */}
+        <div className="mb-4 flex flex-col items-center">
+          <div className="bg-white p-4 rounded-xl shadow-md w-full max-w-5xl">
+            {/* Show selected date above calendar */}
+            {selectedDate && (
+              <div className="mb-2 text-center text-gray-700 font-semibold">
+                Showing attendance for: {new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
               </div>
-            ) : (
-              <AnimatePresence>
+            )}
+            <div className="mx-auto max-w-[600px]">
+              <FullCalendar
+                plugins={[dayGridPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                height={400}
+                contentHeight={350}
+                showNonCurrentDates={false}
+                events={calendarEvents}
+                eventClick={(info) => {
+                  const clickedDate = info.event.startStr.split("T")[0];
+                  setSelectedDate(clickedDate);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                  const cell = info.el.closest(".fc-daygrid-day") as HTMLElement | null;
+                  if (cell) {
+                    document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach(el => el.classList.remove("highlight-day"));
+                    cell.classList.add("highlight-day");
+                  }
+                }}
+                dateClick={(arg) => {
+                  const local = new Date(arg.date.getTime() - arg.date.getTimezoneOffset() * 60000);
+                  const dateStr = local.toISOString().split("T")[0];
+                  if (dateStr !== selectedDate) setSelectedDate(dateStr);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                  const cell = arg.dayEl as HTMLElement;
+                  if (cell) {
+                    document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach(el => el.classList.remove("highlight-day"));
+                    cell.classList.add("highlight-day");
+                  }
+                }}
+                headerToolbar={{
+                  left: "prev,next today",
+                  center: "title",
+                  right: "dayGridMonth,dayGridWeek",
+                }}
+              />
+            </div>
+          </div>
+          {selectedDate && (
+            <button
+              onClick={() => setSelectedDate(null)}
+              className="mt-3 px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200 transition"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6, duration: 0.5 }}
+        >
+          {loading || loadingEmployees ? (
+            <p>Loading...</p>
+          ) : (
+            <AnimatePresence>
               {/* Full Attendance Records updated all-absent logic */}
               {selectedDate ? (
                 (() => {
@@ -1053,10 +1004,10 @@ export default function ManagerDashboard() {
                 })()
               )}
             </AnimatePresence>
-            )}
-          </motion.div>
-        </div>
-      </DashboardLayout>
+          )}
+        </motion.div>
+      </div>
+    </DashboardLayout>
     </>
   );
-}
+};

@@ -363,18 +363,12 @@ const HolidayCalendar: React.FC = () => {
             {/* Quick Stats - Compact */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <h2 className="text-md font-semibold text-gray-800 mb-3">Overview</h2>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div className="text-center p-3 bg-blue-50 rounded border border-blue-200">
                   <div className="text-lg font-bold text-blue-600">
                     {holidays.filter(h => new Date(h.date).getFullYear() === year).length}
                   </div>
                   <div className="text-xs text-blue-600">Total Holidays</div>
-                </div>
-                <div className="text-center p-3 bg-green-50 rounded border border-green-200">
-                  <div className="text-lg font-bold text-green-600">
-                    {Array.from(new Set(holidays.filter(h => new Date(h.date).getFullYear() === year).map((h) => h.date))).length}
-                  </div>
-                  <div className="text-xs text-green-600">Holiday Days</div>
                 </div>
               </div>
             </div>

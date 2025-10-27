@@ -1483,7 +1483,7 @@ function AttendanceRecordsWithDatePicker({
                     style={{ minWidth: 0 }}
                 >
                     <div className="flex justify-between text-sm">
-                        <span className="font-medium">{new Date(record.date).toLocaleDateString()}</span>
+                        <span className="font-medium">{new Date(record.date).toLocaleDateString("en-GB")}</span>
                         <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getStatusColor(record.status)}`}>
                             {record.status}
                         </span>
@@ -1499,13 +1499,17 @@ function AttendanceRecordsWithDatePicker({
                             <div className="flex justify-between text-xs">
                                 <span>Check-in:</span>
                                 <span className={`font-medium ${record.status === "Absent" ? "text-orange-700" : "text-green-700"}`}>
-                                    {record.checkIn === "-" || record.checkIn === "null" ? "-" : record.checkIn}
+                                    {record.checkIn === "-" || record.checkIn === "null"
+                                        ? "-"
+                                        : new Date(`${record.date}T${record.checkIn}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                                 </span>
                             </div>
                             <div className="flex justify-between text-xs">
                                 <span>Check-out:</span>
                                 <span className={`font-medium ${record.status === "Absent" ? "text-orange-700" : "text-red-700"}`}>
-                                    {record.checkOut === "-" || record.checkOut === "null" ? "-" : record.checkOut}
+                                    {record.checkOut === "-" || record.checkOut === "null"
+                                        ? "-"
+                                        : new Date(`${record.date}T${record.checkOut}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                                 </span>
                             </div>
                             <div className="flex justify-between text-xs">

@@ -937,6 +937,16 @@ const AttendanceChart = ({
 
   const maxHours = Math.max(...chartData.map((d) => d.hours), 8, 1);
 
+  // Helper function to format 24-hour time to 12-hour with AM/PM
+  const formatTime12Hour = (timeStr?: string) => {
+    if (!timeStr) return "N/A";
+    const [hourStr, minuteStr] = timeStr.split(":");
+    let hour = parseInt(hourStr, 10);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12 || 12;
+    return `${hour}:${minuteStr} ${ampm}`;
+  };
+
   return (
     <div className="relative w-full overflow-x-auto overflow-y-visible px-1 py-4 sm:px-2 md:px-4 lg:px-6">
       <div className="min-w-[320px] sm:min-w-[400px] md:min-w-[600px] lg:min-w-[800px] mx-auto">
@@ -984,13 +994,13 @@ const AttendanceChart = ({
                         <div className="flex justify-between">
                           <span className="text-gray-500">Check-in:</span>
                           <span className="font-mono text-blue-900">
-                            {d.checkIn ? d.checkIn.slice(0, 5) : "N/A"}
+                            {formatTime12Hour(d.checkIn)}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Check-out:</span>
                           <span className="font-mono text-blue-900">
-                            {d.checkOut ? d.checkOut.slice(0, 5) : "N/A"}
+                            {formatTime12Hour(d.checkOut)}
                           </span>
                         </div>
                         <div className="flex justify-between mt-1">

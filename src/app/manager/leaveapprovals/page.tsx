@@ -16,6 +16,7 @@ import {
 
 type Employee = {
   email_id: string;
+  email?: string;
   fullname: string;
   department?: string | null;
   designation?: string | null;
@@ -46,7 +47,9 @@ const StatusBadge = ({ status }: { status?: string }) => {
   };
 
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${config.color}`}>
+    <span
+      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${config.color}`}
+    >
       {config.icon}
       {status || "Unknown"}
     </span>
@@ -75,20 +78,34 @@ export default function ManagerLeaveApproval() {
   const [loading, setLoading] = useState(true);
   const [updatingKey, setUpdatingKey] = useState<string | null>(null);
   const [filter, setFilter] = useState<"Pending" | "Approved" | "Rejected" | "All">("All");
-
-  // ===== Toast state =====
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (message: string, type: "success" | "error") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const getLeaveKey = (leave: LeaveRequest) =>
     `${leave.email}-${leave.start_date}-${leave.end_date}-${leave.leave_type}`;
 
+  // ===== Fetch employees and leaves =====
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      // Fetch employees
       const empRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`);
       const empData = await empRes.json();
-      setEmployees(empData.employees || []);
 
+      const normalizedEmployees = (empData.employees || empData || []).map((emp: Employee) => ({
+        email_id: emp.email_id || emp.email,
+        fullname: emp.fullname,
+        department: emp.department || "N/A",
+        designation: emp.designation || "N/A",
+      }));
+
+      setEmployees(normalizedEmployees);
+
+      // Fetch leaves
       const leaveRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/`);
       const leaveData = await leaveRes.json();
       setLeaveRequests(leaveData.leaves || []);
@@ -104,21 +121,18 @@ export default function ManagerLeaveApproval() {
     fetchData();
   }, [fetchData]);
 
-  // ===== Show toast =====
-  const showToast = (message: string, type: "success" | "error") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
+  // ===== Update leave status =====
   const updateLeaveStatus = async (leave: LeaveRequest, status: "Approved" | "Rejected") => {
     setUpdatingKey(leave.id);
-
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_leave/${leave.id}/`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/update_leave/${leave.id}/`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        }
+      );
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -144,13 +158,17 @@ export default function ManagerLeaveApproval() {
     }
   };
 
+  // ===== Get employee by email =====
   const getEmployee = (email: string | undefined) =>
-    employees.find((e) => e.email_id.toLowerCase() === email?.toLowerCase()) || {
-      fullname: email || "Unknown Email",
-      designation: "-",
-      department: "-",
+    employees.find(
+      (e) => e.email_id?.toLowerCase() === email?.toLowerCase()
+    ) || {
+      fullname: email || "Unknown",
+      designation: "N/A",
+      department: "N/A",
     };
 
+  // ===== Filters =====
   const filteredLeaves = leaveRequests.filter((lr) => filter === "All" || lr.status === filter);
 
   const stats = {
@@ -160,18 +178,23 @@ export default function ManagerLeaveApproval() {
     rejected: leaveRequests.filter((lr) => lr.status === "Rejected").length,
   };
 
+  // ===== UI =====
   return (
     <DashboardLayout role="manager">
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Leave Management Dashboard</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">
+            Leave Management Dashboard
+          </h1>
 
           {/* Toast */}
-          <AnimatePresence>{toast && <ToastPopup message={toast.message} type={toast.type} />}</AnimatePresence>
+          <AnimatePresence>
+            {toast && <ToastPopup message={toast.message} type={toast.type} />}
+          </AnimatePresence>
 
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            {[ 
+            {[
               { label: "Total Requests", value: stats.total, icon: <FiCalendar />, color: "blue" },
               { label: "Pending", value: stats.pending, icon: <FiClock />, color: "yellow" },
               { label: "Approved", value: stats.approved, icon: <FiCheckCircle />, color: "green" },
@@ -183,7 +206,9 @@ export default function ManagerLeaveApproval() {
                 className="bg-white rounded-xl shadow p-4 border border-gray-100 flex items-center gap-4"
               >
                 <div className={`rounded-full bg-${stat.color}-100 p-3`}>
-                  {React.cloneElement(stat.icon, { className: `text-${stat.color}-600 text-xl` })}
+                  {React.cloneElement(stat.icon, {
+                    className: `text-${stat.color}-600 text-xl`,
+                  })}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600">{stat.label}</p>
@@ -193,7 +218,7 @@ export default function ManagerLeaveApproval() {
             ))}
           </div>
 
-          {/* Filter buttons */}
+          {/* Filter Buttons */}
           <div className="flex flex-wrap gap-2 mb-6 mt-2">
             {(["All", "Pending", "Approved", "Rejected"] as const).map((status) => (
               <button
@@ -205,12 +230,17 @@ export default function ManagerLeaveApproval() {
                     : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                 }`}
               >
-                {status} {status !== "All" ? `(${stats[status.toLowerCase() as keyof Omit<typeof stats, "total">]})` : ""}
+                {status}{" "}
+                {status !== "All"
+                  ? `(${
+                      stats[status.toLowerCase() as keyof Omit<typeof stats, "total">]
+                    })`
+                  : ""}
               </button>
             ))}
           </div>
 
-          {/* Leave requests */}
+          {/* Leave Requests */}
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -218,8 +248,14 @@ export default function ManagerLeaveApproval() {
           ) : filteredLeaves.length === 0 ? (
             <div className="bg-white rounded-xl shadow p-8 text-center">
               <FiCalendar className="mx-auto text-gray-400 text-4xl mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-1">No leave requests found</h3>
-              <p className="text-gray-500">{filter !== "All" ? `No ${filter.toLowerCase()} leave requests.` : "No leave requests submitted yet."}</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">
+                No leave requests found
+              </h3>
+              <p className="text-gray-500">
+                {filter !== "All"
+                  ? `No ${filter.toLowerCase()} leave requests.`
+                  : "No leave requests submitted yet."}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -242,19 +278,38 @@ export default function ManagerLeaveApproval() {
                           <h3 className="font-bold text-gray-800 text-lg">{emp.fullname}</h3>
                         </div>
 
-                        <div className="m-2"><StatusBadge status={lr.status} /></div>
-                         
+                        <div className="m-2">
+                          <StatusBadge status={lr.status} />
+                        </div>
+
                         <div className="grid grid-cols-1 gap-2 text-sm text-gray-600">
-                          <div className="flex items-center"><FiMail className="mr-2 text-gray-400" /> {lr.email}</div>
-                          <div className="flex items-center"><FiBriefcase className="mr-2 text-gray-400" /> {emp.designation || "N/A"}</div>
-                          <div className="flex items-center"><FiUser className="mr-2 text-gray-400" /> {emp.department || "N/A"}</div>
-                          <div className="flex items-center"><FiCalendar className="mr-2 text-gray-400" /> Applied on: {new Date(lr.applied_on).toLocaleDateString()}</div>
+                          <div className="flex items-center">
+                            <FiMail className="mr-2 text-gray-400" /> {lr.email}
+                          </div>
+                          <div className="flex items-center">
+                            <FiBriefcase className="mr-2 text-gray-400" />{" "}
+                            {emp.designation || "N/A"}
+                          </div>
+                          <div className="flex items-center">
+                            <FiUser className="mr-2 text-gray-400" />{" "}
+                            {emp.department || "N/A"}
+                          </div>
+                          <div className="flex items-center">
+                            <FiCalendar className="mr-2 text-gray-400" /> Applied on:{" "}
+                            {new Date(lr.applied_on).toLocaleDateString()}
+                          </div>
                         </div>
 
                         <div className="mt-4 grid grid-cols-1 gap-2">
                           <div>
-                            <p className="text-sm font-medium text-gray-700">Leave Details</p>
-                            <p className="text-sm text-gray-600">{lr.leave_type} leave from {new Date(lr.start_date).toLocaleDateString()} to {new Date(lr.end_date).toLocaleDateString()}</p>
+                            <p className="text-sm font-medium text-gray-700">
+                              Leave Details
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {lr.leave_type} leave from{" "}
+                              {new Date(lr.start_date).toLocaleDateString()} to{" "}
+                              {new Date(lr.end_date).toLocaleDateString()}
+                            </p>
                           </div>
                           <div>
                             <p className="text-sm font-medium text-gray-700">Reason</p>
@@ -268,19 +323,29 @@ export default function ManagerLeaveApproval() {
                               <button
                                 onClick={() => updateLeaveStatus(lr, "Approved")}
                                 disabled={updatingKey === lr.id}
-                                className={`px-4 py-2 rounded-lg text-white ${updatingKey === lr.id ? "bg-green-400" : "bg-green-600 hover:bg-green-700"}`}
+                                className={`px-4 py-2 rounded-lg text-white ${
+                                  updatingKey === lr.id
+                                    ? "bg-green-400"
+                                    : "bg-green-600 hover:bg-green-700"
+                                }`}
                               >
                                 Approve
                               </button>
                               <button
                                 onClick={() => updateLeaveStatus(lr, "Rejected")}
                                 disabled={updatingKey === lr.id}
-                                className={`px-4 py-2 rounded-lg text-white ${updatingKey === lr.id ? "bg-red-400" : "bg-red-600 hover:bg-red-700"}`}
+                                className={`px-4 py-2 rounded-lg text-white ${
+                                  updatingKey === lr.id
+                                    ? "bg-red-400"
+                                    : "bg-red-600 hover:bg-red-700"
+                                }`}
                               >
                                 Reject
                               </button>
                             </div>
-                            {updatingKey === lr.id && <p className="text-xs text-gray-500">Updating...</p>}
+                            {updatingKey === lr.id && (
+                              <p className="text-xs text-gray-500">Updating...</p>
+                            )}
                           </div>
                         )}
                       </div>

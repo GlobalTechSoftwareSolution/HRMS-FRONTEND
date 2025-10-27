@@ -113,13 +113,17 @@ export default function ReportsAndTasksPage() {
 
   const formatDate = (date?: string) => {
     if (!date) return "-";
-    return new Date(date).toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "-";
+    
+    // Adjust date to local timezone explicitly
+    const localDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    
+    const day = String(localDate.getDate()).padStart(2, "0");
+    const month = String(localDate.getMonth() + 1).padStart(2, "0");
+    const year = localDate.getFullYear();
+    
+    return `${day}/${month}/${year}`;
   };
 
   const getPriorityColor = (priority?: string) => {

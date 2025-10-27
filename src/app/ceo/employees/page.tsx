@@ -53,6 +53,16 @@ type DocumentRecord = {
 
 export default function EmployeesPage() {
   // employees + documents
+  // Helper to format date as dd/mm/yyyy
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "—";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "—";
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
 
@@ -422,7 +432,7 @@ export default function EmployeesPage() {
                         <div className="flex justify-between items-center text-xs text-gray-500">
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {new Date(emp.joinDate).toLocaleDateString()}
+                            {formatDate(emp.joinDate)}
                           </div>
                         </div>
                       </div>
@@ -519,7 +529,7 @@ export default function EmployeesPage() {
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="font-medium text-gray-700">Joined:</span>
-                              <span className="text-gray-900">{new Date(selectedUser.joinDate).toLocaleDateString()}</span>
+                              <span className="text-gray-900">{formatDate(selectedUser.joinDate)}</span>
                             </div>
                           </div>
                         </div>

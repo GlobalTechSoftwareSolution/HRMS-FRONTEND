@@ -13,9 +13,13 @@ function formatDate(dateString: string, withTime: boolean = false): string {
   const month = pad(date.getMonth() + 1);
   const year = date.getFullYear();
   if (withTime) {
-    const hours = pad(date.getHours());
+    let hours = date.getHours();
     const minutes = pad(date.getMinutes());
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // 0 should become 12
+    const hourStr = pad(hours);
+    return `${day}/${month}/${year} ${hourStr}:${minutes} ${ampm}`;
   }
   return `${day}/${month}/${year}`;
 }
