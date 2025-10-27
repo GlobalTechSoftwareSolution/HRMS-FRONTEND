@@ -1,16 +1,5 @@
 'use client';
-'use client';
-
-interface AbsentRecord {
-  id?: number | string;
-  date?: string;
-  absent_date?: string;
-  reason?: string;
-  [key: string]: unknown;
-}
-
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // TypeScript interfaces for data structures
 interface Task {
@@ -71,6 +60,17 @@ interface Report {
   [key: string]: unknown;
 }
 
+interface AbsentRecord {
+  id?: number | string;
+  date?: string;
+  absent_date?: string;
+  reason?: string;
+  email?: string;
+  fullname?: string;
+  department?: string;
+  [key: string]: unknown;
+}
+
 interface MonthlyReportData {
   employees: Employee[];
   attendance: Attendance[];
@@ -96,14 +96,12 @@ const MonthlyReportDashboard = () => {
     absent: [],
   });
   const [loading, setLoading] = useState(true);
-  // const [error, setError] = useState<string | null>(null); // Unused, remove or comment out
   const [employeeAttendanceData, setEmployeeAttendanceData] = useState<{[key: string]: Attendance[]}>({});
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // setError(null); // Commented out because error is unused
 
         const endpoints = [
           'employees/',
@@ -190,17 +188,33 @@ const MonthlyReportDashboard = () => {
           }
         }
 
-        // Fetch absences (new endpoint)
+        // Fetch absences (new endpoint) - FIXED: Properly handle the absent data
         let absent: AbsentRecord[] = [];
         try {
           const absentResp = await fetch(`${baseURL}list_absent/`);
           if (!absentResp.ok) throw new Error(`Failed to fetch list_absent/: ${absentResp.status}`);
           const absentData = await absentResp.json();
-          absent = Array.isArray(absentData)
-            ? absentData as AbsentRecord[]
-            : absentData.results || absentData.data || [];
-        } catch {
-          console.warn("Failed to fetch absences:");
+          
+          // Handle the API response format properly
+          if (Array.isArray(absentData)) {
+            absent = absentData as AbsentRecord[];
+          } else if (absentData.results && Array.isArray(absentData.results)) {
+            absent = absentData.results as AbsentRecord[];
+          } else if (absentData.data && Array.isArray(absentData.data)) {
+            absent = absentData.data as AbsentRecord[];
+          } else {
+            // If it's an object with array data, try to find any array property
+            const arrayKeys = Object.keys(absentData).filter(key => Array.isArray(absentData[key]));
+            if (arrayKeys.length > 0) {
+              absent = absentData[arrayKeys[0]] as AbsentRecord[];
+            } else {
+              absent = [];
+            }
+          }
+          
+          console.log('Fetched absent records:', absent.length, absent);
+        } catch (error) {
+          console.warn("Failed to fetch absences:", error);
           absent = [];
         }
 
@@ -214,9 +228,8 @@ const MonthlyReportDashboard = () => {
           absent: absent || [],
         });
 
-      } catch {
-        // Error is intentionally ignored as per unused error variable removal.
-        // setError(error instanceof Error ? error.message : 'Failed to fetch data'); // Commented out because error is unused
+      } catch (error) {
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
@@ -243,9 +256,9 @@ const MonthlyReportDashboard = () => {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  // Years for dropdown
+  // Generate a 6-year range centered around the current year for dropdown
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 6 }, (_, i) => currentYear - 2 + i);
+  const years = Array.from({ length: 6 }, (_, i) => currentYear - 3 + i);
 
   // Get unique departments from employees
   const departments = ['All Departments', ...new Set(data.employees
@@ -364,6 +377,25 @@ const MonthlyReportDashboard = () => {
     });
   };
 
+  // Get employee absences for display, filtered by selected month and year
+  const getEmployeeAbsences = (employee: Employee) => {
+    return data.absent.filter((absence: AbsentRecord) => {
+      // Match by email or fullname
+      const matchesEmployee = absence.email === employee.email || 
+                            absence.fullname === employee.name;
+      
+      if (!matchesEmployee) return false;
+      
+      // Filter by date and selected month/year
+      const dateStr = absence.date || absence.absent_date;
+      if (!dateStr) return false;
+      
+      const absenceDate = new Date(dateStr);
+      return absenceDate.getMonth() === selectedMonth && 
+             absenceDate.getFullYear() === selectedYear;
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
@@ -375,31 +407,13 @@ const MonthlyReportDashboard = () => {
     );
   }
 
-  // if (error) {
-  //   return (
-  //     <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
-  //       <div className="text-center text-red-600">
-  //         <div className="text-4xl mb-4">⚠️</div>
-  //         <h2 className="text-xl font-bold mb-2">Error Loading Data</h2>
-  //         <p>{error}</p>
-  //         <button 
-  //           onClick={() => window.location.reload()}
-  //           className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-  //         >
-  //           Retry
-  //         </button>
-  //       </div>
-  //     </div>
-  //   );
-  // }
-
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Team Performance Dashboard</h1>
         <p className="text-gray-600">
-          {data.employees.length} employees loaded • Tech team attendance and task tracking
+          {data.employees.length} employees loaded • {data.absent.length} absence records • Tech team attendance and task tracking
         </p>
       </div>
 
@@ -472,6 +486,8 @@ const MonthlyReportDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredEmployees.map((employee: Employee) => {
           const metrics = getEmployeeMetrics(employee);
+          const absences = getEmployeeAbsences(employee);
+          
           return (
             <div 
               key={employee.id}
@@ -480,15 +496,15 @@ const MonthlyReportDashboard = () => {
             >
               <div className="flex items-center space-x-4 mb-4">
                 <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img 
-                src={employee.profile_picture} 
-                alt={employee.name} 
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=User';
-                }}
-              />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img 
+                    src={employee.profile_picture as string} 
+                    alt={employee.name} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=User';
+                    }}
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-lg font-semibold text-gray-900 truncate">
@@ -503,6 +519,11 @@ const MonthlyReportDashboard = () => {
                   {employee.email && (
                     <p className="text-xs text-gray-400 truncate">
                       {employee.email}
+                    </p>
+                  )}
+                  {absences.length > 0 && (
+                    <p className="text-xs text-red-500 font-medium mt-1">
+                      {absences.length} absence{absences.length > 1 ? 's' : ''} this month
                     </p>
                   )}
                 </div>
@@ -614,7 +635,7 @@ const MonthlyReportDashboard = () => {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Join Date:</span>
                       <span className="font-medium">
-                        {typeof selectedEmployee.join_date === 'string' ? new Date(selectedEmployee.join_date).toLocaleDateString() : 'N/A'}
+                        {typeof selectedEmployee.join_date === 'string' ? new Date(selectedEmployee.join_date).toLocaleDateString("en-GB") : 'N/A'}
                       </span>
                     </div>
                   </div>
@@ -674,48 +695,99 @@ const MonthlyReportDashboard = () => {
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 Attendance Hours (This Month)</h3>
                 {/* Interactive Chart */}
-                <AttendanceChart
-                  attendance={getEmployeeAttendance(selectedEmployee)}
-                  selectedMonth={selectedMonth}
-                  selectedYear={selectedYear}
-                  absences={data.absent}
-                />
+             <AttendanceChart
+  attendance={getEmployeeAttendance(selectedEmployee)}
+  selectedMonth={selectedMonth}
+  selectedYear={selectedYear}
+  absences={getEmployeeAbsences(selectedEmployee)}
+  employeeEmail={selectedEmployee.email || ""}
+/>
                 {/* Attendance Cards */}
                 <div className="mt-6">
                   <h4 className="text-base font-semibold text-gray-800 mb-2">Daily Attendance</h4>
+                  {/* --- Helper function to format time in 12-hour format with AM/PM --- */}
+                  {(() => {
+                    const formatTime12Hour = (timeStr: string | null | undefined): string => {
+                      if (!timeStr) return "N/A";
+                      const [h, m] = timeStr.split(":");
+                      let hour = parseInt(h, 10);
+                      const minute = parseInt(m, 10);
+                      const ampm = hour >= 12 ? "PM" : "AM";
+                      hour = hour % 12 || 12;
+                      return `${hour}:${minute.toString().padStart(2, "0")} ${ampm}`;
+                    };
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {getEmployeeAttendance(selectedEmployee).length === 0 && (
+                          <p className="text-gray-500 text-center py-4 col-span-2">No attendance records found</p>
+                        )}
+                        {getEmployeeAttendance(selectedEmployee).map((record: Attendance, idx: number) => {
+                          let hours = 0;
+                          const checkIn = record.check_in;
+                          const checkOut = record.check_out;
+                          try {
+                            if (checkIn && checkOut) {
+                              const [checkInTime] = checkIn.split('.');
+                              const [checkOutTime] = checkOut.split('.');
+                              const [inHours, inMinutes, inSeconds] = checkInTime.split(':').map(Number);
+                              const [outHours, outMinutes, outSeconds] = checkOutTime.split(':').map(Number);
+                              const checkInTotalMinutes = inHours * 60 + inMinutes + inSeconds / 60;
+                              const checkOutTotalMinutes = outHours * 60 + outMinutes + outSeconds / 60;
+                              let diffMinutes = checkOutTotalMinutes - checkInTotalMinutes;
+                              if (diffMinutes < 0) diffMinutes += 24 * 60;
+                              hours = diffMinutes / 60;
+                            }
+                          } catch { hours = 0; }
+                          return (
+                            <div key={idx} className="flex flex-col md:flex-row items-center justify-between bg-white rounded-lg shadow-sm p-3">
+                              <div className="flex-1 flex flex-col gap-1">
+                                <span className="font-medium text-gray-900">
+                                  {record.date ? new Date(record.date).toLocaleDateString("en-GB") : 'N/A'}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  Check-in: <span className="font-mono">{formatTime12Hour(checkIn)}</span>
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  Check-out: <span className="font-mono">{formatTime12Hour(checkOut)}</span>
+                                </span>
+                              </div>
+                              <div className="text-right mt-2 md:mt-0">
+                                <span className="text-lg font-bold text-blue-700">
+                                  {`${Math.floor(hours)}h ${Math.round((hours % 1) * 60)}m`}
+                                </span>
+                                <div className="text-xs text-gray-400">Worked</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Absence Records */}
+                <div className="mt-6">
+                  <h4 className="text-base font-semibold text-gray-800 mb-2">Absence Records</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {getEmployeeAttendance(selectedEmployee).length === 0 && (
-                      <p className="text-gray-500 text-center py-4 col-span-2">No attendance records found</p>
+                    {getEmployeeAbsences(selectedEmployee).length === 0 && (
+                      <p className="text-gray-500 text-center py-4 col-span-2">No absence records found</p>
                     )}
-                    {getEmployeeAttendance(selectedEmployee).map((record: Attendance, idx: number) => {
-                      let hours = 0;
-                      const checkIn = record.check_in;
-                      const checkOut = record.check_out;
-                      try {
-                        if (checkIn && checkOut) {
-                          const [checkInTime] = checkIn.split('.');
-                          const [checkOutTime] = checkOut.split('.');
-                          const [inHours, inMinutes, inSeconds] = checkInTime.split(':').map(Number);
-                          const [outHours, outMinutes, outSeconds] = checkOutTime.split(':').map(Number);
-                          const checkInTotalMinutes = inHours * 60 + inMinutes + inSeconds / 60;
-                          const checkOutTotalMinutes = outHours * 60 + outMinutes + outSeconds / 60;
-                          let diffMinutes = checkOutTotalMinutes - checkInTotalMinutes;
-                          if (diffMinutes < 0) diffMinutes += 24 * 60;
-                          hours = diffMinutes / 60;
-                        }
-                      } catch { hours = 0; }
+                    {getEmployeeAbsences(selectedEmployee).map((absence: AbsentRecord, idx: number) => {
+                      const dateStr = absence.date || absence.absent_date;
                       return (
-                        <div key={idx} className="flex flex-col md:flex-row items-center justify-between bg-white rounded-lg shadow-sm p-3">
+                        <div key={idx} className="flex flex-col md:flex-row items-center justify-between bg-red-50 rounded-lg shadow-sm p-3 border border-red-200">
                           <div className="flex-1 flex flex-col gap-1">
-                            <span className="font-medium text-gray-900">
-                              {record.date ? new Date(record.date).toLocaleDateString() : 'N/A'}
+                            <span className="font-medium text-red-900">
+                              {dateStr ? new Date(dateStr).toLocaleDateString("en-GB") : 'N/A'}
                             </span>
-                            <span className="text-xs text-gray-500">Check-in: <span className="font-mono">{checkIn || 'N/A'}</span></span>
-                            <span className="text-xs text-gray-500">Check-out: <span className="font-mono">{checkOut || 'N/A'}</span></span>
+                            <span className="text-xs text-red-700">Status: <span className="font-semibold">Absent</span></span>
+                            {absence.reason && (
+                              <span className="text-xs text-red-600">Reason: {absence.reason}</span>
+                            )}
                           </div>
                           <div className="text-right mt-2 md:mt-0">
-                            <span className="text-lg font-bold text-blue-700">{hours ? hours.toFixed(1) : '0.0'}h</span>
-                            <div className="text-xs text-gray-400">Worked</div>
+                            <span className="text-lg font-bold text-red-700">ABSENT</span>
+                            <div className="text-xs text-red-500">Full Day</div>
                           </div>
                         </div>
                       );
@@ -746,7 +818,7 @@ const MonthlyReportDashboard = () => {
                         </div>
                         <span className="text-xs text-gray-500 whitespace-nowrap ml-4">
                           {task.displayDate ? 
-                            new Date(task.displayDate).toLocaleDateString() : 
+                            new Date(task.displayDate).toLocaleDateString("en-GB") : 
                             'No date'
                           }
                         </span>
@@ -759,7 +831,17 @@ const MonthlyReportDashboard = () => {
               </div>
             </div>
 
-            {/* Footer Actions - removed export/share */}
+            {/* Footer Actions */}
+            <div className="border-t border-gray-200 p-4 bg-gray-50 rounded-b-xl">
+              <div className="flex justify-end">
+                <button
+                  onClick={closeEmployeeReport}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Close Report
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -767,160 +849,155 @@ const MonthlyReportDashboard = () => {
   );
 };
 
-export default MonthlyReportDashboard;
-import React from "react";
+// ChartData interface for AttendanceChart
+interface ChartData {
+  day: number;
+  date: Date;
+  dateStr: string;
+  hours: number;
+  absent: boolean;
+  isSunday: boolean;
+  present: boolean;
+  checkIn?: string;
+  checkOut?: string;
+}
 
+// Attendance Chart Component (updated)
 const AttendanceChart = ({
   attendance,
   selectedMonth,
   selectedYear,
   absences,
+  employeeEmail,
 }: {
   attendance: Attendance[];
   selectedMonth: number;
   selectedYear: number;
   absences: AbsentRecord[];
+  employeeEmail: string;
 }) => {
-  // Map attendance by date (YYYY-MM-DD)
-  const attendanceMap: Record<string, Attendance> = {};
-  attendance.forEach((rec) => {
-    if (rec.date) attendanceMap[rec.date] = rec;
-  });
+  const [chartData, setChartData] = React.useState<ChartData[]>([]);
+  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
 
-  // Build absence map by date (YYYY-MM-DD)
-  const absentMap: Record<string, AbsentRecord> = {};
-  if (Array.isArray(absences)) {
-    absences.forEach((abs: AbsentRecord) => {
-      // Try to use .date, .absent_date, or .date_str
-      const dateStr = abs.date || abs.absent_date || (abs as Record<string, unknown>).date_str;
-      if (typeof dateStr === "string") {
-        absentMap[dateStr] = abs;
+  useEffect(() => {
+    const attendanceMap: Record<string, Attendance> = {};
+    attendance.forEach((rec) => {
+      if (rec.date) {
+        const d = new Date(rec.date);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+          d.getDate()
+        ).padStart(2, "0")}`;
+        attendanceMap[key] = rec;
       }
     });
-  }
 
-  // Get number of days in month
-  const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-  // Build chart data for all days
-  const chartData = [];
-  for (let day = 1; day <= daysInMonth; ++day) {
-    const date = new Date(selectedYear, selectedMonth, day);
-    const dateStr = date.toISOString().slice(0, 10);
-    const rec = attendanceMap[dateStr];
-    let hours = 0;
-    const checkIn = rec?.check_in || null;
-    const checkOut = rec?.check_out || null;
-    if (rec && rec.check_in && rec.check_out) {
-      try {
-        const [checkInTime] = rec.check_in.split('.');
-        const [checkOutTime] = rec.check_out.split('.');
-        const [inHours, inMinutes, inSeconds] = checkInTime.split(':').map(Number);
-        const [outHours, outMinutes, outSeconds] = checkOutTime.split(':').map(Number);
-        const checkInTotalMinutes = inHours * 60 + inMinutes + inSeconds / 60;
-        const checkOutTotalMinutes = outHours * 60 + outMinutes + outSeconds / 60;
-        let diffMinutes = checkOutTotalMinutes - checkInTotalMinutes;
-        if (diffMinutes < 0) diffMinutes += 24 * 60;
-        hours = diffMinutes / 60;
-      } catch { hours = 0; }
+    const absentMap: Record<string, AbsentRecord> = {};
+    absences
+      .filter((a) => a.email?.toLowerCase() === employeeEmail.toLowerCase())
+      .forEach((abs) => {
+        const d = new Date(abs.date || abs.absent_date || "");
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+          d.getDate()
+        ).padStart(2, "0")}`;
+        absentMap[key] = abs;
+      });
+
+    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+    const newChartData = [];
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(selectedYear, selectedMonth, day);
+      const key = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const record = attendanceMap[key];
+      const isAbsent = !!absentMap[key];
+      const isSunday = date.getDay() === 0;
+
+      let hours = 0;
+      if (record?.check_in && record?.check_out) {
+        const [inH, inM] = record.check_in.split(":").map(Number);
+        const [outH, outM] = record.check_out.split(":").map(Number);
+        hours = Math.max(0, Math.min(((outH * 60 + outM) - (inH * 60 + inM)) / 60, 16));
+      }
+
+      newChartData.push({
+        day,
+        date,
+        dateStr: `${String(day).padStart(2, "0")}/${String(selectedMonth + 1).padStart(2, "0")}/${selectedYear}`,
+        hours,
+        absent: isAbsent,
+        isSunday,
+        present: !!record,
+        checkIn: record?.check_in,
+        checkOut: record?.check_out,
+      });
     }
-    // Mark absent if absentMap has this date
-    const isAbsent = !!absentMap[dateStr];
-    chartData.push({
-      day,
-      date,
-      dateStr,
-      hours,
-      present: !!rec,
-      checkIn,
-      checkOut,
-      absent: isAbsent,
-    });
-  }
 
-  const maxHours = Math.max(...chartData.map(d => d.hours), 8, 1);
-  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
+    setChartData(newChartData);
+  }, [attendance, absences, employeeEmail, selectedMonth, selectedYear]);
+
+  const maxHours = Math.max(...chartData.map((d) => d.hours), 8, 1);
 
   return (
     <div className="relative w-full overflow-x-auto overflow-y-visible px-1 py-4 sm:px-2 md:px-4 lg:px-6">
-      {/* Responsive min-w for chart container */}
-      <div
-        className="
-          min-w-[320px]
-          xs:min-w-[340px]
-          sm:min-w-[400px]
-          md:min-w-[500px]
-          lg:min-w-[650px]
-          xl:min-w-[800px]
-          2xl:min-w-[900px]
-          mx-auto
-        "
-      >
-        <div className="flex items-end h-48 gap-0.5 sm:gap-1 md:gap-2 lg:gap-2.5 relative">
+      <div className="min-w-[320px] sm:min-w-[400px] md:min-w-[600px] lg:min-w-[800px] mx-auto">
+        <div className="flex items-end h-48 gap-1 md:gap-2">
           {chartData.map((d, idx) => {
-            const barHeight = Math.min((d.hours / maxHours) * 160, 160);
-            let barColor = "bg-gray-300";
-            if (d.absent) {
-              barColor = "bg-red-600 group-hover:bg-red-800";
-            } else if (d.present && d.hours > 0) {
-              barColor = "bg-blue-600 group-hover:bg-blue-800";
-            }
+            const barHeight = d.absent ? 160 : Math.min((d.hours / maxHours) * 160, 160);
+            const barColor = d.absent
+              ? "bg-red-600 hover:bg-red-800"
+              : d.isSunday
+              ? "bg-orange-500 hover:bg-orange-700"
+              : d.present
+              ? "bg-blue-600 hover:bg-blue-800"
+              : "bg-gray-300";
+
             return (
               <div
-                key={d.day}
-                className="
-                  flex flex-col items-center group relative
-                  min-w-[18px]
-                  xs:min-w-[18px]
-                  sm:min-w-[16px]
-                  md:min-w-[18px]
-                  lg:min-w-[22px]
-                  xl:min-w-[24px]
-                "
+                key={idx}
+                className="flex flex-col items-center group relative min-w-[20px]"
                 onMouseEnter={() => setHoverIdx(idx)}
                 onMouseLeave={() => setHoverIdx(null)}
               >
-                <div
-                  className={`w-3 sm:w-4 rounded-t transition-all ${barColor}`}
-                  style={{ height: `${barHeight}px` }}
-                />
+                <div className={`w-3 sm:w-4 rounded-t ${barColor}`} style={{ height: `${barHeight}px` }} />
                 <span className="text-[10px] text-gray-600 mt-1">{d.day}</span>
 
-                {/* Tooltip above the bar, visible outside container */}
                 {hoverIdx === idx && (
                   <div
-                    className={`
-                      fixed z-50
-                      left-1/2
-                      -translate-x-1/2
-                      bg-white border rounded-lg shadow-lg
-                      px-3 py-2 sm:px-4 sm:py-3
-                      text-xs text-gray-900 pointer-events-none whitespace-nowrap
-                      ${d.absent ? "border-red-300" : "border-blue-200"}
-                    `}
-                    style={{
-                      minWidth: "150px",
-                      boxShadow: "0 4px 20px 0 rgba(56, 189, 248, 0.12), 0 1.5px 6px 0 rgba(0,0,0,0.08)",
-                      top: `calc(${(window?.scrollY || 0) + 120}px)`, // fallback for SSR
-                    }}
+                    className={`fixed z-50 left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg px-3 py-2 text-xs whitespace-nowrap ${
+                      d.absent ? "border-red-300" : d.isSunday ? "border-orange-300" : "border-blue-200"
+                    }`}
+                    style={{ top: `${(window?.scrollY || 0) + 120}px` }}
                   >
-                    <div className={`mb-1 font-semibold ${d.absent ? "text-red-700" : "text-blue-700"}`}>
-                      {d.date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                    <div
+                      className={`font-semibold mb-1 ${
+                        d.absent ? "text-red-700" : d.isSunday ? "text-orange-600" : "text-blue-700"
+                      }`}
+                    >
+                      {d.dateStr}
                     </div>
                     {d.absent ? (
-                      <div className="text-red-600 font-bold text-center py-2">Absent</div>
+                      <div className="text-red-600 font-bold text-center py-1">Absent</div>
+                    ) : d.isSunday ? (
+                      <div className="text-orange-600 font-bold text-center py-1">Sunday</div>
                     ) : (
                       <>
-                        <div className="flex justify-between mb-1">
+                        <div className="flex justify-between">
                           <span className="text-gray-500">Check-in:</span>
-                          <span className="font-mono text-blue-900">{d.checkIn || "N/A"}</span>
+                          <span className="font-mono text-blue-900">
+                            {d.checkIn ? d.checkIn.slice(0, 5) : "N/A"}
+                          </span>
                         </div>
-                        <div className="flex justify-between mb-1">
+                        <div className="flex justify-between">
                           <span className="text-gray-500">Check-out:</span>
-                          <span className="font-mono text-blue-900">{d.checkOut || "N/A"}</span>
+                          <span className="font-mono text-blue-900">
+                            {d.checkOut ? d.checkOut.slice(0, 5) : "N/A"}
+                          </span>
                         </div>
-                        <div className="flex justify-between mt-2">
-                          <span className="text-gray-500">Worked hours:</span>
-                          <span className="font-bold text-blue-800">{d.hours ? d.hours.toFixed(1) : "0.0"}h</span>
+                        <div className="flex justify-between mt-1">
+                          <span className="text-gray-500">Worked:</span>
+                          <span className="font-bold text-blue-800">
+                            {`${Math.floor(d.hours)}h ${Math.round((d.hours % 1) * 60)}m`}
+                          </span>
                         </div>
                       </>
                     )}
@@ -934,3 +1011,5 @@ const AttendanceChart = ({
     </div>
   );
 };
+
+export default MonthlyReportDashboard;
