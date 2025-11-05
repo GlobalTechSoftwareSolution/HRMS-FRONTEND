@@ -73,17 +73,17 @@ export default function CEODashboard() {
     <DashboardLayout role="ceo">
       <div className="space-y-6">
         {/* Header Section */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-6 text-white">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Global Tech Software Solutions</h1>
-              <div className="flex flex-wrap gap-4 text-blue-100">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-4 sm:p-6 text-white">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="w-full sm:w-auto">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2">Global Tech Software Solutions</h1>
+              <div className="flex flex-wrap gap-2 sm:gap-4 text-sm sm:text-base text-blue-100">
                 <span>2023 - 2024</span>
                 <span>•</span>
                 <span>01-04-2024 to 31-03-2025</span>
               </div>
             </div>
-            <div className="mt-4 lg:mt-0">
+            <div className="w-full sm:w-auto">
               <select 
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
@@ -98,53 +98,53 @@ export default function CEODashboard() {
         </div>
 
         {/* Main Financial Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {/* Total Sales */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-green-500 hover:shadow-xl transition-shadow duration-300">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 border-l-4 border-green-500 hover:shadow-xl transition-shadow duration-300">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Hours</h3>
               <div className="text-green-500 text-2xl">📈</div>
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-2">{financialData.totalHours}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{financialData.totalHours}</div>
             <div className="text-sm text-green-600 font-medium">+12.5% from last year</div>
           </div>
 
           {/* Total Receipt */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500 hover:shadow-xl transition-shadow duration-300">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 border-l-4 border-blue-500 hover:shadow-xl transition-shadow duration-300">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Employees</h3>
               <div className="text-blue-500 text-2xl">💳</div>
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-2">{financialData.totalEmployees}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{financialData.totalEmployees}</div>
             <div className="text-sm text-blue-600 font-medium">+8.3% from last year</div>
           </div>
 
           {/* Total Purchase */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-orange-500 hover:shadow-xl transition-shadow duration-300">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 border-l-4 border-orange-500 hover:shadow-xl transition-shadow duration-300">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Sales</h3>
               <div className="text-orange-500 text-2xl">🛒</div>
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-2">₹{financialData.totalSales}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">₹{financialData.totalSales}</div>
             <div className="text-sm text-orange-600 font-medium">+15.2% from last year</div>
           </div>
 
           {/* Total Payment */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500 hover:shadow-xl transition-shadow duration-300">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 border-l-4 border-purple-500 hover:shadow-xl transition-shadow duration-300">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total Conversion</h3>
               <div className="text-purple-500 text-2xl">💸</div>
             </div>
-            <div className="text-3xl font-bold text-gray-900 mb-2">₹{financialData.totalConversion}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">₹{financialData.totalConversion}</div>
             <div className="text-sm text-purple-600 font-medium">+9.7% from last year</div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Statistics Section */}
-          <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 border-b pb-3">Financial Statistics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="lg:col-span-2 bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 border-b pb-3">Financial Statistics</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {/* Sales Credit Note */}
               <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
                 <div className="flex items-center justify-between mb-2">
@@ -218,8 +218,8 @@ export default function CEODashboard() {
           </div>
 
           {/* Highlights Section */}
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 border-b pb-3">Recent Highlights</h2>
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 border-b pb-3">Recent Highlights</h2>
             <div className="space-y-4">
               {highlights.map((highlight, index) => (
                 <div key={index} className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors duration-200 border border-gray-200">
@@ -269,8 +269,8 @@ export default function CEODashboard() {
         </div>
 
         {/* Performance Summary */}
-        <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-6 text-white">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-white">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             <div className="text-center">
               <div className="text-3xl font-bold mb-2">₹100</div>
               <div className="text-gray-300">Net Flow</div>

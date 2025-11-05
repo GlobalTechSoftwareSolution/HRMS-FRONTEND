@@ -30,8 +30,6 @@ type Holiday = {
   description?: string;
 }
 
-
-
 type AttendanceRecord = {
   email: string;
   fullname: string;
@@ -503,19 +501,19 @@ const calendarEvents = [
         }
       `}</style>
       <DashboardLayout role="ceo">
-      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="min-h-screen bg-gray-50 p-1 sm:p-3 lg:p-6 max-w-7xl mx-auto">
         <motion.h1
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 text-gray-800"
+          className="text-lg sm:text-xl lg:text-2xl font-bold mb-2 sm:mb-3 lg:mb-4 text-gray-800"
         >
           CEO ATTENDANCE 📋
         </motion.h1>
 
         {/* KPI Cards */}
         <motion.div
-          className="flex flex-nowrap overflow-x-auto gap-3 sm:gap-4 mb-6 pb-2 scrollbar-thin scrollbar-thumb-gray-300"
+          className="flex flex-nowrap overflow-x-auto gap-1.5 sm:gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4 pb-1 scrollbar-thin scrollbar-thumb-gray-300"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -587,7 +585,7 @@ const calendarEvents = [
           ].map((kpi) => (
             <motion.div
               key={kpi.title}
-              className={`min-w-[150px] sm:min-w-[180px] rounded-xl p-3 sm:p-4 text-white shadow-md flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color} cursor-pointer`}
+              className={`min-w-[100px] sm:min-w-[130px] lg:min-w-[160px] rounded-md p-1.5 sm:p-2.5 lg:p-3 text-white shadow-sm flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color} cursor-pointer`}
               onClick={kpi.onClick}
               tabIndex={0}
               role="button"
@@ -597,8 +595,8 @@ const calendarEvents = [
                 }
               }}
             >
-              <p className="text-sm sm:text-base font-medium opacity-90">{kpi.title}</p>
-              <p className="text-lg sm:text-xl md:text-2xl font-bold">{kpi.value}</p>
+              <p className="text-[10px] sm:text-xs lg:text-sm font-medium opacity-90 leading-tight">{kpi.title}</p>
+              <p className="text-sm sm:text-base lg:text-lg font-bold">{kpi.value}</p>
             </motion.div>
           ))}
         </motion.div>
@@ -606,11 +604,11 @@ const calendarEvents = [
         {/* Charts Section */}
         {/* Charts Section */}
         {/* Always show charts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3 lg:gap-4 mb-2 sm:mb-4 lg:mb-6">
           {/* Pie Chart - Attendance Distribution */}
-          <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">Attendance Distribution</h3>
-            <div className="w-full h-64">
+          <div className="bg-white rounded-md shadow-sm p-2 sm:p-3 lg:p-5 flex flex-col items-center">
+            <h3 className="text-xs sm:text-sm lg:text-base font-semibold text-gray-700 mb-1 sm:mb-2 lg:mb-3">Attendance Distribution</h3>
+            <div className="w-full h-40 sm:h-48 lg:h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -619,7 +617,7 @@ const calendarEvents = [
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                    outerRadius={80}
+                    outerRadius={60}
                     label={(props) => {
                       const { name, percent } = props as unknown as { name: string; percent: number };
                       return `${name} (${(percent * 100).toFixed(0)}%)`;
@@ -636,15 +634,15 @@ const calendarEvents = [
             </div>
           </div>
           {/* Bar Chart - Hours Worked per Employee */}
-          <div className="bg-white rounded-xl shadow-md p-6 flex flex-col items-center">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">
+          <div className="bg-white rounded-md shadow-sm p-2 sm:p-3 lg:p-5 flex flex-col items-center">
+            <h3 className="text-xs sm:text-sm lg:text-base font-semibold text-gray-700 mb-1 sm:mb-2 lg:mb-3">
               Hours Worked Per Employee ({selectedDate ? formatDate(selectedDate) : "Today"})
             </h3>
-            <div className="w-full h-64">
+            <div className="w-full h-40 sm:h-48 lg:h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={60} />
                   <YAxis label={{ value: "Hours", angle: -90, position: "insideLeft", fontSize: 12 }} />
                   <RechartsTooltip />
                   <Bar dataKey="hours" fill="#6366f1" radius={[6, 6, 0, 0]} />
@@ -655,13 +653,13 @@ const calendarEvents = [
         </div>
 
         {/* Today's/Selected Date Attendance + Download PDF */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-700">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 sm:mb-3 gap-1.5 sm:gap-2">
+          <h2 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-700">
             {selectedDate ? `${formatDate(selectedDate)} Attendance` : "Today's Attendance"}
           </h2>
           <button
             onClick={downloadPDF}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg sm:mt-5 sm:mb-5 hover:bg-blue-700"
+            className="w-full sm:w-auto px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm rounded-md hover:bg-blue-700 transition-colors"
           >
             Download PDF
           </button>
@@ -670,7 +668,7 @@ const calendarEvents = [
         {/* Date Attendance Cards */}
         <motion.div
           id="attendance-section"
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mb-8"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5 sm:gap-2 lg:gap-3 mb-2 sm:mb-4 lg:mb-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
@@ -679,7 +677,7 @@ const calendarEvents = [
             Array.from({ length: 4 }).map((_, idx) => (
               <div
                 key={idx}
-                className="animate-pulse bg-white shadow-lg rounded-xl p-4 sm:p-6 flex flex-col gap-3"
+                className="animate-pulse bg-white shadow-lg rounded-lg p-3 sm:p-4 lg:p-6 flex flex-col gap-2 sm:gap-3"
               >
                 <div className="h-5 bg-gray-200 rounded w-3/4"></div>
                 <div className="h-4 bg-gray-200 rounded w-1/2"></div>

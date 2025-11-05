@@ -185,7 +185,7 @@ export default function PayrollDashboard() {
 
         const mappedData: PayrollRecord[] = payrollArray.map((item, index) => {
           const basicSalary = Number(item.basic_salary) || 0;
-          const stdDays = presentDays || item.STD || 22; // Use attendance data first
+          const stdDays = presentDays || item.STD || 28; // Use attendance data first
           const lopDays = absentDays || item.LOP || 0;
 
           return {

@@ -488,7 +488,7 @@ export default function ResignationPage() {
                     </div>
                     <div>
                       <span className="text-gray-600">Email:</span>
-                      <p className="font-medium">
+                      <p className="font-medium break-all">
                         {formData.email || "Not available"}
                       </p>
                     </div>

@@ -210,7 +210,7 @@ export default function HRPayrollDashboard() {
 
         if (presentDays === 0) {
           console.log(`ℹ️ No attendance data found, using default 22 days for ${email}`);
-          return 22;
+          return 28;
         }
 
         console.log(`✅ Calculated STD days for ${email}: ${presentDays}`);
