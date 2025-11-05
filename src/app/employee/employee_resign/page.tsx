@@ -38,7 +38,7 @@ function ResignationStatus({ email }: { email: string }) {
     const fetchStatus = async () => {
       try {
         const res = await axios.get(
-          "https://globaltechsoftwaresolutions.cloud/api/accounts/list_releaved/"
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_releaved/`
         );
         const all: ResignationStatusData[] = res.data || [];
         const userData = all.find((item: ResignationStatusData) => item.email === email);
@@ -242,7 +242,7 @@ export default function ResignationPage() {
     const fetchReleavedEmployees = async () => {
       try {
         const response = await axios.get(
-          `https://globaltechsoftwaresolutions.cloud/api/accounts/employees/${storedEmail}/`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${storedEmail}/`
         );
         const emp = response.data;
 
@@ -266,7 +266,7 @@ export default function ResignationPage() {
     const checkExistingResignation = async () => {
       try {
         const res = await axios.get(
-          "https://globaltechsoftwaresolutions.cloud/api/accounts/list_releaved/"
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_releaved/`
         );
         const all: ResignationStatusData[] = res.data || [];
         const existing = all.find(
@@ -321,7 +321,7 @@ export default function ResignationPage() {
       console.log("📤 Employee update payload:", employeeUpdatePayload);
 
       await axios.patch(
-        `https://globaltechsoftwaresolutions.cloud/api/accounts/employees/${formData.email}/`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${formData.email}/`,
         employeeUpdatePayload,
         {
           headers: { "Content-Type": "application/json" },
@@ -344,7 +344,7 @@ export default function ResignationPage() {
       console.log("📤 Resignation payload:", resignationPayload);
 
       await axios.post(
-        "https://globaltechsoftwaresolutions.cloud/api/accounts/releaved/",
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/releaved/`,
         resignationPayload,
         { headers: { "Content-Type": "application/json" } }
       );

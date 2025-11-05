@@ -77,7 +77,7 @@ export default function HRLeavePage() {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const res = await fetch(`https://globaltechsoftwaresolutions.cloud/api/accounts/employees/`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`);
         const data = await res.json();
         const map: Record<
           string,

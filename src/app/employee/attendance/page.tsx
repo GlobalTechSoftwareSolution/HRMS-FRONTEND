@@ -31,7 +31,11 @@ type Leave = {
     employee_name: string;
     employee_email?: string;
     email?: string;
-    date: string;
+    date?: string;
+    start_date?: string;
+    end_date?: string;
+    from_date?: string;
+    to_date?: string;
     status: "Pending" | "Approved" | "Rejected";
     reason: string;
 };
@@ -60,6 +64,19 @@ type ProfileData = {
   permanent_address?: string | null;
   emergency_contact_name?: string | null;
 };
+const deriveStatus = (record: AttendanceRecord): string => {
+  if (!record) return "-";
+  if (record.status === "Sunday") return "Sunday";
+  if (record.status === "Absent") return "Absent";
+
+  const hasIn = !!(record.checkIn && record.checkIn !== "-" && record.checkIn !== "null");
+  const hasOut = !!(record.checkOut && record.checkOut !== "-" && record.checkOut !== "null");
+
+  if (hasIn && hasOut) return "Present";
+  if (hasIn && !hasOut) return "Working In";
+
+  return record.status && record.status !== "-" ? record.status : "-";
+};
 
 export default function AttendancePortal() {
     const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
@@ -67,7 +84,7 @@ export default function AttendancePortal() {
     const [loadingFetchedAttendance, setLoadingFetchedAttendance] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
-    const [, setLeaves] = useState<Leave[]>([]);
+    const [leaves, setLeaves] = useState<Leave[]>([]);
     const [approvedLeavesCount, setApprovedLeavesCount] = useState<number>(0);
     const [selectedDateRecord, setSelectedDateRecord] = useState<AttendanceRecord | null>(null);
     const [isClient, setIsClient] = useState(false);
@@ -80,14 +97,41 @@ export default function AttendancePortal() {
     // Absences state
     const [absences, setAbsences] = useState<AbsenceRecord[]>([]);
     const [, setLoadingAbsences] = useState(false);
+    const [raiseReason, setRaiseReason] = useState("");
+    const [raiseSubmitting, setRaiseSubmitting] = useState(false);
+    const [raiseMessage, setRaiseMessage] = useState<string | null>(null);
+    // Track submitted requests: { "email|date": { reason, status, timestamp } }
+    const [submittedRequests, setSubmittedRequests] = useState<Record<string, { reason: string; status: string; timestamp: number }>>({});
 
     // Profile data state (moved to top level)
     const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
+    // Normalize leave dates (supports single date or start/end range fields)
+    const getLeaveDates = (l: Leave): string[] => {
+        const dates: string[] = [];
+        const single = l.date;
+        const start = l.start_date || l.from_date;
+        const end = l.end_date || l.to_date;
+
+        if (single) {
+            dates.push(formatDateForComparison(single));
+            return dates;
+        }
+        if (start) {
+            const startD = new Date(start);
+            const endD = end ? new Date(end) : new Date(startD);
+            // iterate inclusive
+            for (let d = new Date(startD.getFullYear(), startD.getMonth(), startD.getDate()); d <= new Date(endD.getFullYear(), endD.getMonth(), endD.getDate()); d.setDate(d.getDate() + 1)) {
+                dates.push(formatDateForComparison(new Date(d)));
+            }
+        }
+        return dates;
+    };
+
     useEffect(() => {
       const userEmail = localStorage.getItem("user_email");
       if (userEmail && !profileData) {
-        fetch(`https://globaltechsoftwaresolutions.cloud/api/accounts/employees/${encodeURIComponent(userEmail)}`)
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(userEmail)}`)
           .then(res => res.ok ? res.json() : null)
           .then(data => setProfileData(data))
           .catch(() => {});
@@ -98,6 +142,17 @@ export default function AttendancePortal() {
         setIsClient(true);
         const storedEmail = localStorage.getItem("user_email") || localStorage.getItem("loggedInUser");
         if (storedEmail) setLoggedInEmail(storedEmail);
+        
+        // Load submitted requests from localStorage
+        const stored = localStorage.getItem("attendance_requests");
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                setSubmittedRequests(parsed);
+            } catch (e) {
+                console.error("Failed to parse stored requests:", e);
+            }
+        }
     }, []);
 
     useEffect(() => {
@@ -153,6 +208,49 @@ export default function AttendancePortal() {
         };
         fetchAttendance();
     }, []);
+
+    const handleRaiseAttendance = async (forDate: string) => {
+        const email = (loggedInEmail || profileData?.email || localStorage.getItem("user_email") || "").trim();
+        if (!email || !forDate || !raiseReason.trim()) return;
+        
+        const requestKey = `${email}|${forDate}`;
+        
+        // Check if already submitted
+        if (submittedRequests[requestKey]) {
+            setRaiseMessage("You have already submitted a request for this date.");
+            return;
+        }
+        
+        try {
+            setRaiseSubmitting(true);
+            setRaiseMessage(null);
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/raise_attendance/`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, date: forDate, reason: raiseReason.trim() })
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || "Failed to submit request");
+            }
+            const data = await res.json();
+            const status = data.status || "Pending";
+            
+            // Save to state and localStorage
+            const newRequest = { reason: raiseReason.trim(), status, timestamp: Date.now() };
+            const updated = { ...submittedRequests, [requestKey]: newRequest };
+            setSubmittedRequests(updated);
+            localStorage.setItem("attendance_requests", JSON.stringify(updated));
+            
+            setRaiseMessage(`Request sent to your manager. Status: ${status}`);
+            setRaiseReason("");
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "Failed";
+            setRaiseMessage(msg);
+        } finally {
+            setRaiseSubmitting(false);
+        }
+    };
 
     useEffect(() => {
         const fetchAbsences = async () => {
@@ -360,7 +458,7 @@ export default function AttendancePortal() {
 
         // Fetch employee info
         const empRes = await fetch(
-          `https://globaltechsoftwaresolutions.cloud/api/accounts/employees/${encodeURIComponent(userEmail)}/`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(userEmail)}/`
         );
 
         if (!empRes.ok) {
@@ -393,7 +491,7 @@ export default function AttendancePortal() {
             }
 
             const response = await fetch(
-              "https://globaltechsoftwaresolutions.cloud/api/accounts/office_attendance/",
+              `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/office_attendance/`,
               {
                 method: "POST",
                 body: formData,
@@ -471,6 +569,17 @@ export default function AttendancePortal() {
         return `${hoursPart}h ${minutesPart}m`;
     };
 
+    const deriveStatus = (record: AttendanceRecord): string => {
+        if (!record) return "-";
+        if (record.status === "Sunday") return "Sunday";
+        if (record.status === "Absent") return "Absent";
+        const hasIn = !!(record.checkIn && record.checkIn !== "-" && record.checkIn !== "null");
+        const hasOut = !!(record.checkOut && record.checkOut !== "-" && record.checkOut !== "null");
+        if (hasIn && hasOut) return "Present";
+        if (hasIn && !hasOut) return "Working In";
+        return record.status && record.status !== "-" ? record.status : "-";
+    };
+
     // Month summary for the pie chart
     const handleActiveStartDateChange = (
         { activeStartDate }: { activeStartDate: Date | null }
@@ -479,7 +588,7 @@ export default function AttendancePortal() {
     };
 
     const monthSummary = (() => {
-        if (!isClient || !loggedInEmail) return { present: 0, absent: 0, workingIn: 0, late: 0, halfDay: 0, sunday: 0 };
+        if (!isClient || !loggedInEmail) return { present: 0, absent: 0, workingIn: 0, late: 0, halfDay: 0, sunday: 0, leave: 0 };
 
         const normalizedEmail = (loggedInEmail || "").trim().toLowerCase();
         const filtered = fetchedAttendance.filter(rec => {
@@ -492,7 +601,7 @@ export default function AttendancePortal() {
             );
         });
 
-        let present = 0, absent = 0, workingIn = 0, late = 0, halfDay = 0, sunday = 0;
+        let present = 0, absent = 0, workingIn = 0, late = 0, halfDay = 0, sunday = 0, leave = 0;
         
         // Count Sundays in the current month
         const year = currentMonth.getFullYear();
@@ -529,7 +638,40 @@ export default function AttendancePortal() {
             }
         });
 
-        return { present, absent, workingIn, late, halfDay, sunday };
+        // Count approved leaves for current user in this month (support single day and ranges)
+        const normalizedEmailLeaves = (loggedInEmail || "").trim().toLowerCase();
+        leave = 0;
+        (leaves || []).forEach(l => {
+            const email = (l.employee_email || l.email || "").trim().toLowerCase();
+            const status = (l.status || "").trim().toLowerCase();
+            if (email !== normalizedEmailLeaves || status !== "approved") return;
+            const dates = getLeaveDates(l);
+            dates.forEach(ds => {
+                const d = new Date(ds);
+                if (d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear()) {
+                    leave += 1;
+                }
+            });
+        });
+
+        // Include recorded absences for the month that don't already appear in attendance records
+        const attendanceDatesSet = new Set(
+            filtered.map(r => formatDateForComparison(r.date))
+        );
+        (absences || [])
+            .filter(abs => (abs.email || "").trim().toLowerCase() === normalizedEmailLeaves)
+            .forEach(abs => {
+                const d = new Date(abs.date);
+                if (d.getMonth() !== currentMonth.getMonth() || d.getFullYear() !== currentMonth.getFullYear()) return;
+                if (d.getDay() === 0) return; // exclude Sundays
+                const key = formatDateForComparison(abs.date);
+                if (!attendanceDatesSet.has(key)) {
+                    absent++;
+                    attendanceDatesSet.add(key);
+                }
+            });
+
+        return { present, absent, workingIn, late, halfDay, sunday, leave };
     })();
 
     const chartData = [
@@ -539,7 +681,8 @@ export default function AttendancePortal() {
         { title: "Late", value: monthSummary.late, color: "#8b5cf6" },
         { title: "Half Day", value: monthSummary.halfDay, color: "#06b6d4" },
         { title: "Sunday", value: monthSummary.sunday, color: "#ef4444" },
-    ].filter(item => item.value > 0);
+        { title: "Leave", value: monthSummary.leave, color: "#0ea5e9" },
+    ];
 
     // Enhanced stats calculation
     const totalPresentDays = fetchedAttendance.filter(record => {
@@ -594,6 +737,7 @@ export default function AttendancePortal() {
         }
     };
 
+
     const getTileClassName = (date: Date): string => {
         if (!loggedInEmail) return "";
 
@@ -602,6 +746,16 @@ export default function AttendancePortal() {
 
         // Check if it's Sunday
         if (date.getDay() === 0) return "calendar-sunday";
+
+        // Check approved leave (supports single date or range)
+        const isLeave = (leaves || []).some(l => {
+            const email = (l.employee_email || l.email || "").trim().toLowerCase();
+            const status = (l.status || "").trim().toLowerCase();
+            if (status !== "approved" || email !== normalizedEmail) return false;
+            const dates = getLeaveDates(l);
+            return dates.includes(dateStr);
+        });
+        if (isLeave) return "calendar-leave";
 
         // Check absences first
         const absenceMatch = absences.find(
@@ -852,9 +1006,9 @@ export default function AttendancePortal() {
                                             <div className="flex items-center justify-between">
                                                 <span className="text-gray-600">Status:</span>
                                                 <span
-                                                    className={`font-medium px-2 py-0.5 rounded text-xs ${getStatusColor(hoveredRecord.status)}`}
+                                                    className={`font-medium px-2 py-0.5 rounded text-xs ${getStatusColor(deriveStatus(hoveredRecord))}`}
                                                 >
-                                                    {hoveredRecord.status}
+                                                    {deriveStatus(hoveredRecord)}
                                                 </span>
                                             </div>
                                             {hoveredRecord.fullname && hoveredRecord.fullname !== "Sunday" && (
@@ -940,8 +1094,8 @@ export default function AttendancePortal() {
                                         <div className="space-y-2">
                                           <div className="flex justify-between">
                                             <span className="text-gray-600">Status:</span>
-                                            <span className={`font-medium px-2 py-1 rounded text-xs sm:text-sm ${getStatusColor(selectedDateRecord.status)}`}>
-                                              {selectedDateRecord.status}
+                                            <span className={`font-medium px-2 py-1 rounded text-xs sm:text-sm ${getStatusColor(deriveStatus(selectedDateRecord))}`}>
+                                              {deriveStatus(selectedDateRecord)}
                                             </span>
                                           </div>
                                           {selectedDateRecord.status !== "Sunday" && (
@@ -999,6 +1153,43 @@ export default function AttendancePortal() {
                                           if (isToday) {
                                             // If today is absent, show "Request Manager"
                                             if (isAbsentToday) {
+                                              // Check if request already submitted for this date
+                                              const requestKey = `${normalizedUserEmail}|${selectedDate}`;
+                                              const existingRequest = submittedRequests[requestKey];
+                                              
+                                              if (existingRequest) {
+                                                // Show already submitted status
+                                                return (
+                                                  <div className="mt-6 text-center">
+                                                    <div className="flex justify-center mb-3">
+                                                      <Image
+                                                        src={profileData?.profile_picture || "/default-avatar.png"}
+                                                        alt="Profile"
+                                                        width={64}
+                                                        height={64}
+                                                        className="rounded-full border-2 border-green-400 shadow-sm"
+                                                      />
+                                                    </div>
+                                                    <div className="max-w-md mx-auto bg-green-50 border border-green-200 rounded-lg p-4">
+                                                      <div className="flex items-center gap-2 mb-2">
+                                                        <span className="text-green-600 text-xl">✓</span>
+                                                        <h3 className="font-semibold text-green-800">Request Already Submitted</h3>
+                                                      </div>
+                                                      <p className="text-sm text-gray-700 mb-2">
+                                                        <strong>Status:</strong> <span className="text-green-700">{existingRequest.status}</span>
+                                                      </p>
+                                                      <p className="text-sm text-gray-700 mb-2">
+                                                        <strong>Reason:</strong> {existingRequest.reason}
+                                                      </p>
+                                                      <p className="text-xs text-gray-500">
+                                                        Submitted: {new Date(existingRequest.timestamp).toLocaleString()}
+                                                      </p>
+                                                    </div>
+                                                  </div>
+                                                );
+                                              }
+                                              
+                                              // Show request form
                                               return (
                                                 <div className="mt-6 text-center">
                                                   <div className="flex justify-center mb-3">
@@ -1010,13 +1201,27 @@ export default function AttendancePortal() {
                                                       className="rounded-full border-2 border-orange-400 shadow-sm"
                                                     />
                                                   </div>
-                                                  <button
-                                                    type="button"
-                                                    className="px-5 py-2 bg-orange-600 text-white font-semibold rounded-md hover:bg-orange-700 transition-all duration-200"
-                                                    onClick={() => alert('📩 Request sent to your manager! They will review your absence.')}
-                                                  >
-                                                    Request Manager
-                                                  </button>
+                                                  <div className="max-w-md mx-auto text-left">
+                                                    <label className="block text-sm text-gray-700 mb-1">Describe the issue</label>
+                                                    <textarea
+                                                      className="w-full border rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                                      rows={3}
+                                                      placeholder="E.g., Network issue; could not check-in before 10:45."
+                                                      value={raiseReason}
+                                                      onChange={e => setRaiseReason(e.target.value)}
+                                                    />
+                                                    {raiseMessage && (
+                                                      <p className={`mt-2 text-sm ${raiseMessage.includes('Request sent') || raiseMessage.includes('Status:') ? 'text-green-600' : 'text-red-600'}`}>{raiseMessage}</p>
+                                                    )}
+                                                    <button
+                                                      type="button"
+                                                      className="mt-3 px-5 py-2 bg-orange-600 text-white font-semibold rounded-md hover:bg-orange-700 transition-all duration-200 disabled:opacity-60"
+                                                      disabled={raiseSubmitting || !raiseReason.trim()}
+                                                      onClick={() => selectedDate && handleRaiseAttendance(selectedDate)}
+                                                    >
+                                                      {raiseSubmitting ? 'Sending...' : 'Request Manager'}
+                                                    </button>
+                                                  </div>
                                                 </div>
                                               );
                                             }
@@ -1064,6 +1269,97 @@ export default function AttendancePortal() {
                                       const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
                                       const isToday = selectedDate === localToday;
                                       if (isToday) {
+                                        if (!absences || absences.length === 0) {
+                                          return (
+                                            <div className="text-center">
+                                              <p className="text-gray-600 text-sm mb-3">Loading attendance data...</p>
+                                            </div>
+                                          );
+                                        }
+                                        // Check if today is marked absent; if so, show Request Manager instead of Mark Check-In
+                                        const todayISO = localToday; // already in YYYY-MM-DD
+                                        const normalizedUserEmail = (loggedInEmail || profileData?.email || localStorage.getItem("user_email") || "").trim().toLowerCase();
+                                        const isAbsentToday = absences.some(abs => {
+                                          const absDate = formatDateForComparison(abs.date);
+                                          const absEmail = (abs.email || "").trim().toLowerCase();
+                                          return absDate === todayISO && absEmail === normalizedUserEmail;
+                                        });
+
+                                        if (isAbsentToday) {
+                                          // Check if request already submitted for this date
+                                          const requestKey = `${normalizedUserEmail}|${selectedDate}`;
+                                          const existingRequest = submittedRequests[requestKey];
+                                          
+                                          if (existingRequest) {
+                                            // Show already submitted status
+                                            return (
+                                              <div className="text-center">
+                                                <p className="text-gray-600 text-sm mb-3">You have been marked absent for today.</p>
+                                                <div className="flex justify-center mb-3">
+                                                  <Image
+                                                    src={profileData?.profile_picture || "/default-avatar.png"}
+                                                    alt="Profile"
+                                                    width={64}
+                                                    height={64}
+                                                    className="rounded-full border-2 border-green-400 shadow-sm"
+                                                  />
+                                                </div>
+                                                <div className="max-w-md mx-auto bg-green-50 border border-green-200 rounded-lg p-4">
+                                                  <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-green-600 text-xl">✓</span>
+                                                    <h3 className="font-semibold text-green-800">Request Already Submitted</h3>
+                                                  </div>
+                                                  <p className="text-sm text-gray-700 mb-2">
+                                                    <strong>Status:</strong> <span className="text-green-700">{existingRequest.status}</span>
+                                                  </p>
+                                                  <p className="text-sm text-gray-700 mb-2">
+                                                    <strong>Reason:</strong> {existingRequest.reason}
+                                                  </p>
+                                                  <p className="text-xs text-gray-500">
+                                                    Submitted: {new Date(existingRequest.timestamp).toLocaleString()}
+                                                  </p>
+                                                </div>
+                                              </div>
+                                            );
+                                          }
+                                          
+                                          return (
+                                            <div className="text-center">
+                                              <p className="text-gray-600 text-sm mb-3">You have been marked absent for today.</p>
+                                              <div className="flex justify-center mb-3">
+                                                <Image
+                                                  src={profileData?.profile_picture || "/default-avatar.png"}
+                                                  alt="Profile"
+                                                  width={64}
+                                                  height={64}
+                                                  className="rounded-full border-2 border-orange-400 shadow-sm"
+                                                />
+                                              </div>
+                                              <div className="max-w-md mx-auto text-left">
+                                                <label className="block text-sm text-gray-700 mb-1">Describe the issue</label>
+                                                <textarea
+                                                  className="w-full border rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                                  rows={3}
+                                                  placeholder="E.g., Network issue; could not check-in before 10:45."
+                                                  value={raiseReason}
+                                                  onChange={e => setRaiseReason(e.target.value)}
+                                                />
+                                                {raiseMessage && (
+                                                  <p className={`mt-2 text-sm ${raiseMessage.includes('Request sent') || raiseMessage.includes('Status:') ? 'text-green-600' : 'text-red-600'}`}>{raiseMessage}</p>
+                                                )}
+                                                <button
+                                                  type="button"
+                                                  className="mt-3 px-5 py-2 bg-orange-600 text-white font-semibold rounded-md hover:bg-orange-700 transition-all duration-200 disabled:opacity-60"
+                                                  disabled={raiseSubmitting || !raiseReason.trim()}
+                                                  onClick={() => selectedDate && handleRaiseAttendance(selectedDate)}
+                                                >
+                                                  {raiseSubmitting ? 'Sending...' : 'Request Manager'}
+                                                </button>
+                                              </div>
+                                            </div>
+                                          );
+                                        }
+
                                         return (
                                           <div className="text-center">
                                             <p className="text-gray-600 text-sm mb-3">No attendance record yet for today.</p>
@@ -1098,6 +1394,10 @@ export default function AttendancePortal() {
                                 <div className="flex items-center gap-2">
                                     <span className="inline-block w-3 h-3 rounded-sm bg-orange-100 border border-orange-400"></span>
                                     <span className="text-gray-600">Absent</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="inline-block w-3 h-3 rounded-sm bg-sky-100 border border-sky-400"></span>
+                                    <span className="text-gray-600">Leave</span>
                                 </div>
                             </div>
                         </div>
@@ -1136,7 +1436,7 @@ export default function AttendancePortal() {
 
                             {/* Detailed Summary */}
                             <div className="space-y-2 text-xs">
-                                {chartData.map((item,) => (
+                                {chartData.filter(item => item.value > 0).map((item,) => (
                                     <div key={item.title} className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <span 
@@ -1204,6 +1504,7 @@ export default function AttendancePortal() {
                         selectedDate={selectedDate}
                         onDateChange={setSelectedDate}
                         formatDateForComparison={formatDateForComparison}
+                        absences={absences}
                     />
                 </div>
 
@@ -1211,53 +1512,68 @@ export default function AttendancePortal() {
                 <div className="mt-12 sm:mt-16">
                     <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-700">Detailed Attendance Records</h2>
                     <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                        {(fetchedAttendance
-                            .filter(record => {
-                                const recordEmail = (record.email || "").trim().toLowerCase();
-                                const currentEmail = (loggedInEmail || "").trim().toLowerCase();
-                                return recordEmail === currentEmail;
-                            })
-                            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                        ).map(record => {
-                            const displayStatus =
-                                record.checkIn && record.checkIn !== "-" && record.checkIn !== "null"
-                                  ? record.checkOut && record.checkOut !== "-" && record.checkOut !== "null"
-                                    ? "Present"
-                                    : "Working In"
-                                  : record.status || "-";
-                            return (
-                                <div
-                                    key={record.id}
-                                    className="bg-white rounded-lg shadow-sm sm:shadow-md p-3 sm:p-4 border hover:shadow-md sm:hover:shadow-lg transition flex flex-col gap-1 sm:gap-2"
-                                    style={{minWidth: 0}}
-                                >
-                                    <div className="flex items-center justify-between mb-1 sm:mb-2">
-                                        <div className="text-xs sm:text-sm text-gray-500">{formatDateForDisplay(record.date)}</div>
-                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded ${getStatusColor(displayStatus)}`}>
-                                            {displayStatus}
-                                        </span>
-                                    </div>
-                                    {record.fullname && (
-                                        <div className="flex items-center justify-between text-xs mb-1">
-                                            <span className="text-gray-600">Name:</span>
-                                            <span className="font-medium">{record.fullname}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex items-center justify-between text-xs mb-1">
-                                        <span className="text-gray-600">Check-in:</span>
-                                        <span className="font-medium text-green-700">{formatTime(record.checkIn)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-xs mb-1">
-                                        <span className="text-gray-600">Check-out:</span>
-                                        <span className="font-medium text-red-700">{formatTime(record.checkOut)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-xs mb-1">
-                                        <span className="text-gray-600">Hours:</span>
-                                        <span className="font-medium text-blue-700">{calculateHoursWorked(record)}</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        {
+                            // Helper to derive status for any record (copied for local use)
+                            // This is injected just above the map section as requested.
+                            // eslint-disable-next-line
+                            // @ts-ignore
+                            (() => {
+                                const deriveStatus = (record: AttendanceRecord): string => {
+                                  if (!record) return "-";
+                                  if (record.status === "Sunday") return "Sunday";
+                                  if (record.status === "Absent") return "Absent";
+                                  const hasIn = !!(record.checkIn && record.checkIn !== "-" && record.checkIn !== "null");
+                                  const hasOut = !!(record.checkOut && record.checkOut !== "-" && record.checkOut !== "null");
+                                  if (hasIn && hasOut) return "Present";
+                                  if (hasIn && !hasOut) return "Working In";
+                                  return record.status && record.status !== "-" ? record.status : "-";
+                                };
+                                return (
+                                    fetchedAttendance
+                                    .filter(record => {
+                                        const recordEmail = (record.email || "").trim().toLowerCase();
+                                        const currentEmail = (loggedInEmail || "").trim().toLowerCase();
+                                        return recordEmail === currentEmail;
+                                    })
+                                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                    .map(record => {
+                                        const displayStatus = deriveStatus(record);
+                                        return (
+                                            <div
+                                                key={record.id}
+                                                className="bg-white rounded-lg shadow-sm sm:shadow-md p-3 sm:p-4 border hover:shadow-md sm:hover:shadow-lg transition flex flex-col gap-1 sm:gap-2"
+                                                style={{minWidth: 0}}
+                                            >
+                                                <div className="flex items-center justify-between mb-1 sm:mb-2">
+                                                    <div className="text-xs sm:text-sm text-gray-500">{formatDateForDisplay(record.date)}</div>
+                                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded ${getStatusColor(displayStatus)}`}>
+                                                        {displayStatus}
+                                                    </span>
+                                                </div>
+                                                {record.fullname && (
+                                                    <div className="flex items-center justify-between text-xs mb-1">
+                                                        <span className="text-gray-600">Name:</span>
+                                                        <span className="font-medium">{record.fullname}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex items-center justify-between text-xs mb-1">
+                                                    <span className="text-gray-600">Check-in:</span>
+                                                    <span className="font-medium text-green-700">{formatTime(record.checkIn)}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between text-xs mb-1">
+                                                    <span className="text-gray-600">Check-out:</span>
+                                                    <span className="font-medium text-red-700">{formatTime(record.checkOut)}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between text-xs mb-1">
+                                                    <span className="text-gray-600">Hours:</span>
+                                                    <span className="font-medium text-blue-700">{calculateHoursWorked(record)}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                );
+                            })()
+                        }
                     </div>
                 </div>
             </div>
@@ -1463,6 +1779,13 @@ export default function AttendancePortal() {
                     border: 2px solid #ea580c !important;
                 }
 
+                .calendar-leave {
+                    background: #e0f2fe !important; /* sky-100 */
+                    color: #075985 !important; /* sky-800 */
+                    font-weight: 600;
+                    border: 2px solid #0ea5e9 !important; /* sky-500 */
+                }
+
                 .calendar-late {
                     background: #f3e8ff !important;
                     color: #7c3aed !important;
@@ -1592,6 +1915,7 @@ function AttendanceRecordsWithDatePicker({
     fetchError,
     selectedDate,
     formatDateForComparison,
+    absences,
 }: {
     fetchedAttendance: AttendanceRecord[];
     loggedInEmail: string | null;
@@ -1600,6 +1924,7 @@ function AttendanceRecordsWithDatePicker({
     selectedDate: string | null;
     onDateChange: (date: string | null) => void;
     formatDateForComparison: (date: Date | string) => string;
+    absences: AbsenceRecord[];
 }) {
     if (loadingFetchedAttendance) {
         return (
@@ -1632,6 +1957,41 @@ function AttendanceRecordsWithDatePicker({
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     if (filteredRecords.length === 0) {
+        // If there are no attendance records for the selected day, but the day is marked absent, show an absence info card
+        if (selectedDate) {
+            const absentForSelected = absences.find(abs =>
+                formatDateForComparison(abs.date) === selectedDate &&
+                (abs.email || "").trim().toLowerCase() === normalizedEmail
+            );
+            if (absentForSelected) {
+                return (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-6">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-semibold text-orange-800">Absence Record</h3>
+                            <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">Absent</span>
+                        </div>
+                        <div className="space-y-1 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Date:</span>
+                                <span className="font-medium">{new Date(selectedDate).toLocaleDateString("en-GB")}</span>
+                            </div>
+                            {absentForSelected.fullname && (
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Employee:</span>
+                                    <span className="font-medium">{absentForSelected.fullname}</span>
+                                </div>
+                            )}
+                            {absentForSelected.department && (
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Department:</span>
+                                    <span className="font-medium">{absentForSelected.department}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+        }
         return (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
                 <p className="text-gray-500 text-sm">No attendance records found.</p>
@@ -1687,16 +2047,18 @@ function AttendanceRecordsWithDatePicker({
 
     return (
         <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-            {filteredRecords.map(record => (
+            {filteredRecords.map(record => {
+const displayStatus = deriveStatus(record);
+                return (
                 <div
                     key={record.id}
-                    className={`bg-white rounded-lg border p-3 shadow-sm flex flex-col gap-1 ${record.status === "Absent" ? "border-orange-200 bg-orange-50" : record.status === "Sunday" ? "border-red-200 bg-red-50" : ""}`}
+                    className={`bg-white rounded-lg border p-3 shadow-sm flex flex-col gap-1 ${displayStatus === "Absent" ? "border-orange-200 bg-orange-50" : displayStatus === "Sunday" ? "border-red-200 bg-red-50" : ""}`}
                     style={{ minWidth: 0 }}
                 >
                     <div className="flex justify-between text-sm">
                         <span className="font-medium">{new Date(record.date).toLocaleDateString("en-GB")}</span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getStatusColor(record.status)}`}>
-                            {record.status}
+                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getStatusColor(displayStatus)}`}>
+                            {displayStatus}
                         </span>
                     </div>
                     {record.fullname && record.fullname !== "Sunday" && (
@@ -1705,11 +2067,11 @@ function AttendanceRecordsWithDatePicker({
                             <span className="font-medium">{record.fullname}</span>
                         </div>
                     )}
-                    {record.status !== "Sunday" && (
+                    {displayStatus !== "Sunday" && (
                         <>
                             <div className="flex justify-between text-xs">
                                 <span>Check-in:</span>
-                                <span className={`font-medium ${record.status === "Absent" ? "text-orange-700" : "text-green-700"}`}>
+                                <span className={`font-medium ${displayStatus === "Absent" ? "text-orange-700" : "text-green-700"}`}>
                                     {record.checkIn === "-" || record.checkIn === "null"
                                         ? "-"
                                         : new Date(`${record.date}T${record.checkIn}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
@@ -1717,7 +2079,7 @@ function AttendanceRecordsWithDatePicker({
                             </div>
                             <div className="flex justify-between text-xs">
                                 <span>Check-out:</span>
-                                <span className={`font-medium ${record.status === "Absent" ? "text-orange-700" : "text-red-700"}`}>
+                                <span className={`font-medium ${displayStatus === "Absent" ? "text-orange-700" : "text-red-700"}`}>
                                     {record.checkOut === "-" || record.checkOut === "null"
                                         ? "-"
                                         : new Date(`${record.date}T${record.checkOut}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
@@ -1725,19 +2087,20 @@ function AttendanceRecordsWithDatePicker({
                             </div>
                             <div className="flex justify-between text-xs">
                                 <span>Hours:</span>
-                                <span className={`font-medium ${record.status === "Absent" ? "text-orange-700" : "text-blue-700"}`}>
+                                <span className={`font-medium ${displayStatus === "Absent" ? "text-orange-700" : "text-blue-700"}`}>
                                     {calcHoursWorked(record)}
                                 </span>
                             </div>
                         </>
                     )}
-                    {record.status === "Sunday" && (
+                    {displayStatus === "Sunday" && (
                         <div className="text-xs text-gray-600 text-center py-1">
                             Weekend - No work scheduled
                         </div>
                     )}
                 </div>
-            ))}
+                );
+            })}
         </div>
     );
 }

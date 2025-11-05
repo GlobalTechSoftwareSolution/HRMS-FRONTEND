@@ -174,13 +174,13 @@ export default function AttendancePage() {
       // --- Handle non-JSON ---
       if (!res.ok) {
         console.error("Server responded with error:", res.status, text.slice(0, 200));
-        showMessage(`Server error (${res.status}) — please contact admin.`, "error");
+        showMessage("Time up — marked absent. You can contact your manager for clarification.", "warning");
         return;
       }
 
       if (text.trim().startsWith("<")) {
         console.error("HTML response (likely 404/500 from backend):", text.slice(0, 200));
-        showMessage("Server returned invalid response. Please check backend API.", "error");
+        showMessage("Time up — marked absent. You can contact your manager for clarification.", "warning");
         return;
       }
 
@@ -192,11 +192,11 @@ export default function AttendancePage() {
         setConfirmation({ userName: data.userName || "User", time: currentTime });
         setTimeout(() => setConfirmation(null), 3000);
       } else {
-        showMessage(data.message || "Failed to mark attendance", "error");
+        showMessage("Time up — marked absent. You can contact your manager for clarification.", "warning");
       }
     } catch (err) {
       console.error("Upload error:", err);
-      showMessage("Network or server error — please retry.", "error");
+      showMessage("Time up — marked absent. You can contact your manager for clarification.", "warning");
     } finally {
       setLoading(false);
       if (callback) callback();
@@ -274,6 +274,11 @@ export default function AttendancePage() {
                     ref={canvasRef}
                     className={`absolute top-0 left-0 w-full h-full ${canvasVisible ? 'block' : 'hidden'}`}
                   />
+                  {(!scanning && !canvasVisible) && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-48 h-48 rounded-full border-2 border-white/30 shadow-[0_0_40px_rgba(255,255,255,0.15)]" style={{boxShadow:"0 0 60px rgba(59,130,246,0.25) inset"}}></div>
+                    </div>
+                  )}
                   {/* Facial scan overlay */}
                   {scanning && (
                     <div
@@ -283,6 +288,8 @@ export default function AttendancePage() {
                         transition: "transform 1s ease-in-out",
                       }}
                     >
+                      <div className="absolute inset-0" style={{background:"radial-gradient(ellipse at center, rgba(59,130,246,0.20) 0%, rgba(0,0,0,0.0) 60%)"}}></div>
+                      <div className="absolute inset-0" style={{boxShadow:"inset 0 0 120px rgba(0,0,0,0.35)"}}></div>
                       {/* Hexagonal wireframe with smooth opacity animation */}
                       <svg
                         viewBox="0 0 200 200"
@@ -294,6 +301,15 @@ export default function AttendancePage() {
                         style={{ animation: "hex-opacity 3s ease-in-out infinite alternate" }}
                       >
                         <polygon points="100,15 155,50 155,120 100,155 45,120 45,50" />
+                      </svg>
+                      <svg viewBox="0 0 200 200" className="absolute w-60 h-60" style={{animation:"rotate-ring 6s linear infinite"}}>
+                        <defs>
+                          <linearGradient id="grad">
+                            <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.9" />
+                            <stop offset="100%" stopColor="#a78bfa" stopOpacity="0.9" />
+                          </linearGradient>
+                        </defs>
+                        <circle cx="100" cy="100" r="86" fill="none" stroke="url(#grad)" strokeWidth="2" strokeDasharray="6 10" strokeLinecap="round" />
                       </svg>
                       {/* Multiple layered scanning grid lines */}
                       <svg
@@ -312,9 +328,9 @@ export default function AttendancePage() {
                               y2="100%"
                               stroke="white"
                               strokeWidth="1"
-                              strokeOpacity="0.15"
+                              strokeOpacity="0.2"
                               style={{
-                                animation: `pulse-line 2.5s ease-in-out infinite`,
+                                animation: `pulse-line 2.1s ease-in-out infinite`,
                                 animationDelay: `${i * 0.3}s`,
                               }}
                             />
@@ -332,9 +348,9 @@ export default function AttendancePage() {
                               y2={y}
                               stroke="white"
                               strokeWidth="1"
-                              strokeOpacity="0.15"
+                              strokeOpacity="0.2"
                               style={{
-                                animation: `pulse-line 2.5s ease-in-out infinite`,
+                                animation: `pulse-line 2.1s ease-in-out infinite`,
                                 animationDelay: `${i * 0.3 + 1.2}s`,
                               }}
                             />
@@ -348,7 +364,7 @@ export default function AttendancePage() {
                           y2={`${scanLine}%`}
                           stroke="white"
                           strokeWidth="2"
-                          strokeOpacity="0.6"
+                          strokeOpacity="0.85"
                           style={{ filter: "drop-shadow(0 0 4px white)" }}
                         />
                         {/* Animated scanning lines (vertical) */}
@@ -359,7 +375,7 @@ export default function AttendancePage() {
                           y2="100%"
                           stroke="white"
                           strokeWidth="2"
-                          strokeOpacity="0.6"
+                          strokeOpacity="0.85"
                           style={{ filter: "drop-shadow(0 0 4px white)" }}
                         />
                       </svg>
@@ -420,7 +436,14 @@ export default function AttendancePage() {
                             stroke-opacity: 0.3;
                           }
                         }
+                        @keyframes rotate-ring {
+                          0% { transform: rotate(0deg); }
+                          100% { transform: rotate(360deg); }
+                        }
                       `}</style>
+                      <div className="absolute top-3 right-3 px-2.5 py-1.5 rounded-full bg-black/50 text-white text-xs font-semibold backdrop-blur" style={{boxShadow:"0 0 10px rgba(99,102,241,0.5)"}}>
+                        {`${Math.min(100, Math.max(0, scanLine))}%`}
+                      </div>
                     </div>
                   )}
                 </div>

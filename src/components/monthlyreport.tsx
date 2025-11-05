@@ -71,10 +71,25 @@ interface AbsentRecord {
   [key: string]: unknown;
 }
 
+interface Leave {
+  id?: number | string;
+  employee_email?: string;
+  email?: string;
+  date?: string;
+  start_date?: string;
+  end_date?: string;
+  from_date?: string;
+  to_date?: string;
+  status?: string;
+  leave_type?: string;
+  reason?: string;
+  [key: string]: unknown;
+}
+
 interface MonthlyReportData {
   employees: Employee[];
   attendance: Attendance[];
-  leaves: unknown[];
+  leaves: Leave[];
   reports: Report[];
   tasks: Task[];
   absent: AbsentRecord[];
@@ -120,7 +135,7 @@ const MonthlyReportDashboard = () => {
           'holidays/',
         ];
 
-        const baseURL = 'https://globaltechsoftwaresolutions.cloud/api/accounts/';
+        const baseURL = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/`;
 
         // Fetch main endpoints
         const responses = await Promise.all(
@@ -161,8 +176,39 @@ const holidays = Array.isArray(holidaysRaw)
                 ? (emp.profile_picture as string)
                 : 'https://via.placeholder.com/150?text=User'
             };
+
+  // Get employee approved leaves for display, filtered by selected month and year
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const getEmployeeApprovedLeaves = (employee: Employee) => {
+    const emailLc = (employee.email || '').toLowerCase();
+    const month = selectedMonth;
+    const year = selectedYear;
+    const results: Leave[] = [];
+    data.leaves.forEach((l: Leave) => {
+      const lEmail = (l.employee_email || l.email || '').toLowerCase();
+      const status = String(l.status || '').toLowerCase();
+      if (lEmail !== emailLc || status !== 'approved') return;
+      const start = l.start_date || l.from_date || l.date;
+      if (!start) return;
+      const end = l.end_date || l.to_date || l.start_date || start;
+      const s = new Date(start as string);
+      const e = new Date(end as string);
+      // if any part of the range intersects selected month/year, include single card
+      if (
+        (s.getFullYear() === year && s.getMonth() === month) ||
+        (e.getFullYear() === year && e.getMonth() === month) ||
+        (s.getFullYear() < year || (s.getFullYear() === year && s.getMonth() < month)) &&
+        (e.getFullYear() > year || (e.getFullYear() === year && e.getMonth() > month))
+      ) {
+        results.push(l);
+      }
+    });
+    return results;
+  };
           });
-        const leaves = Array.isArray(leavesRaw) ? leavesRaw : leavesRaw.results || leavesRaw.data || [];
+        const leaves = Array.isArray(leavesRaw)
+          ? leavesRaw
+          : (leavesRaw.leaves || leavesRaw.results || leavesRaw.data || []);
         const reports = Array.isArray(reportsRaw) ? reportsRaw : reportsRaw.results || reportsRaw.data || [];
         
         // Tasks: ensure tasks array is under tasks
@@ -183,17 +229,20 @@ const holidays = Array.isArray(holidaysRaw)
           name: task.name || task.title || task.task_name || `Task ${task.id}`
         }));
 
-        // Fetch attendance data for each employee
+        // Fetch attendance data for each employee, filtered by selected month and year
         const attendanceMap: { [key: string]: Attendance[] } = {};
-        
-        // Fetch attendance for each employee with email
         for (const employee of employees) {
           if (employee.email) {
             try {
               const attendanceResponse = await fetch(`${baseURL}get_attendance/${employee.email}/`);
               if (attendanceResponse.ok) {
                 const attendanceJson = await attendanceResponse.json();
-                attendanceMap[employee.email] = (attendanceJson.attendance || []) as Attendance[];
+                const allAttendance = (attendanceJson.attendance || []) as Attendance[];
+                // Filter for selected month and year
+                attendanceMap[employee.email] = allAttendance.filter((rec) => {
+                  const recDate = new Date(rec.date || rec.attendance_date || '');
+                  return recDate.getMonth() === selectedMonth && recDate.getFullYear() === selectedYear;
+                });
               }
             } catch {
               console.warn(`Failed to fetch attendance for ${employee.email}`);
@@ -251,6 +300,7 @@ const holidays = Array.isArray(holidaysRaw)
     };
 
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle employee click
@@ -348,15 +398,35 @@ const holidays = Array.isArray(holidaysRaw)
     // Calculate average hours per valid attendance day
     const avgHours = validAttendanceRecords > 0 ? (totalHours / validAttendanceRecords).toFixed(1) : '0.0';
 
-    // Total attendance days (unique dates + Sundays as working days)
-    // This ensures that even if an employee has no attendance records, their attendance days will show at least the number of Sundays in the month.
+    // Total Attendance Days = unique union of: attendance days + approved leave days + all Sundays in selected month
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    let sundayCount = 0;
+    const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const unionDays = new Set<string>();
+    // attendance dates
+    employeeAttendance.forEach((rec: Attendance) => {
+      if (rec.date) unionDays.add(dayKey(new Date(rec.date)));
+    });
+    // approved leave dates for this employee in selected month
+    const emailLc = (employee.email || '').toLowerCase();
+    data.leaves.forEach((l: Leave) => {
+      const lEmail = (l.employee_email || l.email || '').toLowerCase();
+      const status = String(l.status || '').toLowerCase();
+      if (lEmail !== emailLc || status !== 'approved') return;
+      const start = l.start_date || l.from_date || l.date;
+      const end = l.end_date || l.to_date || l.start_date || l.date;
+      if (!start) return;
+      const s = new Date(start);
+      const e = end ? new Date(end) : new Date(start);
+      for (let d = new Date(s.getFullYear(), s.getMonth(), s.getDate()); d <= new Date(e.getFullYear(), e.getMonth(), e.getDate()); d.setDate(d.getDate() + 1)) {
+        if (d.getMonth() === selectedMonth && d.getFullYear() === selectedYear) unionDays.add(dayKey(new Date(d)));
+      }
+    });
+    // add all Sundays of the selected month
     for (let i = 1; i <= daysInMonth; i++) {
       const d = new Date(selectedYear, selectedMonth, i);
-      if (d.getDay() === 0) sundayCount++;
+      if (d.getDay() === 0) unionDays.add(dayKey(d));
     }
-    const totalAttendanceDays = Math.max(employeeAttendance.length, sundayCount);
+    const totalAttendanceDays = unionDays.size;
 
     // Productivity: percent of completed tasks
     const productivity = employeeTasks.length > 0 ? Math.round((completedTasks / employeeTasks.length) * 100) : 0;
@@ -397,6 +467,38 @@ const holidays = Array.isArray(holidaysRaw)
       const recordDate = new Date(record.date);
       return recordDate.getMonth() === selectedMonth && recordDate.getFullYear() === selectedYear;
     });
+  };
+
+  // --- Helpers: Normalize leave dates and count approved leaves for employee in selected month/year ---
+  const fmtKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const expandLeaveDates = (leave: Leave): string[] => {
+    const dates: string[] = [];
+    const start = leave.start_date || leave.from_date || leave.date;
+    const end = leave.end_date || leave.to_date || leave.start_date || leave.date;
+    if (!start) return dates;
+    const s = new Date(start);
+    const e = end ? new Date(end) : new Date(start);
+    for (let d = new Date(s.getFullYear(), s.getMonth(), s.getDate()); d <= new Date(e.getFullYear(), e.getMonth(), e.getDate()); d.setDate(d.getDate() + 1)) {
+      dates.push(fmtKey(new Date(d)));
+    }
+    return dates;
+  };
+  const getEmployeeApprovedLeavesCount = (employee: Employee): number => {
+    const email = (employee.email || '').toLowerCase();
+    let count = 0;
+    const month = selectedMonth;
+    const year = selectedYear;
+    data.leaves.forEach((l: Leave) => {
+      const lEmail = (l.employee_email || l.email || '').toLowerCase();
+      const status = String(l.status || '').toLowerCase();
+      if (lEmail !== email || status !== 'approved') return;
+      const dates = expandLeaveDates(l);
+      dates.forEach(ds => {
+        const d = new Date(ds);
+        if (d.getMonth() === month && d.getFullYear() === year) count += 1;
+      });
+    });
+    return count;
   };
 
   // Get employee absences for display, filtered by selected month and year
@@ -696,6 +798,7 @@ const holidays = Array.isArray(holidaysRaw)
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {(() => {
                     const metrics = getEmployeeMetrics(selectedEmployee);
+                    const approvedLeavesCount = getEmployeeApprovedLeavesCount(selectedEmployee);
                     
                     return (
                       <>
@@ -714,6 +817,10 @@ const holidays = Array.isArray(holidaysRaw)
                         <div className="text-center p-4 bg-white rounded-lg shadow-sm">
                           <p className="text-sm text-gray-600">Attendance Days</p>
                           <p className="text-xl font-bold text-yellow-600">{metrics.attendanceRecords}</p>
+                        </div>
+                        <div className="text-center p-4 bg-white rounded-lg shadow-sm">
+                          <p className="text-sm text-gray-600">Approved Leaves</p>
+                          <p className="text-xl font-bold text-sky-600">{approvedLeavesCount}</p>
                         </div>
                       </>
                     );
@@ -843,6 +950,65 @@ const holidays = Array.isArray(holidaysRaw)
                 </div>
               </div>
 
+              {/* Approved Leaves */}
+              <div className="mt-6">
+                <h4 className="text-base font-semibold text-gray-800 mb-2">Approved Leaves</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {(() => {
+                    const emailLc = (selectedEmployee.email || '').toLowerCase();
+                    const month = selectedMonth;
+                    const year = selectedYear;
+                    const leavesList = data.leaves
+                      .filter((l: Leave) => String(l.status || '').toLowerCase() === 'approved')
+                      .filter((l: Leave) => (l.employee_email || l.email || '').toLowerCase() === emailLc)
+                      .filter((l: Leave) => {
+                        const start = l.start_date || l.from_date || l.date;
+                        if (!start) return false;
+                        const end = l.end_date || l.to_date || l.start_date || start;
+                        const s = new Date(start);
+                        const e = new Date(end);
+                        return (
+                          (s.getFullYear() === year && s.getMonth() === month) ||
+                          (e.getFullYear() === year && e.getMonth() === month) ||
+                          ((s.getFullYear() < year || (s.getFullYear() === year && s.getMonth() < month)) &&
+                           (e.getFullYear() > year || (e.getFullYear() === year && e.getMonth() > month)))
+                        );
+                      });
+                    if (leavesList.length === 0) {
+                      return (
+                        <p className="text-gray-500 text-center py-4 col-span-2">No approved leaves found</p>
+                      );
+                    }
+                    return leavesList.map((l: Leave, idx: number) => {
+                      const start = l.start_date || l.from_date || l.date;
+                      const end = l.end_date || l.to_date || l.start_date || l.date;
+                      const type = l.leave_type || 'Leave';
+                      return (
+                        <div key={idx} className="flex flex-col md:flex-row items-center justify-between bg-sky-50 rounded-lg shadow-sm p-3 border border-sky-200">
+                          <div className="flex-1 flex flex-col gap-1">
+                            <span className="font-medium text-sky-900">
+                              {start ? new Date(start).toLocaleDateString('en-GB') : 'N/A'}
+                              {end && end !== start ? ` → ${new Date(end).toLocaleDateString('en-GB')}` : ''}
+                            </span>
+                            <span className="text-xs text-sky-700">Status: <span className="font-semibold">Approved</span></span>
+                            {type && (
+                              <span className="text-xs text-sky-700">Type: {type}</span>
+                            )}
+                            {l.reason && (
+                              <span className="text-xs text-sky-700 break-words">Reason: {l.reason}</span>
+                            )}
+                          </div>
+                          <div className="text-right mt-2 md:mt-0">
+                            <span className="text-lg font-bold text-sky-700">LEAVE</span>
+                            <div className="text-xs text-sky-600">Approved</div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
               {/* Recent Tasks */}
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">📈 Recent Tasks</h3>
@@ -907,6 +1073,7 @@ interface ChartData {
   present: boolean;
   checkIn?: string;
   checkOut?: string;
+  running?: boolean;
 }
 
 // Attendance Chart Component (updated)
@@ -996,10 +1163,25 @@ const AttendanceChart = ({
       const isSunday = date.getDay() === 0;
 
       let hours = 0;
+      let running = false;
       if (record?.check_in && record?.check_out) {
         const [inH, inM] = record.check_in.split(":").map(Number);
         const [outH, outM] = record.check_out.split(":").map(Number);
         hours = Math.max(0, Math.min(((outH * 60 + outM) - (inH * 60 + inM)) / 60, 16));
+      } else if (record?.check_in && !record?.check_out) {
+        // If checked in today but not checked out, compute hours till now
+        const today = new Date();
+        if (
+          date.getFullYear() === today.getFullYear() &&
+          date.getMonth() === today.getMonth() &&
+          date.getDate() === today.getDate()
+        ) {
+          const [inH, inM] = record.check_in.split(":").map(Number);
+          const nowH = today.getHours();
+          const nowM = today.getMinutes();
+          hours = Math.max(0, Math.min(((nowH * 60 + nowM) - (inH * 60 + inM)) / 60, 16));
+          running = true;
+        }
       }
 
       newChartData.push({
@@ -1012,6 +1194,7 @@ const AttendanceChart = ({
         present: !!record,
         checkIn: record?.check_in,
         checkOut: record?.check_out,
+        running,
       });
     }
 

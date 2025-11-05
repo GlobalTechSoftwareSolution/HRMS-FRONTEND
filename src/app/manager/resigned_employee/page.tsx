@@ -49,7 +49,7 @@ const ReleavedList = () => {
     try {
       setLoading(true);
       const res = await axios.get(
-        "https://globaltechsoftwaresolutions.cloud/api/accounts/list_releaved/"
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_releaved/`
       );
       // Add derived approval_status property
       const formattedData = (res.data || []).map((emp: Employee) => {
@@ -93,7 +93,7 @@ const ReleavedList = () => {
         description: description[email] || "manager rejected resignation due to incomplete documentation",
       });
       const res = await axios.patch(
-        `https://globaltechsoftwaresolutions.cloud/api/accounts/releaved/${id}/`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/releaved/${id}/`,
         {
           approval_stage: "manager",
           approved: approved === "yes" ? "Approved" : "Rejected",

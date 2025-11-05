@@ -26,7 +26,7 @@ const ProjectPage = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch('https://globaltechsoftwaresolutions.cloud/api/accounts/list_projects/');
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_projects/`);
         if (!res.ok) throw new Error('Failed to fetch projects');
         const data = await res.json();
         // Assuming the API returns { projects: [...] }
