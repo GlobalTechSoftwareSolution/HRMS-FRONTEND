@@ -23,8 +23,6 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 
 
-
-
 type Holiday = {
   date: string;
   summary: string;
@@ -60,6 +58,8 @@ type Employee = {
   email: string;
   fullname: string;
   department: string;
+  date_joined?: string;
+  [key: string]: unknown;
 };
 
 import { useRouter } from "next/navigation";
@@ -92,6 +92,41 @@ export default function ManagerDashboard() {
   // Attendance filter for attendance cards
   // null = all, "checked-in" = only checked-in, "absent" = only absent
   const [attendanceFilter, setAttendanceFilter] = useState<null | "checked-in" | "absent">(null);
+  // Leaves KPI (updates with selected date)
+  const [leavesToday, setLeavesToday] = useState(0);
+  // Fetch leaves for selected date (or today if none selected) - improved for local timezone
+  useEffect(() => {
+    const fetchLeavesForDate = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/`
+        );
+        if (!res.ok) throw new Error("Failed to fetch leaves");
+        const data = await res.json();
+        const leaves = data.leaves || [];
+        const targetDate = selectedDate
+          ? new Date(selectedDate)
+          : new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+        const matchingLeaves = leaves.filter((l: { start_date: string; end_date: string; status: string }) => {
+          if (l.status !== "Approved") return false;
+
+          const start = new Date(l.start_date);
+          const end = new Date(l.end_date);
+
+          // Normalize start and end to cover full local day
+          start.setHours(0, 0, 0, 0);
+          end.setHours(23, 59, 59, 999);
+
+          return targetDate >= start && targetDate <= end;
+        });
+        setLeavesToday(matchingLeaves.length);
+      } catch (err) {
+        console.error("Error fetching leaves for date:", err);
+      }
+    };
+    fetchLeavesForDate();
+  }, [selectedDate]);
   const router = useRouter();
 
   // ---------------- Fetch Attendance ----------------
@@ -149,8 +184,14 @@ export default function ManagerDashboard() {
         );
         if (!res.ok) throw new Error("Failed to fetch employees");
         const data: Employee[] = await res.json();
-        setEmployees(data);
-        setTotalEmployees(data.length);
+        const today = new Date();
+        const filtered = data.filter(emp => {
+          if (!emp.date_joined) return true;
+          const joinDate = new Date(emp.date_joined);
+          return joinDate <= today; // include only if joined on or before today
+        });
+        setEmployees(filtered);
+        setTotalEmployees(filtered.length);
       } catch (err) {
         console.error("Error fetching employees:", err);
       } finally {
@@ -172,23 +213,31 @@ export default function ManagerDashboard() {
     attendanceMap[rec.email] = rec;
   });
   // Compose full list: for each employee, get their attendance record for the date, or fill as absent
-  const dateAttendance = employees.map((emp) => {
-    const rec = attendanceMap[emp.email];
-    if (rec) {
-      return rec;
-    } else {
-      // Absent employee
-      return {
-        email: emp.email,
-        fullname: emp.fullname,
-        department: emp.department,
-        date: effectiveDate,
-        check_in: null,
-        check_out: null,
-        hours: { hrs: 0, mins: 0, secs: 0 },
-      };
-    }
-  });
+  const dateAttendance = employees
+    .filter((emp) => {
+      // Skip if employee joined after the selected date
+      if (!emp.date_joined) return true;
+      const joinedDate = new Date(emp.date_joined);
+      const checkDate = new Date(effectiveDate);
+      return joinedDate <= checkDate; // Include only if joined before or on that date
+    })
+    .map((emp) => {
+      const rec = attendanceMap[emp.email];
+      if (rec) {
+        return rec;
+      } else {
+        // Mark as absent only if joined before or on this date
+        return {
+          email: emp.email,
+          fullname: emp.fullname,
+          department: emp.department,
+          date: effectiveDate,
+          check_in: null,
+          check_out: null,
+          hours: { hrs: 0, mins: 0, secs: 0 },
+        };
+      }
+    });
   console.log("Computed dateAttendance for", effectiveDate, ":", dateAttendance);
   // Filtered attendance for KPI cards click
   const filteredDateAttendance = attendanceFilter === "checked-in"
@@ -383,20 +432,17 @@ export default function ManagerDashboard() {
   };
 
 
-
-  
-
-
-
 useEffect(() => {
   const fetchLeaves = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/leaves`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/`);
       if (!res.ok) throw new Error("Failed to fetch leaves");
       const data = await res.json();
-      setLeaves(data);
+      // Ensure leaves is always an array
+      setLeaves(Array.isArray(data.leaves) ? data.leaves : []);
     } catch (err) {
       console.error("Error fetching leaves:", err);
+      setLeaves([]);
     }
   };
   fetchLeaves();
@@ -416,12 +462,33 @@ const calendarEvents = [
         : "#f97316",
     textColor: "#fff",
   })),
-  ...leaves.map((l) => ({
-    title: `${l.employee_name || "Employee"} - ${l.status}`,
-    start: l.date,
-    backgroundColor: l.status === "Approved" ? "#eab308" : "#f97316",
-    textColor: "#000",
-  })),
+  ...leaves.map((l) => {
+    // Fix: add 1 day to end date since FullCalendar excludes the end date itself
+    // Remove unused variable 'start'
+    const end = new Date(String(l.end_date));
+    end.setDate(end.getDate() + 1);
+
+    return {
+      title: `${l.employee_name || "Employee"} - ${l.status}`,
+      start: String(l.start_date),
+      end: end.toISOString().split("T")[0],
+      backgroundColor:
+        l.status === "Approved"
+          ? "#22c55e"
+          : l.status === "Pending"
+          ? "#f59e0b"
+          : "#ef4444",
+      textColor: "#fff",
+      extendedProps: {
+        employee_name: l.employee_name,
+        leave_type: l.leave_type,
+        reason: l.reason,
+        status: l.status,
+        start_date: l.start_date,
+        end_date: l.end_date,
+      },
+    };
+  }),
 ];
 
 
@@ -448,7 +515,7 @@ const calendarEvents = [
 
         {/* KPI Cards */}
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-6"
+          className="flex flex-nowrap overflow-x-auto gap-3 sm:gap-4 mb-6 pb-2 scrollbar-thin scrollbar-thumb-gray-300"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -488,6 +555,21 @@ const calendarEvents = [
                 }, 0);
               },
             },
+            // Insert Leaves KPI before Total Hours
+            {
+              title: "Leaves",
+              value: leavesToday,
+              color: "bg-gradient-to-r from-yellow-400 to-yellow-600",
+              onClick: () => {
+                setAttendanceFilter(null);
+                setTimeout(() => {
+                  const section = document.getElementById("attendance-section");
+                  if (section) {
+                    section.scrollIntoView({ behavior: "smooth" });
+                  }
+                }, 0);
+              },
+            },
             {
               title: "Total Hours",
               value: totalHoursForDateDisplay,
@@ -505,7 +587,7 @@ const calendarEvents = [
           ].map((kpi) => (
             <motion.div
               key={kpi.title}
-              className={`rounded-2xl p-4 sm:p-6 text-white shadow-lg flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color} cursor-pointer`}
+              className={`min-w-[150px] sm:min-w-[180px] rounded-xl p-3 sm:p-4 text-white shadow-md flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color} cursor-pointer`}
               onClick={kpi.onClick}
               tabIndex={0}
               role="button"
@@ -516,7 +598,7 @@ const calendarEvents = [
               }}
             >
               <p className="text-sm sm:text-base font-medium opacity-90">{kpi.title}</p>
-              <p className="text-xl sm:text-2xl md:text-3xl font-bold">{kpi.value}</p>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold">{kpi.value}</p>
             </motion.div>
           ))}
         </motion.div>
@@ -732,14 +814,55 @@ const calendarEvents = [
                 showNonCurrentDates={false}
                 events={calendarEvents}
                 eventClick={(info) => {
-                  const clickedDate = info.event.startStr.split("T")[0];
-                  setSelectedDate(clickedDate);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                  const cell = info.el.closest(".fc-daygrid-day") as HTMLElement | null;
-                  if (cell) {
-                    document.querySelectorAll(".fc-daygrid-day.highlight-day").forEach(el => el.classList.remove("highlight-day"));
-                    cell.classList.add("highlight-day");
-                  }
+                  const { leave_type, reason, status, start_date, end_date } = info.event.extendedProps || {};
+                  const details = `
+                    <div style="
+                      color: black;
+                      position: relative;
+                      border-radius: 10px;
+                      padding: 0;
+                      max-width: 320px;
+                      font-family: sans-serif;
+                      overflow: hidden;
+                    ">
+                      <div style="
+                        position: absolute;
+                        inset: 0;
+                        background: rgba(20,20,20,0.48);
+                        z-index: 0;
+                        pointer-events: none;
+                      "></div>
+                      <div style="
+                        position: relative;
+                        background: #fff;
+                        color: #000;
+                        border-radius: 10px;
+                        padding: 18px 18px 14px 18px;
+                        box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+                        font-weight: 600;
+                        z-index: 1;
+                      ">
+                        <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 10px; color: #111;">${info.event.title}</h3>
+                        <p style="font-size: 13px; margin: 4px 0; font-weight: 500;"><strong>Type:</strong> <span style="font-weight:400">${leave_type || "N/A"}</span></p>
+                        <p style="font-size: 13px; margin: 4px 0; font-weight: 500;"><strong>Reason:</strong> <span style="font-weight:400">${reason || "N/A"}</span></p>
+                        <p style="font-size: 13px; margin: 4px 0; font-weight: 500;"><strong>Status:</strong> <span style="font-weight:400">${status || "N/A"}</span></p>
+                        <p style="font-size: 13px; margin: 4px 0; font-weight: 500;"><strong>From:</strong> <span style="font-weight:400">${start_date || info.event.startStr}</span></p>
+                        <p style="font-size: 13px; margin: 4px 0; font-weight: 500;"><strong>To:</strong> <span style="font-weight:400">${end_date || "-"}</span></p>
+                        <button id="closeCardBtn" style="margin-top: 10px; background:#2563eb; color:#fff; border:none; padding:7px 14px; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px;">Close</button>
+                      </div>
+                    </div>
+                  `;
+                  const existingCard = document.getElementById("leaveCard");
+                  if (existingCard) existingCard.remove();
+                  const card = document.createElement("div");
+                  card.id = "leaveCard";
+                  card.style.position = "absolute";
+                  card.style.zIndex = "9999";
+                  card.style.top = `${info.jsEvent.pageY + 10}px`;
+                  card.style.left = `${info.jsEvent.pageX + 10}px`;
+                  card.innerHTML = details;
+                  document.body.appendChild(card);
+                  document.getElementById("closeCardBtn")?.addEventListener("click", () => card.remove());
                 }}
                 dateClick={(arg) => {
                   const local = new Date(arg.date.getTime() - arg.date.getTimezoneOffset() * 60000);

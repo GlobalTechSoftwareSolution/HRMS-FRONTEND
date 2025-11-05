@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
+import Image from "next/image";
 
 type LeaveStatus = "Pending" | "Approved" | "Rejected";
 
@@ -16,6 +17,7 @@ type Leave = {
   status: LeaveStatus;
   daysRequested: number;
   submittedDate: string;
+  profilePic?: string;
 };
 
 // Raw API response (before mapping into Leave)
@@ -37,6 +39,28 @@ type LeaveApiResponseItem = {
 
 export default function HRLeavePage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [employeeMap, setEmployeeMap] = useState<
+    Record<
+      string,
+      {
+        name: string;
+        pic: string;
+        phone?: string;
+        department?: string;
+        designation?: string;
+        reports_to?: string;
+        skills?: string;
+        date_joined?: string;
+        gender?: string;
+        marital_status?: string;
+        nationality?: string;
+        residential_address?: string;
+        permanent_address?: string;
+        emergency_contact_name?: string;
+        emergency_contact_phone?: string;
+      }
+    >
+  >({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"All" | LeaveStatus>("All");
   const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
@@ -51,6 +75,75 @@ export default function HRLeavePage() {
   };
 
   useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const res = await fetch(`https://globaltechsoftwaresolutions.cloud/api/accounts/employees/`);
+        const data = await res.json();
+        const map: Record<
+          string,
+          {
+            name: string;
+            pic: string;
+            phone?: string;
+            department?: string;
+            designation?: string;
+            reports_to?: string;
+            skills?: string;
+            date_joined?: string;
+            gender?: string;
+            marital_status?: string;
+            nationality?: string;
+            residential_address?: string;
+            permanent_address?: string;
+            emergency_contact_name?: string;
+            emergency_contact_phone?: string;
+          }
+        > = {};
+        (data || []).forEach((emp: {
+          email?: string;
+          fullname?: string;
+          profile_picture?: string;
+          phone?: string;
+          department?: string;
+          designation?: string;
+          reports_to?: string;
+          skills?: string;
+          date_joined?: string;
+          gender?: string;
+          marital_status?: string;
+          nationality?: string;
+          residential_address?: string;
+          permanent_address?: string;
+          emergency_contact_name?: string;
+          emergency_contact_phone?: string;
+        }) => {
+          if (emp.email) {
+            map[emp.email] = {
+              name: emp.fullname || emp.email.split("@")[0],
+              pic: emp.profile_picture || "",
+              phone: emp.phone,
+              department: emp.department,
+              designation: emp.designation,
+              reports_to: emp.reports_to,
+              skills: emp.skills,
+              date_joined: emp.date_joined,
+              gender: emp.gender,
+              marital_status: emp.marital_status,
+              nationality: emp.nationality,
+              residential_address: emp.residential_address,
+              permanent_address: emp.permanent_address,
+              emergency_contact_name: emp.emergency_contact_name,
+              emergency_contact_phone: emp.emergency_contact_phone,
+            };
+          }
+        });
+        setEmployeeMap(map);
+      } catch (err) {
+        console.error("Error fetching employees:", err);
+      }
+    };
+    fetchEmployees();
+
     const fetchLeaves = async () => {
       try {
         const res = await fetch(
@@ -78,6 +171,13 @@ export default function HRLeavePage() {
           }
         );
 
+        mappedLeaves.forEach((l) => {
+          if (employeeMap[l.email]) {
+            l.name = employeeMap[l.email].name;
+            l.profilePic = employeeMap[l.email].pic;
+          }
+        });
+
         setLeaves(mappedLeaves);
       } catch (err) {
         console.error("Error fetching leaves:", err);
@@ -86,7 +186,7 @@ export default function HRLeavePage() {
       }
     };
     fetchLeaves();
-  }, []);
+  }, [employeeMap]);
 
   if (loading)
     return (
@@ -167,7 +267,27 @@ export default function HRLeavePage() {
                       className="text-sm text-gray-700 hover:bg-blue-50 transition-colors duration-150 cursor-pointer"
                       onClick={() => setSelectedLeave(leave)}
                     >
-                      <td className="p-4 font-medium">{leave.employeeId}</td>
+                      <td className="p-4 font-medium">
+                        <div className="flex items-center gap-3">
+                          {leave.profilePic ? (
+                            <Image
+                              src={leave.profilePic}
+                              alt={leave.name}
+                              width={40}
+                              height={40}
+                              className="rounded-full object-cover border"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
+                              {leave.name?.[0]?.toUpperCase() || "?"}
+                            </div>
+                          )}
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-gray-800">{leave.name || "Unknown"}</span>
+                            <span className="text-sm text-gray-500">{leave.email}</span>
+                          </div>
+                        </div>
+                      </td>
                       <td className="p-4 max-w-xs truncate">{leave.reason}</td>
                       <td className="p-4">
                         {new Date(leave.startDate).toLocaleDateString("en-GB")} → {new Date(leave.endDate).toLocaleDateString("en-GB")}
@@ -200,15 +320,31 @@ export default function HRLeavePage() {
               {filteredLeaves.map((leave) => (
                 <div
                   key={leave.id}
-                  className="bg-white shadow-md rounded-xl p-4 cursor-pointer hover:shadow-lg transition-shadow w-full"
+                  className="bg-white shadow-md rounded-lg p-4 space-y-2 border border-gray-100 hover:shadow-lg transition-shadow duration-200"
                   onClick={() => setSelectedLeave(leave)}
                 >
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-lg font-semibold text-gray-800 break-all">
-                      {leave.employeeId}
-                    </h3>
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      {leave.profilePic ? (
+                        <Image
+                          src={leave.profilePic}
+                          alt={leave.name}
+                          width={40}
+                          height={40}
+                          className="rounded-full object-cover border"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
+                          {leave.name?.[0]?.toUpperCase() || "?"}
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="text-base font-semibold text-gray-800">{leave.name || "Unknown"}</h3>
+                        <p className="text-xs text-gray-500">{leave.email}</p>
+                      </div>
+                    </div>
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                         leave.status === "Approved"
                           ? "bg-green-100 text-green-800"
                           : leave.status === "Rejected"
@@ -219,12 +355,15 @@ export default function HRLeavePage() {
                       {leave.status}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 mb-1 truncate">{leave.reason}</p>
-                  <div className="flex justify-between text-sm text-gray-500">
+
+                  <p className="text-sm text-gray-600 line-clamp-2">{leave.reason}</p>
+
+                  <div className="flex justify-between text-xs text-gray-500">
                     <span>
-                      {new Date(leave.startDate).toLocaleDateString("en-GB")} → {new Date(leave.endDate).toLocaleDateString("en-GB")}
+                      {new Date(leave.startDate).toLocaleDateString("en-GB")} →{" "}
+                      {new Date(leave.endDate).toLocaleDateString("en-GB")}
                     </span>
-                    <span>{calculateDays(leave.startDate, leave.endDate)} day(s)</span>
+                    <span>{calculateDays(leave.startDate, leave.endDate)} days</span>
                   </div>
                 </div>
               ))}
@@ -235,7 +374,7 @@ export default function HRLeavePage() {
         {/* Leave Details Modal */}
         {selectedLeave && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50 p-4 animate-fadeIn">
-            <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md relative animate-scaleIn">
+            <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg relative animate-scaleIn max-h-[80vh] overflow-y-auto space-y-4">
               <button
                 className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors duration-200 bg-gray-100 hover:bg-gray-200 rounded-full p-1"
                 onClick={() => setSelectedLeave(null)}
@@ -263,51 +402,106 @@ export default function HRLeavePage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500">Employee ID</p>
-                    <p className="font-medium">{selectedLeave.employeeId}</p>
+                    <p className="text-sm text-gray-500 leading-snug">Employee ID</p>
+                    <p className="font-medium break-words leading-relaxed text-gray-800 truncate max-w-[200px]" title={selectedLeave.employeeId}>
+                      {selectedLeave.employeeId || "N/A"}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Name</p>
-                    <p className="font-medium">{selectedLeave.name}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-500">Email</p>
-                  <p className="font-medium break-all">{selectedLeave.email}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-500">Reason</p>
-                  <p className="font-medium">{selectedLeave.reason}</p>
-                </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Start Date</p>
-                    <p className="font-medium">{new Date(selectedLeave.startDate).toLocaleDateString("en-GB")}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">End Date</p>
-                    <p className="font-medium">{new Date(selectedLeave.endDate).toLocaleDateString("en-GB")}</p>
+                    <p className="text-sm text-gray-500 leading-snug">Name</p>
+                    <p className="font-medium break-words leading-relaxed text-gray-800">{selectedLeave.name || "Unknown"}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500">Days Requested</p>
-                    <p className="font-medium">
-                      {calculateDays(selectedLeave.startDate, selectedLeave.endDate)}
-                    </p>
+                    <p className="text-sm text-gray-500 leading-snug">Email</p>
+                    <p className="font-medium break-words leading-relaxed text-gray-800">{selectedLeave.email}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Submitted On</p>
-                    <p className="font-medium">{new Date(selectedLeave.submittedDate).toLocaleDateString("en-GB")}</p>
+                    <p className="text-sm text-gray-500 leading-snug">Phone</p>
+                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.phone || "N/A"}</p>
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500 leading-snug">Department</p>
+                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.department || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 leading-snug">Designation</p>
+                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.designation || "N/A"}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500 leading-snug">Skills</p>
+                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.skills || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 leading-snug">Date Joined</p>
+                    <p className="font-medium break-words leading-relaxed text-gray-800">
+                      {employeeMap[selectedLeave.email]?.date_joined
+                        ? new Date(employeeMap[selectedLeave.email]?.date_joined ?? "").toLocaleDateString("en-GB")
+                        : "N/A"}
+                    </p>
+                  </div>
+                </div>
+
+                <hr className="border-gray-200 my-2" />
+
+                {/* Enhanced Employee Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500 leading-snug">Gender</p>
+                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.gender || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 leading-snug">Marital Status</p>
+                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.marital_status || "N/A"}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500 leading-snug">Nationality</p>
+                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.nationality || "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 leading-snug">Reporting Manager</p>
+                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.reports_to || "N/A"}</p>
+                  </div>
+                </div>
+
+                <hr className="border-gray-200 my-2" />
+
                 <div>
-                  <p className="text-sm text-gray-500">Status</p>
+                  <p className="text-sm text-gray-500 leading-snug">Residential Address</p>
+                  <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.residential_address || "N/A"}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500 leading-snug">Permanent Address</p>
+                  <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.permanent_address || "N/A"}</p>
+                </div>
+
+                <hr className="border-gray-200 my-2" />
+
+                <div>
+                  <p className="text-sm text-gray-500 leading-snug">Emergency Contact</p>
+                  <p className="font-medium break-words leading-relaxed text-gray-800">
+                    {employeeMap[selectedLeave.email]?.emergency_contact_name
+                      ? `${employeeMap[selectedLeave.email]?.emergency_contact_name} (${employeeMap[selectedLeave.email]?.emergency_contact_phone || "N/A"})`
+                      : "N/A"}
+                  </p>
+                </div>
+
+                <hr className="border-gray-200 my-2" />
+
+                <div>
+                  <p className="text-sm text-gray-500 leading-snug">Status</p>
                   <span
                     className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
                       selectedLeave.status === "Approved"

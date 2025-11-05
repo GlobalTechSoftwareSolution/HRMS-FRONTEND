@@ -218,6 +218,30 @@ export default function LeaveSection() {
           <p className="text-gray-600">Request and track your time off</p>
         </div>
 
+        {/* Leave Balance Summary */}
+        <div className="bg-blue-50 border border-blue-200 p-5 rounded-lg shadow-sm text-center">
+          <h3 className="text-lg font-semibold text-gray-800 mb-1">Annual Leave Balance</h3>
+          <p className="text-sm text-gray-600 mb-2">You have a total of 15 paid leaves per year.</p>
+          <p className="text-2xl font-bold text-blue-700">
+            {
+              15 -
+              leaves
+                .filter((l) => l.status.toLowerCase() === "approved")
+                .reduce((total, l) => {
+                  const days = Math.max(
+                    1,
+                    Math.ceil(
+                      (new Date(l.endDate).getTime() - new Date(l.startDate).getTime()) /
+                        (1000 * 60 * 60 * 24)
+                    ) + 1
+                  );
+                  return total + days;
+                }, 0)
+            }{" "}
+            days remaining
+          </p>
+        </div>
+
         {/* Add Leave Form */}
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold mb-4 text-gray-700 flex items-center">

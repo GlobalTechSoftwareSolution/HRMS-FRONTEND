@@ -30,22 +30,26 @@ interface Employee {
   description?: string;
   releaved_date?: string;
   releaved?: string;
+  manager_approved?: string;
+  hr_approved?: string;
+  offboarded_at?: string;
+  ready_to_releve?: boolean;
 }
 
 const EmployeeList = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [releavedEmployees, setReleavedEmployees] = useState<Employee[]>([]);
+  const [appliedEmployees, setAppliedEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [selectedReleavedEmployee, setSelectedReleavedEmployee] = useState<Employee | null>(null);
   const [showRemoveForm, setShowRemoveForm] = useState<Employee | null>(null);
   const [terminationReason, setTerminationReason] = useState("");
   const [terminationDate, setTerminationDate] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"active" | "releaved">("active");
+  const [activeTab, setActiveTab] = useState<"active" | "applied" | "releaved">("active");
 
   const EMPLOYEES_API = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`;
   const RELEAVED_API = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_releaved/`
-  const POST_RELEAVED_API = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/releaved/`;
 
   // Fetch Employees + Releaved
   useEffect(() => {
@@ -57,7 +61,45 @@ const EmployeeList = () => {
           axios.get(RELEAVED_API),
         ]);
         setEmployees(activeRes.data || []);
-        setReleavedEmployees(releavedRes.data || []);
+        const allReleaved = releavedRes.data || [];
+        // Releaved Employees - only those actually HR approved (not pending/empty)
+        const filteredReleaved = allReleaved.filter(
+          (emp: {
+            manager_approved?: string;
+            hr_approved?: string;
+            offboarded_at?: string;
+            ready_to_releve?: boolean;
+          }) => {
+            const managerApproved =
+              emp.manager_approved?.toString().toLowerCase() === "approved" ||
+              emp.manager_approved?.toString().toLowerCase() === "yes";
+            const hrStatus = emp.hr_approved?.toString().toLowerCase();
+            // Only show if HR has actually approved (not pending/empty)
+            const hrActuallyApproved =
+              hrStatus === "approved" || hrStatus === "yes";
+            const readyToReleve = emp.ready_to_releve === true;
+            const relieved = !!emp.offboarded_at || readyToReleve; // include ready_to_releve employees as releaved
+            return managerApproved && hrActuallyApproved && relieved;
+          }
+        );
+        setReleavedEmployees(filteredReleaved);
+
+        // Applied for Relieve Employees - only when hr_approved is pending/empty/null/undefined
+        const filteredApplied = allReleaved.filter(
+          (emp: {
+            manager_approved?: string;
+            hr_approved?: string;
+          }) => {
+            const managerApproved =
+              emp.manager_approved?.toString().toLowerCase() === "approved" ||
+              emp.manager_approved?.toString().toLowerCase() === "yes";
+            const hrStatus = emp.hr_approved?.toString().toLowerCase();
+            const hrPendingOrEmpty =
+              !hrStatus || hrStatus === "pending" || hrStatus.trim() === "";
+            return managerApproved && hrPendingOrEmpty;
+          }
+        );
+        setAppliedEmployees(filteredApplied);
       } catch (err) {
         console.error("Error fetching employees:", err);
       } finally {
@@ -66,6 +108,63 @@ const EmployeeList = () => {
     };
     fetchEmployees();
   }, [EMPLOYEES_API, RELEAVED_API]);
+  // Approve/Reject HR API
+  const handleHrApprove = async (email: string, status: "Approved" | "Rejected") => {
+    try {
+      // Find employee ID using email
+      const emp = appliedEmployees.find((e) => e.email === email);
+      if (!emp || !emp.id) {
+        alert("Employee ID not found for HR approval.");
+        return;
+      }
+
+      // Check manager approval before HR approves
+      if (
+        emp.manager_approved?.toString().toLowerCase() !== "approved" &&
+        emp.manager_approved?.toString().toLowerCase() !== "yes"
+      ) {
+        alert("Cannot process HR approval. Manager approval is required first.");
+        return;
+      }
+
+      await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/releaved/${emp.id}/`,
+        {
+          approval_stage: "hr",
+          approved: status,
+          description:
+            status === "Approved"
+              ? "HR approved resignation after manager review"
+              : "HR rejected resignation after review",
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        }
+      );
+
+      alert(`HR ${status} successfully!`);
+      // Refresh employee list
+      const [activeRes, releavedRes] = await Promise.all([
+        axios.get(EMPLOYEES_API),
+        axios.get(RELEAVED_API),
+      ]);
+      setEmployees(activeRes.data || []);
+      const allReleaved = releavedRes.data || [];
+      const filteredReleaved = allReleaved.filter(
+        (emp: Employee) =>
+          emp.manager_approved?.toLowerCase() === "approved" &&
+          emp.hr_approved?.toLowerCase() === "approved" &&
+          (emp.offboarded_at || emp.ready_to_releve)
+      );
+      setReleavedEmployees(filteredReleaved);
+    } catch (err) {
+      console.error("Error updating HR approval:", err);
+      alert("Failed to update HR approval.");
+    }
+  };
 
   // Generate Termination PDF
   const generateTerminationPDF = async (
@@ -158,16 +257,32 @@ const EmployeeList = () => {
     try {
       await generateTerminationPDF(showRemoveForm, terminationReason, terminationDate);
 
-      await axios.post(POST_RELEAVED_API, {
-        email: showRemoveForm.email,
-        fullname: showRemoveForm.fullname,
-        department: showRemoveForm.department,
-        designation: showRemoveForm.designation,
-        description: terminationReason,
-        releaved: terminationDate,
-      });
+      const id = showRemoveForm.id;
+      if (!id) {
+        alert("Employee ID not found for removal.");
+        return;
+      }
 
-      alert("Employee removed successfully.");
+      const res = await axios.patch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/releaved/${id}/`,
+        {
+          approval_stage: "hr",
+          approved: "Approved",
+          description: terminationReason || "hr rejected resignation due to incomplete documentation",
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        }
+      );
+
+      if (res.data.error) {
+        alert(res.data.error);
+      } else {
+        alert(res.data.message || "HR approved resignation successfully!");
+      }
 
       setEmployees((prev) =>
         prev.filter((e) => e.email !== showRemoveForm.email)
@@ -238,6 +353,17 @@ const EmployeeList = () => {
                 >
                   <User className="w-4 h-4 mr-2" />
                   Active Employees ({employees.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab("applied")}
+                  className={`flex items-center px-6 py-4 font-medium text-sm transition-all ${
+                    activeTab === "applied"
+                      ? "text-yellow-600 border-b-2 border-yellow-500 bg-yellow-50"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <Users className="w-4 h-4 mr-2" />
+                  Applied for Relieve ({appliedEmployees.length})
                 </button>
                 <button
                   onClick={() => setActiveTab("releaved")}
@@ -321,6 +447,73 @@ const EmployeeList = () => {
                     </div>
                   ))}
                 </div>
+              ) : activeTab === "applied" ? (
+                // Applied for Relieve Tab
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {appliedEmployees.map((emp) => (
+                    <div
+                      key={emp.email}
+                      className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-yellow-200"
+                    >
+                      <div className="flex flex-col items-center text-center">
+                        <div className="relative mb-4">
+                          <Image
+                            src={emp.profile_picture || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"}
+                            alt={emp.fullname}
+                            width={150}
+                            height={150}
+                            className="w-20 h-20 rounded-full object-cover border-4 border-yellow-50"
+                          />
+                          <div className="absolute bottom-0 right-0 w-5 h-5 bg-yellow-400 rounded-full border-2 border-white"></div>
+                        </div>
+
+                        <h3 className="font-bold text-lg text-gray-900 mb-1">
+                          {emp.fullname}
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-3 flex items-center">
+                          <Mail className="w-3 h-3 mr-1" />
+                          {emp.email}
+                        </p>
+
+                        <div className="w-full space-y-2 mb-4">
+                          {emp.department && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-500 flex items-center">
+                                <Building className="w-3 h-3 mr-1" />
+                                Department
+                              </span>
+                              <span className="font-medium text-gray-900">{emp.department}</span>
+                            </div>
+                          )}
+                          {emp.designation && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-500 flex items-center">
+                                <Briefcase className="w-3 h-3 mr-1" />
+                                Role
+                              </span>
+                              <span className="font-medium text-gray-900">{emp.designation}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2 w-full mt-2">
+                          <button
+                            onClick={() => handleHrApprove(emp.email, "Approved")}
+                            className="flex-1 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleHrApprove(emp.email, "Rejected")}
+                            className="flex-1 bg-red-600 text-white py-2 px-3 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {releavedEmployees.map((emp) => (
@@ -381,7 +574,11 @@ const EmployeeList = () => {
                 <div className="text-center py-12">
                   <LogOut className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No Releaved Employees</h3>
-                  <p className="text-gray-500">No employees have been releaved yet.</p>
+                  <p className="text-gray-500">
+                    {appliedEmployees.some((e) => e.ready_to_releve)
+                      ? "Some employees are ready to relieve but not finalized yet."
+                      : "No employees have been releaved yet."}
+                  </p>
                 </div>
               )}
             </div>
@@ -471,6 +668,72 @@ const EmployeeList = () => {
                             {formatDate(selectedEmployee?.date_joined || selectedReleavedEmployee?.date_joined)}
                           </span>
                         </div>
+
+                      {/* Relief/Approval Progress Steps */}
+                      {(selectedEmployee || selectedReleavedEmployee) && (() => {
+                        // Get the status data from selectedEmployee or selectedReleavedEmployee
+                        const statusData: Employee | Record<string, unknown> = selectedEmployee || selectedReleavedEmployee || {};
+                        const steps = [
+                          { label: "Applied", active: !!statusData },
+                          {
+                            label: "Manager Approved",
+                            active:
+                              statusData.manager_approved?.toString().toLowerCase() === "approved" ||
+                              statusData.manager_approved?.toString().toLowerCase() === "yes",
+                            rejected:
+                              statusData.manager_approved?.toString().toLowerCase() === "rejected" ||
+                              statusData.manager_approved?.toString().toLowerCase() === "no",
+                          },
+                          {
+                            label: "HR Approved",
+                            active:
+                              statusData.hr_approved?.toString().toLowerCase() === "approved" ||
+                              statusData.hr_approved?.toString().toLowerCase() === "yes",
+                            rejected:
+                              statusData.hr_approved?.toString().toLowerCase() === "rejected" ||
+                              statusData.hr_approved?.toString().toLowerCase() === "no",
+                          },
+                          {
+                            label: "Relieved",
+                            active:
+                              !!statusData.offboarded_at &&
+                              (statusData.hr_approved?.toString().toLowerCase() === "approved" ||
+                                statusData.hr_approved?.toString().toLowerCase() === "yes"),
+                          },
+                        ];
+                        return (
+                          <div>
+                            <div className="flex items-center justify-center gap-4 mb-2 mt-2">
+                              {steps.map((step, index) => (
+                                <React.Fragment key={step.label}>
+                                  <div className="flex flex-col items-center">
+                                    <div
+                                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                                        step.rejected
+                                          ? "bg-red-500 text-white"
+                                          : step.active
+                                          ? "bg-green-500 text-white"
+                                          : "bg-gray-300 text-gray-600"
+                                      }`}
+                                    >
+                                      {step.rejected ? "❌" : step.active && index === steps.length - 1 ? "✅" : index + 1}
+                                    </div>
+                                    <span className="text-xs mt-1 text-center w-20">{step.label}</span>
+                                  </div>
+                                  {index < steps.length - 1 && (
+                                    <div className="flex-1 h-1 bg-gray-300 w-4 mx-1" />
+                                  )}
+                                </React.Fragment>
+                              ))}
+                            </div>
+                            {steps[steps.length - 1].active && (
+                              <p className="mt-4 text-green-600 font-semibold text-center">
+                                Successfully Relieved ✅
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {selectedReleavedEmployee && (
                         <div className="bg-red-50 border border-red-200 rounded-lg p-4">

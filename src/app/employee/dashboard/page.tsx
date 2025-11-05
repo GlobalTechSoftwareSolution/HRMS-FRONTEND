@@ -154,7 +154,20 @@ export default function DashboardOverview() {
           <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border-l-4 border-green-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
             <div>
               <span className="text-green-600 text-xl sm:text-2xl font-bold">
-                {15 - leaveData.filter((l) => l.email === userEmail && l.status?.toLowerCase() === "approved").length}
+                {15 -
+                  leaveData
+                    .filter((l) => l.email === userEmail && l.status?.toLowerCase() === "approved")
+                    .reduce((total, l) => {
+                      const days = Math.max(
+                        1,
+                        Math.ceil(
+                          (new Date(l.end_date).getTime() - new Date(l.start_date).getTime()) /
+                            (1000 * 60 * 60 * 24)
+                        ) + 1
+                      );
+                      return total + days;
+                    }, 0)
+                }
               </span>
               <p className="text-gray-500 mt-1 text-sm">Leave Balance</p>
               <p className="text-xs text-gray-400 mt-0.5">Days remaining</p>

@@ -18,6 +18,10 @@ interface Employee {
   work_location?: string;
   approved?: string;
   reason_for_resignation?: string;
+  manager_approved?: string;
+  hr_approved?: string;
+  applied_at?: string;
+  offboarded_datetime?: string;
 }
 
 interface ModalState {
@@ -47,7 +51,25 @@ const ReleavedList = () => {
       const res = await axios.get(
         "https://globaltechsoftwaresolutions.cloud/api/accounts/list_releaved/"
       );
-      setEmployees(res.data);
+      // Add derived approval_status property
+      const formattedData = (res.data || []).map((emp: Employee) => {
+        let approvalStatus = "Pending";
+        if (emp.manager_approved === "Approved") approvalStatus = "Approved";
+        else if (emp.manager_approved === "Rejected") approvalStatus = "Rejected";
+        else if (!emp.manager_approved || emp.manager_approved === "") approvalStatus = "Pending";
+
+        return {
+          ...emp,
+          approval_status: approvalStatus,
+          approved:
+            emp.manager_approved === "Approved"
+              ? "yes"
+              : emp.manager_approved === "Rejected"
+              ? "no"
+              : "pending",
+        };
+      });
+      setEmployees(formattedData);
     } catch (error) {
       console.error("❌ Error fetching employees:", error);
       showModal('error', null, "Failed to fetch employees data");
@@ -61,36 +83,45 @@ const ReleavedList = () => {
   }, [fetchReleavedEmployees]);
 
   // 🧩 Update approval + description
-  const handleUpdate = async (email: string, approved: string) => {
+  const handleUpdate = async (id: number, email: string, approved: string) => {
     try {
       setLoading(true);
-
-      const body = {
-        approved,
-        description: description[email] || "",
-      };
-
-      console.log("📤 Sending:", body);
-
+      // Log the PATCH payload before sending
+      console.log("📤 PATCH Payload:", {
+        approval_stage: "manager",
+        approved: approved === "yes" ? "Approved" : "Rejected",
+        description: description[email] || "manager rejected resignation due to incomplete documentation",
+      });
       const res = await axios.patch(
-        `https://globaltechsoftwaresolutions.cloud/api/accounts/releaved/${email}/`,
-        body,
+        `https://globaltechsoftwaresolutions.cloud/api/accounts/releaved/${id}/`,
+        {
+          approval_stage: "manager",
+          approved: approved === "yes" ? "Approved" : "Rejected",
+          description: description[email] || "manager rejected resignation due to incomplete documentation",
+        },
         {
           headers: {
             "Content-Type": "application/json",
+            Accept: "application/json",
           },
         }
       );
 
       console.log("✅ Success:", res.data);
       
-      // Show success modal
-      showModal('success', null, res.data.message || `Employee ${approved === 'yes' ? 'approved' : 'rejected'} successfully!`);
+      // Show success or error modal based on response
+      if (res.data.error) {
+        showModal('error', null, res.data.error);
+      } else {
+        showModal('success', null, res.data.message || `Employee ${approved === 'yes' ? 'approved' : 'rejected'} successfully!`);
+      }
       
       fetchReleavedEmployees();
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         console.error("❌ Error updating:", error.response?.data || error.message);
+        // Enhanced error logging
+        console.log("📥 Full error:", error.toJSON ? error.toJSON() : error);
       } else {
         console.error("❌ Unexpected error:", error);
       }
@@ -120,7 +151,7 @@ const ReleavedList = () => {
 
   const confirmAction = () => {
     if (modal.employee && modal.type && (modal.type === 'approve' || modal.type === 'reject')) {
-      handleUpdate(modal.employee.email, modal.type === 'approve' ? 'yes' : 'no');
+      handleUpdate(modal.employee.id!, modal.employee.email, modal.type === 'approve' ? 'yes' : 'no');
     }
     closeModal();
   };
@@ -271,6 +302,9 @@ const ReleavedList = () => {
                             Department & Role
                           </th>
                           <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Dates
+                          </th>
+                          <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Status
                           </th>
                           <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -308,6 +342,16 @@ const ReleavedList = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{emp.department || "-"}</div>
                               <div className="text-sm text-gray-500">{emp.designation || "-"}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                              <div>
+                                <span className="font-medium text-gray-800">Applied:</span>{" "}
+                                {formatDate(emp.applied_at)}
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-800">Resigned:</span>{" "}
+                                {emp.offboarded_datetime ? formatDate(emp.offboarded_datetime) : "-"}
+                              </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -442,6 +486,16 @@ const ReleavedList = () => {
                     <div>
                       <label className="text-sm font-medium text-gray-500">Date Joined</label>
                       <p className="text-sm text-gray-900 mt-1">{formatDate(modal.employee.date_joined)}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Applied Date</label>
+                      <p className="text-sm text-gray-900 mt-1">{formatDate(modal.employee.applied_at)}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Relieved Date</label>
+                      <p className="text-sm text-gray-900 mt-1">
+                        {modal.employee.offboarded_datetime ? formatDate(modal.employee.offboarded_datetime) : "-"}
+                      </p>
                     </div>
                   </div>
                 </div>

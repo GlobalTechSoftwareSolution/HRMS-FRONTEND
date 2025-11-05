@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
@@ -42,6 +43,24 @@ type AbsenceRecord = {
     date: string;
 };
 
+type ProfileData = {
+  email: string;
+  fullname: string;
+  phone?: string;
+  department?: string | null;
+  designation?: string | null;
+  date_of_birth?: string | null;
+  date_joined?: string | null;
+  skills?: string | null;
+  profile_picture?: string | null;
+  gender?: string | null;
+  marital_status?: string | null;
+  nationality?: string | null;
+  residential_address?: string | null;
+  permanent_address?: string | null;
+  emergency_contact_name?: string | null;
+};
+
 export default function AttendancePortal() {
     const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
     const [fetchedAttendance, setFetchedAttendance] = useState<AttendanceRecord[]>([]);
@@ -61,6 +80,19 @@ export default function AttendancePortal() {
     // Absences state
     const [absences, setAbsences] = useState<AbsenceRecord[]>([]);
     const [, setLoadingAbsences] = useState(false);
+
+    // Profile data state (moved to top level)
+    const [profileData, setProfileData] = useState<ProfileData | null>(null);
+
+    useEffect(() => {
+      const userEmail = localStorage.getItem("user_email");
+      if (userEmail && !profileData) {
+        fetch(`https://globaltechsoftwaresolutions.cloud/api/accounts/employees/${encodeURIComponent(userEmail)}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => setProfileData(data))
+          .catch(() => {});
+      }
+    }, [profileData]);
 
     useEffect(() => {
         setIsClient(true);
@@ -315,6 +347,76 @@ export default function AttendancePortal() {
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
+    };
+
+    // ✅ Define handleMarkAttendance for check-in / check-out
+    const handleMarkAttendance = async () => {
+      try {
+        const userEmail = localStorage.getItem("user_email");
+        if (!userEmail) {
+          alert("⚠️ No user email found. Please log in again.");
+          return;
+        }
+
+        // Fetch employee info
+        const empRes = await fetch(
+          `https://globaltechsoftwaresolutions.cloud/api/accounts/employees/${encodeURIComponent(userEmail)}/`
+        );
+
+        if (!empRes.ok) {
+          alert("❌ Could not fetch employee info.");
+          return;
+        }
+
+        const empData = await empRes.json();
+
+        // Get GPS coordinates
+        if (!navigator.geolocation) {
+          alert("❌ GPS not supported in this browser.");
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const { latitude, longitude } = pos.coords;
+
+            const formData = new FormData();
+            formData.append("email", userEmail);
+            formData.append("latitude", latitude.toString());
+            formData.append("longitude", longitude.toString());
+
+            // Attach profile image if available
+            if (empData?.profile_picture) {
+              const imgResponse = await fetch(empData.profile_picture);
+              const imgBlob = await imgResponse.blob();
+              formData.append("image", imgBlob, "mani2.jpeg");
+            }
+
+            const response = await fetch(
+              "https://globaltechsoftwaresolutions.cloud/api/accounts/office_attendance/",
+              {
+                method: "POST",
+                body: formData,
+              }
+            );
+
+            if (response.ok) {
+              alert("✅ Attendance marked successfully!");
+            } else {
+              const error = await response.text();
+              alert("❌ Failed to mark attendance: " + error);
+            }
+          },
+          (err) => {
+            console.error("GPS Error:", err);
+            alert("⚠️ Please enable GPS and allow location access in your browser settings!");
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      } catch (error) {
+        console.error("Error marking attendance:", error);
+        alert("❌ Something went wrong. Try again.");
+      }
     };
 
     const formatDateForDisplay = (dateStr: string) => {
@@ -812,69 +914,170 @@ export default function AttendancePortal() {
                                     </div>
 
                                     {selectedDateRecord ? (
-                                        <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 text-sm">
-                                            <div className="space-y-2">
-                                                {selectedDateRecord.fullname && selectedDateRecord.fullname !== "Sunday" && (
-                                                    <div className="flex justify-between">
-                                                        <span className="text-gray-600">Employee:</span>
-                                                        <span className="font-medium">{selectedDateRecord.fullname}</span>
-                                                    </div>
-                                                )}
-                                                {selectedDateRecord.department && selectedDateRecord.department !== "Weekend" && (
-                                                    <div className="flex justify-between">
-                                                        <span className="text-gray-600">Department:</span>
-                                                        <span className="font-medium">{selectedDateRecord.department}</span>
-                                                    </div>
-                                                )}
-                                                {selectedDateRecord.status !== "Sunday" && (
-                                                    <div className="flex justify-between">
-                                                        <span className="text-gray-600">Check-in:</span>
-                                                        <span className="font-medium text-green-600">
-                                                            {formatTime(selectedDateRecord.checkIn)}
-                                                        </span>
-                                                    </div>
-                                                )}
+                                      <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 text-sm">
+                                        <div className="space-y-2">
+                                          {selectedDateRecord.fullname && selectedDateRecord.fullname !== "Sunday" && (
+                                            <div className="flex justify-between">
+                                              <span className="text-gray-600">Employee:</span>
+                                              <span className="font-medium">{selectedDateRecord.fullname}</span>
                                             </div>
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between">
-                                                    <span className="text-gray-600">Status:</span>
-                                                    <span className={`font-medium px-2 py-1 rounded text-xs sm:text-sm ${getStatusColor(selectedDateRecord.status)}`}>
-                                                        {selectedDateRecord.status}
-                                                    </span>
-                                                </div>
-                                                {selectedDateRecord.status !== "Sunday" && (
-                                                    <>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-600">Check-out:</span>
-                                                            <span className="font-medium text-red-600">
-                                                                {formatTime(selectedDateRecord.checkOut)}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex justify-between">
-                                                            <span className="text-gray-600">Hours:</span>
-                                                            <span className="font-medium text-blue-600">
-                                                                {calculateHoursWorked(selectedDateRecord)}
-                                                            </span>
-                                                        </div>
-                                                    </>
-                                                )}
+                                          )}
+                                          {selectedDateRecord.department && selectedDateRecord.department !== "Weekend" && (
+                                            <div className="flex justify-between">
+                                              <span className="text-gray-600">Department:</span>
+                                              <span className="font-medium">{selectedDateRecord.department}</span>
                                             </div>
+                                          )}
+                                          {selectedDateRecord.status !== "Sunday" && (
+                                            <div className="flex justify-between">
+                                              <span className="text-gray-600">Check-in:</span>
+                                              <span className="font-medium text-green-600">
+                                                {formatTime(selectedDateRecord.checkIn)}
+                                              </span>
+                                            </div>
+                                          )}
                                         </div>
-                                    ) : new Date(selectedDate).getDay() === 0 ? (
-                                        // Sunday card
-                                        <div className="text-sm">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="text-gray-600">Status:</span>
-                                                <span className={`font-medium px-2 py-1 rounded text-xs sm:text-sm ${getStatusColor("Sunday")}`}>
-                                                    Sunday
+                                        <div className="space-y-2">
+                                          <div className="flex justify-between">
+                                            <span className="text-gray-600">Status:</span>
+                                            <span className={`font-medium px-2 py-1 rounded text-xs sm:text-sm ${getStatusColor(selectedDateRecord.status)}`}>
+                                              {selectedDateRecord.status}
+                                            </span>
+                                          </div>
+                                          {selectedDateRecord.status !== "Sunday" && (
+                                            <>
+                                              <div className="flex justify-between">
+                                                <span className="text-gray-600">Check-out:</span>
+                                                <span className="font-medium text-red-600">
+                                                  {formatTime(selectedDateRecord.checkOut)}
                                                 </span>
-                                            </div>
-                                            <p className="text-gray-600 text-sm">Weekend - No work scheduled</p>
+                                              </div>
+                                              <div className="flex justify-between">
+                                                <span className="text-gray-600">Hours:</span>
+                                                <span className="font-medium text-blue-600">
+                                                  {calculateHoursWorked(selectedDateRecord)}
+                                                </span>
+                                              </div>
+                                            </>
+                                          )}
                                         </div>
-                                    ) : (
-                                        // No record found
-                                        <p className="text-gray-500 text-sm">No attendance record found for this date.</p>
-                                    )}
+                                        {/* Mark Attendance Button or Request Manager logic */}
+                                        {(() => {
+                                          // --- Improved absence & button logic for today's date ---
+                                          const today = new Date();
+                                          const todayStr = formatDateForComparison(today);
+                                          const todayISO = formatDateForComparison(new Date());
+                                          // Determine user email robustly (loggedInEmail, profileData, or localStorage)
+                                          const userEmailForCheck = (loggedInEmail || profileData?.email || localStorage.getItem("user_email") || "").trim().toLowerCase();
+                                          const record = selectedDateRecord ?? ({} as AttendanceRecord);
+                                          const buttonLabel =
+                                            !record.checkIn || record.checkIn === "-" || record.checkIn === "null"
+                                              ? "Mark Check-In"
+                                              : !record.checkOut || record.checkOut === "-" || record.checkOut === "null"
+                                              ? "Mark Check-Out"
+                                              : "";
+
+                                          // Absence logic for today
+                                          const normalizedUserEmail = (userEmailForCheck || "").trim().toLowerCase();
+                                          const isAbsentToday = absences.some(abs => {
+                                              const absDate = formatDateForComparison(abs.date);
+                                              const absEmail = (abs.email || "").trim().toLowerCase();
+                                              return absDate === todayISO && absEmail === normalizedUserEmail;
+                                          });
+
+                                          // Wait for absences to be fetched before showing any button
+                                          if (!absences || absences.length === 0) {
+                                              return (
+                                                  <div className="mt-4 text-center text-gray-500">
+                                                      Loading attendance data...
+                                                  </div>
+                                              );
+                                          }
+
+                                          // Only show button logic for today
+                                          const isToday = selectedDate === todayStr;
+                                          if (isToday) {
+                                            // If today is absent, show "Request Manager"
+                                            if (isAbsentToday) {
+                                              return (
+                                                <div className="mt-6 text-center">
+                                                  <div className="flex justify-center mb-3">
+                                                    <Image
+                                                      src={profileData?.profile_picture || "/default-avatar.png"}
+                                                      alt="Profile"
+                                                      width={64}
+                                                      height={64}
+                                                      className="rounded-full border-2 border-orange-400 shadow-sm"
+                                                    />
+                                                  </div>
+                                                  <button
+                                                    type="button"
+                                                    className="px-5 py-2 bg-orange-600 text-white font-semibold rounded-md hover:bg-orange-700 transition-all duration-200"
+                                                    onClick={() => alert('📩 Request sent to your manager! They will review your absence.')}
+                                                  >
+                                                    Request Manager
+                                                  </button>
+                                                </div>
+                                              );
+                                            }
+                                            // Else show Mark Check-In or Check-Out
+                                            if (buttonLabel) {
+                                              return (
+                                                <div className="mt-6 text-center">
+                                                  <div className="flex justify-center mb-3">
+                                                    <Image
+                                                      src={profileData?.profile_picture || "/default-avatar.png"}
+                                                      alt="Profile"
+                                                      width={64}
+                                                      height={64}
+                                                      className="rounded-full border-2 border-blue-400 shadow-sm"
+                                                    />
+                                                  </div>
+                                                  <button
+                                                    type="button"
+                                                    className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-all duration-200"
+                                                    onClick={handleMarkAttendance}
+                                                  >
+                                                    {buttonLabel}
+                                                  </button>
+                                                </div>
+                                              );
+                                            }
+                                          }
+                                          return null;
+                                        })()}
+                                      </div>
+                                    ) : new Date(selectedDate).getDay() === 0 ? (
+                                      // Sunday card
+                                      <div className="text-sm">
+                                        <div className="flex justify-between items-center mb-2">
+                                          <span className="text-gray-600">Status:</span>
+                                          <span className={`font-medium px-2 py-1 rounded text-xs sm:text-sm ${getStatusColor("Sunday")}`}>
+                                            Sunday
+                                          </span>
+                                        </div>
+                                        <p className="text-gray-600 text-sm">Weekend - No work scheduled</p>
+                                      </div>
+                                    ) : (() => {
+                                      // ✅ Local date comparison
+                                      const today = new Date();
+                                      const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                                      const isToday = selectedDate === localToday;
+                                      if (isToday) {
+                                        return (
+                                          <div className="text-center">
+                                            <p className="text-gray-600 text-sm mb-3">No attendance record yet for today.</p>
+                                            <button
+                                              className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-all duration-200"
+                                              onClick={handleMarkAttendance}
+                                            >
+                                              Mark Check-In
+                                            </button>
+                                          </div>
+                                        );
+                                      }
+                                      return <p className="text-gray-500 text-sm">No attendance record found for this date.</p>;
+                                    })()}
                                 </div>
                             )}
 
@@ -1015,38 +1218,46 @@ export default function AttendancePortal() {
                                 return recordEmail === currentEmail;
                             })
                             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                        ).map(record => (
-                            <div
-                                key={record.id}
-                                className="bg-white rounded-lg shadow-sm sm:shadow-md p-3 sm:p-4 border hover:shadow-md sm:hover:shadow-lg transition flex flex-col gap-1 sm:gap-2"
-                                style={{minWidth: 0}}
-                            >
-                                <div className="flex items-center justify-between mb-1 sm:mb-2">
-                                    <div className="text-xs sm:text-sm text-gray-500">{formatDateForDisplay(record.date)}</div>
-                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded ${getStatusColor(record.status)}`}>
-                                        {record.status}
-                                    </span>
-                                </div>
-                                {record.fullname && (
-                                    <div className="flex items-center justify-between text-xs mb-1">
-                                        <span className="text-gray-600">Name:</span>
-                                        <span className="font-medium">{record.fullname}</span>
+                        ).map(record => {
+                            const displayStatus =
+                                record.checkIn && record.checkIn !== "-" && record.checkIn !== "null"
+                                  ? record.checkOut && record.checkOut !== "-" && record.checkOut !== "null"
+                                    ? "Present"
+                                    : "Working In"
+                                  : record.status || "-";
+                            return (
+                                <div
+                                    key={record.id}
+                                    className="bg-white rounded-lg shadow-sm sm:shadow-md p-3 sm:p-4 border hover:shadow-md sm:hover:shadow-lg transition flex flex-col gap-1 sm:gap-2"
+                                    style={{minWidth: 0}}
+                                >
+                                    <div className="flex items-center justify-between mb-1 sm:mb-2">
+                                        <div className="text-xs sm:text-sm text-gray-500">{formatDateForDisplay(record.date)}</div>
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded ${getStatusColor(displayStatus)}`}>
+                                            {displayStatus}
+                                        </span>
                                     </div>
-                                )}
-                                <div className="flex items-center justify-between text-xs mb-1">
-                                    <span className="text-gray-600">Check-in:</span>
-                                    <span className="font-medium text-green-700">{formatTime(record.checkIn)}</span>
+                                    {record.fullname && (
+                                        <div className="flex items-center justify-between text-xs mb-1">
+                                            <span className="text-gray-600">Name:</span>
+                                            <span className="font-medium">{record.fullname}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center justify-between text-xs mb-1">
+                                        <span className="text-gray-600">Check-in:</span>
+                                        <span className="font-medium text-green-700">{formatTime(record.checkIn)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs mb-1">
+                                        <span className="text-gray-600">Check-out:</span>
+                                        <span className="font-medium text-red-700">{formatTime(record.checkOut)}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs mb-1">
+                                        <span className="text-gray-600">Hours:</span>
+                                        <span className="font-medium text-blue-700">{calculateHoursWorked(record)}</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-between text-xs mb-1">
-                                    <span className="text-gray-600">Check-out:</span>
-                                    <span className="font-medium text-red-700">{formatTime(record.checkOut)}</span>
-                                </div>
-                                <div className="flex items-center justify-between text-xs mb-1">
-                                    <span className="text-gray-600">Hours:</span>
-                                    <span className="font-medium text-blue-700">{calculateHoursWorked(record)}</span>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>

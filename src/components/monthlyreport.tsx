@@ -78,6 +78,15 @@ interface MonthlyReportData {
   reports: Report[];
   tasks: Task[];
   absent: AbsentRecord[];
+  holidays?: {
+    year: number;
+    month: number;
+    country: string;
+    date: string;
+    name: string;
+    type?: string;
+    weekday?: string;
+  }[];
 }
 
 const MonthlyReportDashboard = () => {
@@ -108,6 +117,7 @@ const MonthlyReportDashboard = () => {
           'list_leaves/',
           'list_reports/',
           'list_tasks/',
+          'holidays/',
         ];
 
         const baseURL = 'https://globaltechsoftwaresolutions.cloud/api/accounts/';
@@ -130,6 +140,10 @@ const MonthlyReportDashboard = () => {
         const leavesRaw = responsesData[1];
         const reportsRaw = responsesData[2];
         const tasksRaw = responsesData[3];
+        const holidaysRaw = responsesData[4];
+const holidays = Array.isArray(holidaysRaw)
+  ? holidaysRaw
+  : holidaysRaw.results || holidaysRaw.data || [];
 
         // Employees mapping: strictly use emp_id for id and designation for position, remove status
         const employees: Employee[] = (Array.isArray(employeesRaw) ? employeesRaw : employeesRaw.results || employeesRaw.data || [])
@@ -226,6 +240,7 @@ const MonthlyReportDashboard = () => {
           reports: reports || [], 
           tasks: tasks || [], 
           absent: absent || [],
+        holidays: holidays || [],
         });
 
       } catch (error) {
@@ -333,8 +348,15 @@ const MonthlyReportDashboard = () => {
     // Calculate average hours per valid attendance day
     const avgHours = validAttendanceRecords > 0 ? (totalHours / validAttendanceRecords).toFixed(1) : '0.0';
 
-    // Total attendance days (unique dates)
-    const totalAttendanceDays = employeeAttendance.length;
+    // Total attendance days (unique dates + Sundays as working days)
+    // This ensures that even if an employee has no attendance records, their attendance days will show at least the number of Sundays in the month.
+    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+    let sundayCount = 0;
+    for (let i = 1; i <= daysInMonth; i++) {
+      const d = new Date(selectedYear, selectedMonth, i);
+      if (d.getDay() === 0) sundayCount++;
+    }
+    const totalAttendanceDays = Math.max(employeeAttendance.length, sundayCount);
 
     // Productivity: percent of completed tasks
     const productivity = employeeTasks.length > 0 ? Math.round((completedTasks / employeeTasks.length) * 100) : 0;
@@ -490,7 +512,7 @@ const MonthlyReportDashboard = () => {
           
           return (
             <div 
-              key={employee.id}
+              key={`${employee.id || employee.email || Math.random()}`}
               onClick={() => handleEmployeeClick(employee)}
               className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 cursor-pointer transition-all hover:shadow-md hover:border-blue-300"
             >
@@ -507,19 +529,27 @@ const MonthlyReportDashboard = () => {
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-lg font-semibold text-gray-900 truncate">
-                    {employee.name}
-                  </p>
-                  <p className="text-sm text-gray-500 truncate">
-                    {employee.position || 'No Position'}
-                  </p>
-                  <p className="text-xs text-gray-400 truncate">
-                    {employee.department || 'No Department'}
-                  </p>
-                  {employee.email && (
-                    <p className="text-xs text-gray-400 truncate">
-                      {employee.email}
+                  <div className="truncate max-w-full">
+                    <p className="text-lg font-semibold text-gray-900 truncate break-words max-w-[200px]">
+                      {employee.name}
                     </p>
+                  </div>
+                  <div className="truncate max-w-full">
+                    <p className="text-sm text-gray-500 truncate break-words max-w-[200px]">
+                      {employee.position || 'No Position'}
+                    </p>
+                  </div>
+                  <div className="truncate max-w-full">
+                    <p className="text-xs text-gray-400 truncate break-words max-w-[200px]">
+                      {employee.department || 'No Department'}
+                    </p>
+                  </div>
+                  {employee.email && (
+                    <div className="truncate max-w-full">
+                      <p className="text-xs text-gray-400 truncate break-words max-w-[200px]">
+                        {employee.email}
+                      </p>
+                    </div>
                   )}
                   {absences.length > 0 && (
                     <p className="text-xs text-red-500 font-medium mt-1">
@@ -581,13 +611,13 @@ const MonthlyReportDashboard = () => {
       {/* Employee Monthly Report Dialog */}
       {showEmployeeReport && selectedEmployee && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-xl">
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-2xl font-bold">Employee Performance Report</h2>
-                  <p className="text-blue-100">Detailed overview for {selectedEmployee.name}</p>
+                  <p className="text-blue-100 truncate max-w-xs">{`Detailed overview for ${selectedEmployee.name}`}</p>
                 </div>
                 <button 
                   onClick={closeEmployeeReport}
@@ -600,11 +630,11 @@ const MonthlyReportDashboard = () => {
               <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
                   <p className="text-sm text-blue-200">Employee</p>
-                  <p className="font-semibold">{selectedEmployee.name}</p>
+                  <p className="font-semibold truncate max-w-[180px] mx-auto break-words">{selectedEmployee.name}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-blue-200">Department</p>
-                  <p className="font-semibold">{selectedEmployee.department || 'N/A'}</p>
+                  <p className="font-semibold truncate max-w-[150px] mx-auto break-words">{selectedEmployee.department || 'N/A'}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-blue-200">Period</p>
@@ -612,7 +642,7 @@ const MonthlyReportDashboard = () => {
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-blue-200">Email</p>
-                  <p className="font-semibold text-xs">{selectedEmployee.email || 'N/A'}</p>
+                  <p className="font-semibold text-xs truncate max-w-[180px] mx-auto break-words">{selectedEmployee.email || 'N/A'}</p>
                 </div>
               </div>
             </div>
@@ -626,15 +656,15 @@ const MonthlyReportDashboard = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Email:</span>
-                      <span className="font-medium">{selectedEmployee.email || 'N/A'}</span>
+                      <span className="font-medium truncate overflow-hidden text-ellipsis break-words max-w-[200px] text-right">{selectedEmployee.email || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Phone:</span>
-                      <span className="font-medium">{selectedEmployee.phone || 'N/A'}</span>
+                      <span className="font-medium truncate overflow-hidden text-ellipsis break-words max-w-[160px] text-right">{selectedEmployee.phone || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Join Date:</span>
-                      <span className="font-medium">
+                      <span className="font-medium truncate overflow-hidden text-ellipsis break-words max-w-[160px] text-right">
                         {typeof selectedEmployee.join_date === 'string' ? new Date(selectedEmployee.join_date).toLocaleDateString("en-GB") : 'N/A'}
                       </span>
                     </div>
@@ -642,17 +672,17 @@ const MonthlyReportDashboard = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Reports To:</span>
-                      <span className="font-medium">
+                      <span className="font-medium truncate overflow-hidden text-ellipsis break-words max-w-[160px] text-right">
                         {typeof selectedEmployee.reports_to === 'string' ? selectedEmployee.reports_to : 'N/A'}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Employee ID:</span>
-                      <span className="font-medium">{selectedEmployee.id}</span>
+                      <span className="font-medium truncate overflow-hidden text-ellipsis break-words max-w-[120px] text-right">{selectedEmployee.id}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Position:</span>
-                      <span className="font-medium">
+                      <span className="font-medium truncate overflow-hidden text-ellipsis break-words max-w-[160px] text-right">
                         {typeof selectedEmployee.position === 'string' ? selectedEmployee.position : 'N/A'}
                       </span>
                     </div>
@@ -701,6 +731,15 @@ const MonthlyReportDashboard = () => {
   selectedYear={selectedYear}
   absences={getEmployeeAbsences(selectedEmployee)}
   employeeEmail={selectedEmployee.email || ""}
+  leaves={data.leaves as {
+    id: number | string;
+    email: string;
+    start_date: string;
+    end_date: string;
+    status: string;
+    leave_type?: string;
+    reason?: string;
+  }[]}
 />
                 {/* Attendance Cards */}
                 <div className="mt-6">
@@ -721,45 +760,47 @@ const MonthlyReportDashboard = () => {
                         {getEmployeeAttendance(selectedEmployee).length === 0 && (
                           <p className="text-gray-500 text-center py-4 col-span-2">No attendance records found</p>
                         )}
-                        {getEmployeeAttendance(selectedEmployee).map((record: Attendance, idx: number) => {
-                          let hours = 0;
-                          const checkIn = record.check_in;
-                          const checkOut = record.check_out;
-                          try {
-                            if (checkIn && checkOut) {
-                              const [checkInTime] = checkIn.split('.');
-                              const [checkOutTime] = checkOut.split('.');
-                              const [inHours, inMinutes, inSeconds] = checkInTime.split(':').map(Number);
-                              const [outHours, outMinutes, outSeconds] = checkOutTime.split(':').map(Number);
-                              const checkInTotalMinutes = inHours * 60 + inMinutes + inSeconds / 60;
-                              const checkOutTotalMinutes = outHours * 60 + outMinutes + outSeconds / 60;
-                              let diffMinutes = checkOutTotalMinutes - checkInTotalMinutes;
-                              if (diffMinutes < 0) diffMinutes += 24 * 60;
-                              hours = diffMinutes / 60;
-                            }
-                          } catch { hours = 0; }
-                          return (
-                            <div key={idx} className="flex flex-col md:flex-row items-center justify-between bg-white rounded-lg shadow-sm p-3">
-                              <div className="flex-1 flex flex-col gap-1">
-                                <span className="font-medium text-gray-900">
-                                  {record.date ? new Date(record.date).toLocaleDateString("en-GB") : 'N/A'}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  Check-in: <span className="font-mono">{formatTime12Hour(checkIn)}</span>
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  Check-out: <span className="font-mono">{formatTime12Hour(checkOut)}</span>
-                                </span>
+                        {getEmployeeAttendance(selectedEmployee)
+                          .sort((a, b) => new Date(a.date as string).getTime() - new Date(b.date as string).getTime())
+                          .map((record: Attendance, idx: number) => {
+                            let hours = 0;
+                            const checkIn = record.check_in;
+                            const checkOut = record.check_out;
+                            try {
+                              if (checkIn && checkOut) {
+                                const [checkInTime] = checkIn.split('.');
+                                const [checkOutTime] = checkOut.split('.');
+                                const [inHours, inMinutes, inSeconds] = checkInTime.split(':').map(Number);
+                                const [outHours, outMinutes, outSeconds] = checkOutTime.split(':').map(Number);
+                                const checkInTotalMinutes = inHours * 60 + inMinutes + inSeconds / 60;
+                                const checkOutTotalMinutes = outHours * 60 + outMinutes + outSeconds / 60;
+                                let diffMinutes = checkOutTotalMinutes - checkInTotalMinutes;
+                                if (diffMinutes < 0) diffMinutes += 24 * 60;
+                                hours = diffMinutes / 60;
+                              }
+                            } catch { hours = 0; }
+                            return (
+                              <div key={idx} className="flex flex-col md:flex-row items-center justify-between bg-white rounded-lg shadow-sm p-3">
+                                <div className="flex-1 flex flex-col gap-1">
+                                  <span className="font-medium text-gray-900">
+                                    {record.date ? new Date(record.date).toLocaleDateString("en-GB") : 'N/A'}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    Check-in: <span className="font-mono">{formatTime12Hour(checkIn)}</span>
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    Check-out: <span className="font-mono">{formatTime12Hour(checkOut)}</span>
+                                  </span>
+                                </div>
+                                <div className="text-right mt-2 md:mt-0">
+                                  <span className="text-lg font-bold text-blue-700">
+                                    {`${Math.floor(hours)}h ${Math.round((hours % 1) * 60)}m`}
+                                  </span>
+                                  <div className="text-xs text-gray-400">Worked</div>
+                                </div>
                               </div>
-                              <div className="text-right mt-2 md:mt-0">
-                                <span className="text-lg font-bold text-blue-700">
-                                  {`${Math.floor(hours)}h ${Math.round((hours % 1) * 60)}m`}
-                                </span>
-                                <div className="text-xs text-gray-400">Worked</div>
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
                       </div>
                     );
                   })()}
@@ -772,26 +813,32 @@ const MonthlyReportDashboard = () => {
                     {getEmployeeAbsences(selectedEmployee).length === 0 && (
                       <p className="text-gray-500 text-center py-4 col-span-2">No absence records found</p>
                     )}
-                    {getEmployeeAbsences(selectedEmployee).map((absence: AbsentRecord, idx: number) => {
-                      const dateStr = absence.date || absence.absent_date;
-                      return (
-                        <div key={idx} className="flex flex-col md:flex-row items-center justify-between bg-red-50 rounded-lg shadow-sm p-3 border border-red-200">
-                          <div className="flex-1 flex flex-col gap-1">
-                            <span className="font-medium text-red-900">
-                              {dateStr ? new Date(dateStr).toLocaleDateString("en-GB") : 'N/A'}
-                            </span>
-                            <span className="text-xs text-red-700">Status: <span className="font-semibold">Absent</span></span>
-                            {absence.reason && (
-                              <span className="text-xs text-red-600">Reason: {absence.reason}</span>
-                            )}
+                    {getEmployeeAbsences(selectedEmployee)
+                      .sort((a, b) => {
+                        const dateA = new Date(a.date || a.absent_date || "").getTime();
+                        const dateB = new Date(b.date || b.absent_date || "").getTime();
+                        return dateA - dateB;
+                      })
+                      .map((absence: AbsentRecord, idx: number) => {
+                        const dateStr = absence.date || absence.absent_date;
+                        return (
+                          <div key={idx} className="flex flex-col md:flex-row items-center justify-between bg-red-50 rounded-lg shadow-sm p-3 border border-red-200">
+                            <div className="flex-1 flex flex-col gap-1">
+                              <span className="font-medium text-red-900">
+                                {dateStr ? new Date(dateStr).toLocaleDateString("en-GB") : 'N/A'}
+                              </span>
+                              <span className="text-xs text-red-700">Status: <span className="font-semibold">Absent</span></span>
+                              {absence.reason && (
+                                <span className="text-xs text-red-600">Reason: {absence.reason}</span>
+                              )}
+                            </div>
+                            <div className="text-right mt-2 md:mt-0">
+                              <span className="text-lg font-bold text-red-700">ABSENT</span>
+                              <div className="text-xs text-red-500">Full Day</div>
+                            </div>
                           </div>
-                          <div className="text-right mt-2 md:mt-0">
-                            <span className="text-lg font-bold text-red-700">ABSENT</span>
-                            <div className="text-xs text-red-500">Full Day</div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                   </div>
                 </div>
               </div>
@@ -804,9 +851,9 @@ const MonthlyReportDashboard = () => {
                     .slice(0, 5)
                     .map((task: Task & { displayName: string; displayDate: string }, index: number) => (
                       <div key={index} className="flex justify-between items-center p-3 bg-white rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">{task.displayName}</p>
-                          <p className="text-sm text-gray-500">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate overflow-hidden text-ellipsis break-words max-w-[200px]">{task.displayName}</p>
+                          <p className="text-sm text-gray-500 truncate overflow-hidden text-ellipsis break-words max-w-[200px]">
                             Status: <span className={`font-medium ${
                               (task.status || '').toLowerCase() === 'completed' ? 'text-green-600' :
                               (task.status || '').toLowerCase() === 'in progress' ? 'text-blue-600' :
@@ -816,7 +863,7 @@ const MonthlyReportDashboard = () => {
                             </span>
                           </p>
                         </div>
-                        <span className="text-xs text-gray-500 whitespace-nowrap ml-4">
+                        <span className="text-xs text-gray-500 whitespace-nowrap ml-4 truncate overflow-hidden text-ellipsis max-w-[80px]">
                           {task.displayDate ? 
                             new Date(task.displayDate).toLocaleDateString("en-GB") : 
                             'No date'
@@ -869,12 +916,22 @@ const AttendanceChart = ({
   selectedYear,
   absences,
   employeeEmail,
+  leaves = [],
 }: {
   attendance: Attendance[];
   selectedMonth: number;
   selectedYear: number;
   absences: AbsentRecord[];
   employeeEmail: string;
+  leaves?: {
+    id: number | string;
+    email: string;
+    start_date: string;
+    end_date: string;
+    status: string;
+    leave_type?: string;
+    reason?: string;
+  }[];
 }) => {
   const [chartData, setChartData] = React.useState<ChartData[]>([]);
   const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
@@ -900,6 +957,32 @@ const AttendanceChart = ({
           d.getDate()
         ).padStart(2, "0")}`;
         absentMap[key] = abs;
+      });
+
+    // --- LEAVE MAP LOGIC (approved leaves, green bar) ---
+    const leaveMap: Record<string, {
+      id: number | string;
+      email: string;
+      start_date: string;
+      end_date: string;
+      status: string;
+      leave_type?: string;
+      reason?: string;
+    }> = {};
+    leaves
+      .filter((l) =>
+        l.email?.toLowerCase() === employeeEmail.toLowerCase() &&
+        l.status?.toLowerCase() === "approved"
+      )
+      .forEach((leave) => {
+        const start = new Date(leave.start_date);
+        const end = new Date(leave.end_date);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+            d.getDate()
+          ).padStart(2, "0")}`;
+          leaveMap[key] = leave;
+        }
       });
 
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
@@ -932,8 +1015,11 @@ const AttendanceChart = ({
       });
     }
 
+    // Attach leaveMap to chartData for use in render
+    // @ts-expect-error: Attaching dynamic leaveMap metadata not part of ChartData type
+    newChartData._leaveMap = leaveMap;
     setChartData(newChartData);
-  }, [attendance, absences, employeeEmail, selectedMonth, selectedYear]);
+  }, [attendance, absences, employeeEmail, selectedMonth, selectedYear, leaves]);
 
   const maxHours = Math.max(...chartData.map((d) => d.hours), 8, 1);
 
@@ -948,77 +1034,119 @@ const AttendanceChart = ({
   };
 
   return (
-    <div className="relative w-full overflow-x-auto overflow-y-visible px-1 py-4 sm:px-2 md:px-4 lg:px-6">
-      <div className="min-w-[320px] sm:min-w-[400px] md:min-w-[600px] lg:min-w-[800px] mx-auto">
-        <div className="flex items-end h-48 gap-1 md:gap-2">
-          {chartData.map((d, idx) => {
-            const barHeight = d.absent ? 160 : Math.min((d.hours / maxHours) * 160, 160);
-            const barColor = d.absent
-              ? "bg-red-600 hover:bg-red-800"
-              : d.isSunday
-              ? "bg-orange-500 hover:bg-orange-700"
-              : d.present
-              ? "bg-blue-600 hover:bg-blue-800"
-              : "bg-gray-300";
+    <>
+      <div className="relative w-full overflow-x-auto overflow-y-visible px-1 py-4 sm:px-2 md:px-4 lg:px-6">
+        <div className="min-w-[320px] sm:min-w-[400px] md:min-w-[600px] lg:min-w-[800px] mx-auto">
+          <div className="flex items-end h-48 gap-1 md:gap-2">
+            {chartData.map((d, idx) => {
+              // Get leaveMap from chartData._leaveMap
+              // @ts-expect-error: Accessing attached _leaveMap property for chart hover state
+              const leaveMap = chartData._leaveMap || {};
+              // To match date string, convert d.dateStr ("DD/MM/YYYY") to "YYYY-MM-DD"
+              const leaveKey = d.dateStr?.split("/").reverse().join("-");
+              const isLeaveDay = !!leaveMap[leaveKey];
+              const barHeight = d.absent
+                ? 160
+                : isLeaveDay
+                ? 160
+                : d.isSunday
+                ? 100 // fixed height for Sundays to ensure visibility
+                : Math.min((d.hours / maxHours) * 160, 160);
+              const barColor =
+                d.absent
+                  ? "bg-red-600 hover:bg-red-800"
+                  : isLeaveDay
+                  ? "bg-green-500 hover:bg-green-700"
+                  : d.isSunday
+                  ? "bg-orange-500 hover:bg-orange-700"
+                  : d.present
+                  ? "bg-blue-600 hover:bg-blue-800"
+                  : "bg-gray-300";
 
-            return (
-              <div
-                key={idx}
-                className="flex flex-col items-center group relative min-w-[20px]"
-                onMouseEnter={() => setHoverIdx(idx)}
-                onMouseLeave={() => setHoverIdx(null)}
-              >
-                <div className={`w-3 sm:w-4 rounded-t ${barColor}`} style={{ height: `${barHeight}px` }} />
-                <span className="text-[10px] text-gray-600 mt-1">{d.day}</span>
+              return (
+                <div
+                  key={idx}
+                  className="flex flex-col items-center group relative min-w-[20px]"
+                  onMouseEnter={() => setHoverIdx(idx)}
+                  onMouseLeave={() => setHoverIdx(null)}
+                >
+                  <div className={`w-3 sm:w-4 rounded-t ${barColor}`} style={{ height: `${barHeight}px` }} />
+                  <span className="text-[10px] text-gray-600 mt-1">{d.day}</span>
 
-                {hoverIdx === idx && (
-                  <div
-                    className={`fixed z-50 left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg px-3 py-2 text-xs whitespace-nowrap ${
-                      d.absent ? "border-red-300" : d.isSunday ? "border-orange-300" : "border-blue-200"
-                    }`}
-                    style={{ top: `${(window?.scrollY || 0) + 120}px` }}
-                  >
+                  {hoverIdx === idx && (
                     <div
-                      className={`font-semibold mb-1 ${
-                        d.absent ? "text-red-700" : d.isSunday ? "text-orange-600" : "text-blue-700"
-                      }`}
+                      className={`fixed z-50 left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg px-3 py-2 text-xs ${
+                        d.absent
+                          ? "border-red-300"
+                          : isLeaveDay
+                          ? "border-green-300"
+                          : d.isSunday
+                          ? "border-orange-300"
+                          : "border-blue-200"
+                      } max-w-xs break-words`}
+                      style={{ top: `${(window?.scrollY || 0) + 120}px` }}
                     >
-                      {d.dateStr}
+                      <div
+                        className={`font-semibold mb-1 ${
+                          d.absent
+                            ? "text-red-700"
+                            : isLeaveDay
+                            ? "text-green-700"
+                            : d.isSunday
+                            ? "text-orange-700"
+                            : "text-blue-700"
+                        } break-words`}
+                      >
+                        {d.dateStr}
+                      </div>
+                      {d.absent ? (
+                        <div className="text-red-600 font-bold text-center py-1 break-words">Absent</div>
+                      ) : isLeaveDay ? (
+                        <div className="text-green-700 font-semibold text-center py-1 break-words">On Approved Leave</div>
+                      ) : d.isSunday ? (
+                        <>
+                          <div className="text-orange-700 font-semibold text-center py-1 break-words">Working Sunday</div>
+                          <div className="flex justify-between mt-1">
+                            <span className="text-gray-500 break-words">Worked:</span>
+                            <span className="font-bold text-blue-800 break-words">
+                              {`${Math.floor(d.hours)}h ${Math.round((d.hours % 1) * 60)}m`}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500 break-words">Check-in:</span>
+                            <span className="font-mono text-blue-900 break-words">
+                              {formatTime12Hour(d.checkIn)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500 break-words">Check-out:</span>
+                            <span className="font-mono text-blue-900 break-words">
+                              {formatTime12Hour(d.checkOut)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between mt-1">
+                            <span className="text-gray-500 break-words">Worked:</span>
+                            <span className="font-bold text-blue-800 break-words">
+                              {`${Math.floor(d.hours)}h ${Math.round((d.hours % 1) * 60)}m`}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
-                    {d.absent ? (
-                      <div className="text-red-600 font-bold text-center py-1">Absent</div>
-                    ) : d.isSunday ? (
-                      <div className="text-orange-600 font-bold text-center py-1">Sunday</div>
-                    ) : (
-                      <>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Check-in:</span>
-                          <span className="font-mono text-blue-900">
-                            {formatTime12Hour(d.checkIn)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Check-out:</span>
-                          <span className="font-mono text-blue-900">
-                            {formatTime12Hour(d.checkOut)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between mt-1">
-                          <span className="text-gray-500">Worked:</span>
-                          <span className="font-bold text-blue-800">
-                            {`${Math.floor(d.hours)}h ${Math.round((d.hours % 1) * 60)}m`}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
-    </div>
+      <div className="text-center text-xs text-gray-500 mt-3">
+        * Sundays are considered working days (+ Sundays)
+      </div>
+    </>
   );
 };
 
