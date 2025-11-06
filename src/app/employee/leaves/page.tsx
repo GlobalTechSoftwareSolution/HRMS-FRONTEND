@@ -13,6 +13,7 @@ type Leave = {
   daysRequested: number;
   submittedDate: string;
   department: string;
+  paidStatus?: string;
 };
 
 type LeaveApiResponse = {
@@ -24,6 +25,7 @@ type LeaveApiResponse = {
   status: string;
   applied_on: string;
   department?: string;
+  paid_status?: string;
 };
 
 export default function LeaveSection() {
@@ -108,6 +110,7 @@ export default function LeaveSection() {
           ) + 1,
         submittedDate: leave.applied_on,
         department: leave.department || "",
+        paidStatus: leave.paid_status || "Paid",
       }));
 
       setLeaves(mappedLeaves);
@@ -151,6 +154,26 @@ export default function LeaveSection() {
 
     try {
       const appliedOnDate = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+      
+      // Calculate total approved leaves for the current year
+      const currentYear = new Date().getFullYear();
+      const approvedLeaves = leaves.filter(leave => {
+        const leaveYear = new Date(leave.startDate).getFullYear();
+        return leave.status === "Approved" && leaveYear === currentYear;
+      });
+      
+      const totalApprovedDays = approvedLeaves.reduce((sum, leave) => sum + leave.daysRequested, 0);
+      
+      // Calculate days for current leave request
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const requestedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      
+      // Determine if this leave should be paid or unpaid
+      // If total approved days + requested days > 15, it's unpaid
+      const paidStatus = (totalApprovedDays + requestedDays) > 15 ? "Unpaid" : "Paid";
+      
       // Only send valid backend fields; do not send _lte/_gte fields
       const payload = {
         email: userEmail,
@@ -160,6 +183,7 @@ export default function LeaveSection() {
         end_date: endDate,
         reason,
         status: "Pending",
+        paid_status: paidStatus,
         applied_on: appliedOnDate,
       };
       // No extra/legacy fields sent in payload

@@ -31,6 +31,7 @@ type LeaveRequest = {
   leave_type: string;
   reason: string;
   status: "Pending" | "Approved" | "Rejected";
+  paid_status?: string;
 };
 
 // ===== StatusBadge =====
@@ -310,6 +311,16 @@ export default function ManagerLeaveApproval() {
                               {new Date(lr.start_date).toLocaleDateString()} to{" "}
                               {new Date(lr.end_date).toLocaleDateString()}
                             </p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Payment Status</p>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
+                              lr.paid_status === "Unpaid" 
+                                ? "bg-orange-100 text-orange-800" 
+                                : "bg-blue-100 text-blue-800"
+                            }`}>
+                              {lr.paid_status === "Unpaid" ? "Unpaid" : "Paid"}
+                            </span>
                           </div>
                           <div>
                             <p className="text-sm font-medium text-gray-700">Reason</p>
