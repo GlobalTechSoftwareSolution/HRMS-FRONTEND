@@ -274,9 +274,9 @@ export default function ManagerLeaveApproval() {
                       transition={{ duration: 0.3 }}
                       className="bg-white p-4 md:p-6 rounded-xl shadow border border-gray-100 hover:shadow-lg transition-shadow flex flex-col"
                     >
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-start justify-between">
-                          <h3 className="font-bold text-gray-800 text-lg">{emp.fullname}</h3>
+                      <div className="flex flex-col gap-3 min-w-0">
+                        <div className="flex items-start justify-between min-w-0">
+                          <h3 className="font-bold text-gray-800 text-lg truncate" title={emp.fullname}>{emp.fullname}</h3>
                         </div>
 
                         <div className="m-2">
@@ -284,35 +284,36 @@ export default function ManagerLeaveApproval() {
                         </div>
 
                         <div className="grid grid-cols-1 gap-2 text-sm text-gray-600">
-                          <div className="flex items-center">
-                            <FiMail className="mr-2 text-gray-400" /> {lr.email}
+                          <div className="flex items-center min-w-0">
+                            <FiMail className="mr-2 text-gray-400 flex-shrink-0" /> 
+                            <span className="truncate" title={lr.email}>{lr.email}</span>
                           </div>
-                          <div className="flex items-center">
-                            <FiBriefcase className="mr-2 text-gray-400" />{" "}
-                            {emp.designation || "N/A"}
+                          <div className="flex items-center min-w-0">
+                            <FiBriefcase className="mr-2 text-gray-400 flex-shrink-0" />
+                            <span className="truncate" title={emp.designation || "N/A"}>{emp.designation || "N/A"}</span>
                           </div>
-                          <div className="flex items-center">
-                            <FiUser className="mr-2 text-gray-400" />{" "}
-                            {emp.department || "N/A"}
+                          <div className="flex items-center min-w-0">
+                            <FiUser className="mr-2 text-gray-400 flex-shrink-0" />
+                            <span className="truncate" title={emp.department || "N/A"}>{emp.department || "N/A"}</span>
                           </div>
-                          <div className="flex items-center">
-                            <FiCalendar className="mr-2 text-gray-400" /> Applied on:{" "}
-                            {new Date(lr.applied_on).toLocaleDateString()}
+                          <div className="flex items-center min-w-0">
+                            <FiCalendar className="mr-2 text-gray-400 flex-shrink-0" /> 
+                            <span className="truncate">Applied on: {new Date(lr.applied_on).toLocaleDateString()}</span>
                           </div>
                         </div>
 
-                        <div className="mt-4 grid grid-cols-1 gap-2">
-                          <div>
+                        <div className="mt-4 grid grid-cols-1 gap-2 min-w-0">
+                          <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-700">
                               Leave Details
                             </p>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-gray-600 break-words">
                               {lr.leave_type} leave from{" "}
                               {new Date(lr.start_date).toLocaleDateString()} to{" "}
                               {new Date(lr.end_date).toLocaleDateString()}
                             </p>
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-700">Payment Status</p>
                             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
                               lr.paid_status === "Unpaid" 
@@ -322,15 +323,15 @@ export default function ManagerLeaveApproval() {
                               {lr.paid_status === "Unpaid" ? "Unpaid" : "Paid"}
                             </span>
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-700">Reason</p>
-                            <p className="text-sm text-gray-600">{lr.reason}</p>
+                            <p className="text-sm text-gray-600 break-words">{lr.reason}</p>
                           </div>
                         </div>
 
                         {lr.status === "Pending" && (
-                          <div className="flex flex-col gap-2 mt-2">
-                            <div className="flex gap-2 flex-wrap">
+                          <div className="flex flex-col gap-2 mt-2 min-w-0">
+                            <div className="flex gap-2 flex-wrap min-w-0">
                               <button
                                 onClick={() => updateLeaveStatus(lr, "Approved")}
                                 disabled={updatingKey === lr.id}

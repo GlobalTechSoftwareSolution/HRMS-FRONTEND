@@ -387,9 +387,9 @@ export default function TeamReport() {
                   className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 group cursor-pointer"
                   onClick={() => setSelectedEmp(emp)}
                 >
-                  <div className="flex items-start justify-between mb-3 sm:mb-4">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="relative">
+                  <div className="flex items-start justify-between mb-3 sm:mb-4 min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <div className="relative flex-shrink-0">
                         <Image
                           src={getAvatar(emp)}
                           alt="Profile"
@@ -402,10 +402,10 @@ export default function TeamReport() {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-gray-900 text-sm sm:text-base group-hover:text-blue-600 transition-colors truncate">
+                        <h3 className="font-bold text-gray-900 text-sm sm:text-base group-hover:text-blue-600 transition-colors truncate" title={emp.fullname}>
                           {emp.fullname}
                         </h3>
-                        <p className="text-xs sm:text-sm text-gray-500 truncate">{emp.email}</p>
+                        <p   className="text-xs sm:text-sm text-gray-500 truncate" title={emp.email}>{emp.email}</p>
                       </div>
                     </div>
                   </div>
@@ -474,8 +474,8 @@ export default function TeamReport() {
                         className="rounded-xl sm:rounded-2xl border-4 border-white/20"
                       />
                       <div className="flex-1 min-w-0">
-                        <h2 className="text-lg sm:text-xl md:text-2xl font-bold truncate">{selectedEmp.fullname}</h2>
-                        <p className="text-blue-100 text-sm sm:text-base truncate">{selectedEmp.email}</p>
+                        <h2 className="text-lg sm:text-xl md:text-2xl font-bold truncate" title={selectedEmp.fullname}>{selectedEmp.fullname}</h2>
+                        <p className="text-blue-100 text-sm sm:text-base truncate" title={selectedEmp.email}>{selectedEmp.email}</p>
                         <div className="flex items-center gap-2 mt-1 sm:mt-2 flex-wrap">
                           {selectedEmp.department && (
                             <span className="inline-flex items-center gap-1 bg-white/20 px-2 py-1 rounded-full text-xs">
@@ -512,21 +512,21 @@ export default function TeamReport() {
                           <h3 className="text-base sm:text-lg font-semibold text-gray-900">Personal Information</h3>
                         </div>
                         <div className="space-y-3 sm:space-y-4">
-                          <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                            <span className="font-medium text-gray-700 text-sm sm:text-base">Department:</span>
-                            <span className="text-gray-900 text-sm sm:text-base">{selectedEmp.department || "Not provided"}</span>
+                          <div className="flex justify-between items-center py-2 border-b border-gray-100 gap-2">
+                            <span className="font-medium text-gray-700 text-sm sm:text-base flex-shrink-0">Department:</span>
+                            <span className="text-gray-900 text-sm sm:text-base text-right truncate" title={selectedEmp.department || "Not provided"}>{selectedEmp.department || "Not provided"}</span>
                           </div>
-                          <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                            <span className="font-medium text-gray-700 text-sm sm:text-base">Designation:</span>
-                            <span className="text-gray-900 text-sm sm:text-base">{selectedEmp.designation || "Not provided"}</span>
+                          <div className="flex justify-between items-center py-2 border-b border-gray-100 gap-2">
+                            <span className="font-medium text-gray-700 text-sm sm:text-base flex-shrink-0">Designation:</span>
+                            <span className="text-gray-900 text-sm sm:text-base text-right truncate" title={selectedEmp.designation || "Not provided"}>{selectedEmp.designation || "Not provided"}</span>
                           </div>
-                          <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                            <span className="font-medium text-gray-700 text-sm sm:text-base">Phone:</span>
-                            <span className="text-gray-900 text-sm sm:text-base">{selectedEmp.phone || "Not provided"}</span>
+                          <div className="flex justify-between items-center py-2 border-b border-gray-100 gap-2">
+                            <span className="font-medium text-gray-700 text-sm sm:text-base flex-shrink-0">Phone:</span>
+                            <span className="text-gray-900 text-sm sm:text-base text-right truncate" title={selectedEmp.phone || "Not provided"}>{selectedEmp.phone || "Not provided"}</span>
                           </div>
-                          <div className="flex justify-between items-center py-2">
-                            <span className="font-medium text-gray-700 text-sm sm:text-base">Employment Type:</span>
-                            <span className="text-gray-900 text-sm sm:text-base">{selectedEmp.employment_type || "Not provided"}</span>
+                          <div className="flex justify-between items-center py-2 gap-2">
+                            <span className="font-medium text-gray-700 text-sm sm:text-base flex-shrink-0">Employment Type:</span>
+                            <span className="text-gray-900 text-sm sm:text-base text-right truncate" title={selectedEmp.employment_type || "Not provided"}>{selectedEmp.employment_type || "Not provided"}</span>
                           </div>
                         </div>
                       </div>
@@ -538,17 +538,17 @@ export default function TeamReport() {
                           <h3 className="text-base sm:text-lg font-semibold text-gray-900">Emergency Contact</h3>
                         </div>
                         <div className="space-y-3 sm:space-y-4">
-                          <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                            <span className="font-medium text-gray-700 text-sm sm:text-base">Name:</span>
-                            <span className="text-gray-900 text-sm sm:text-base">{selectedEmp.emergency_contact_name || "Not provided"}</span>
+                          <div className="flex justify-between items-center py-2 border-b border-gray-100 gap-2">
+                            <span className="font-medium text-gray-700 text-sm sm:text-base flex-shrink-0">Name:</span>
+                            <span className="text-gray-900 text-sm sm:text-base text-right truncate" title={selectedEmp.emergency_contact_name || "Not provided"}>{selectedEmp.emergency_contact_name || "Not provided"}</span>
                           </div>
-                          <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                            <span className="font-medium text-gray-700 text-sm sm:text-base">Relationship:</span>
-                            <span className="text-gray-900 text-sm sm:text-base">{selectedEmp.emergency_contact_relationship || "Not provided"}</span>
+                          <div className="flex justify-between items-center py-2 border-b border-gray-100 gap-2">
+                            <span className="font-medium text-gray-700 text-sm sm:text-base flex-shrink-0">Relationship:</span>
+                            <span className="text-gray-900 text-sm sm:text-base text-right truncate" title={selectedEmp.emergency_contact_relationship || "Not provided"}>{selectedEmp.emergency_contact_relationship || "Not provided"}</span>
                           </div>
-                          <div className="flex justify-between items-center py-2">
-                            <span className="font-medium text-gray-700 text-sm sm:text-base">Phone:</span>
-                            <span className="text-gray-900 text-sm sm:text-base">{selectedEmp.emergency_contact_no || "Not provided"}</span>
+                          <div className="flex justify-between items-center py-2 gap-2">
+                            <span className="font-medium text-gray-700 text-sm sm:text-base flex-shrink-0">Phone:</span>
+                            <span className="text-gray-900 text-sm sm:text-base text-right truncate" title={selectedEmp.emergency_contact_no || "Not provided"}>{selectedEmp.emergency_contact_no || "Not provided"}</span>
                           </div>
                         </div>
                       </div>
@@ -596,9 +596,9 @@ export default function TeamReport() {
                                   whileHover={{ scale: 1.02 }}
                                   className="bg-gray-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-gray-200 flex justify-between items-center hover:bg-gray-100 transition-colors"
                                 >
-                                  <div className="flex items-center gap-2 sm:gap-3">
-                                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                                    <span className="capitalize text-gray-700 font-medium text-sm sm:text-base">
+                                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                                    <span className="capitalize text-gray-700 font-medium text-sm sm:text-base truncate" title={key.replace(/_/g, " ")}>
                                       {key.replace(/_/g, " ")}
                                     </span>
                                   </div>
@@ -659,9 +659,9 @@ export default function TeamReport() {
                                       {getAwardIcon(award.title)}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <h4 className="font-bold text-gray-900 text-sm sm:text-base">{award.title}</h4>
+                                      <h4 className="font-bold text-gray-900 text-sm sm:text-base truncate" title={award.title}>{award.title}</h4>
                                       {award.description && (
-                                        <p className="text-xs sm:text-sm text-gray-600 mt-1">{award.description}</p>
+                                        <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2" title={award.description}>{award.description}</p>
                                       )}
                                     </div>
                                   </div>

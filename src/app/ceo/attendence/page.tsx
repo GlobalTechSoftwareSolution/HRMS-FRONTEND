@@ -506,6 +506,69 @@ const calendarEvents = [
           border-radius: 8px;
           transition: background-color 0.3s ease;
         }
+        
+        /* Mobile-responsive calendar styles */
+        @media (max-width: 640px) {
+          .fc {
+            font-size: 10px !important;
+          }
+          .fc-toolbar-title {
+            font-size: 14px !important;
+          }
+          .fc-button {
+            padding: 4px 8px !important;
+            font-size: 11px !important;
+          }
+          .fc-daygrid-day-number {
+            font-size: 11px !important;
+            padding: 2px !important;
+          }
+          .fc-daygrid-event {
+            font-size: 9px !important;
+            padding: 1px 2px !important;
+          }
+          .fc-col-header-cell-cushion {
+            padding: 4px 2px !important;
+            font-size: 10px !important;
+          }
+        }
+        
+        @media (min-width: 641px) and (max-width: 768px) {
+          .fc {
+            font-size: 12px !important;
+          }
+          .fc-toolbar-title {
+            font-size: 16px !important;
+          }
+        }
+        
+        /* Pie chart label styles */
+        .recharts-pie-label-text {
+          font-size: 9px !important;
+        }
+        
+        @media (min-width: 640px) {
+          .recharts-pie-label-text {
+            font-size: 11px !important;
+          }
+        }
+        
+        @media (min-width: 768px) {
+          .recharts-pie-label-text {
+            font-size: 12px !important;
+          }
+        }
+        
+        /* Legend styles */
+        .recharts-legend-wrapper {
+          font-size: 9px !important;
+        }
+        
+        @media (min-width: 640px) {
+          .recharts-legend-wrapper {
+            font-size: 11px !important;
+          }
+        }
       `}</style>
       <DashboardLayout role="ceo">
       <div className="space-y-4 sm:space-y-6">
@@ -520,7 +583,7 @@ const calendarEvents = [
 
         {/* KPI Cards */}
         <motion.div
-          className="flex flex-row justify-between items-center flex-nowrap gap-1 sm:gap-1.5 md:gap-2 lg:gap-3 w-full overflow-x-hidden mb-4 sm:mb-5 md:mb-6"
+          className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-2 md:gap-3 lg:gap-4 w-full mb-4 sm:mb-5 md:mb-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -592,7 +655,7 @@ const calendarEvents = [
           ].map((kpi) => (
             <motion.div
               key={kpi.title}
-              className={`flex flex-col items-center justify-center bg-white shadow rounded-lg p-0.5 sm:p-1 md:p-2 lg:p-3 w-[65px] sm:w-[90px] md:w-[120px] lg:w-[160px] hover:scale-105 transition-transform duration-300 ${kpi.color} cursor-pointer`}
+              className={`flex flex-col items-center justify-center bg-white shadow-lg rounded-xl p-4 sm:p-2 md:p-3 lg:p-4 xl:p-5 w-full sm:flex-1 hover:scale-105 transition-transform duration-300 ${kpi.color} cursor-pointer min-h-[80px] sm:min-h-[70px] md:min-h-[80px] lg:min-h-[100px]`}
               onClick={kpi.onClick}
               tabIndex={0}
               role="button"
@@ -602,8 +665,8 @@ const calendarEvents = [
                 }
               }}
             >
-              <p className="text-[7px] sm:text-[8px] md:text-[10px] lg:text-sm font-medium text-center leading-tight text-white break-words px-0.5">{kpi.title}</p>
-              <p className="text-[9px] sm:text-[11px] md:text-xs lg:text-base font-bold text-center whitespace-nowrap overflow-hidden truncate leading-tight mt-0.5 text-white px-0.5">{kpi.value}</p>
+              <p className="text-sm sm:text-[10px] md:text-xs lg:text-sm xl:text-base font-semibold text-center leading-tight text-white break-words">{kpi.title}</p>
+              <p className="text-xl sm:text-xs md:text-sm lg:text-lg xl:text-2xl font-bold text-center whitespace-nowrap overflow-hidden truncate leading-tight mt-2 sm:mt-1 text-white">{kpi.value}</p>
             </motion.div>
           ))}
         </motion.div>
@@ -627,6 +690,11 @@ const calendarEvents = [
                     outerRadius={50}
                     label={(props) => {
                       const { name, percent } = props as unknown as { name: string; percent: number };
+                      const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+                      if (isMobile) {
+                        // Show only percentage on mobile
+                        return `${(percent * 100).toFixed(0)}%`;
+                      }
                       return `${name} (${(percent * 100).toFixed(0)}%)`;
                     }}
                   >
@@ -635,7 +703,11 @@ const calendarEvents = [
                     })}
                   </Pie>
                   <RechartsTooltip />
-                  <RechartsLegend verticalAlign="bottom" />
+                  <RechartsLegend 
+                    verticalAlign="bottom" 
+                    wrapperStyle={{ fontSize: '10px' }}
+                    iconSize={8}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -675,7 +747,7 @@ const calendarEvents = [
         {/* Date Attendance Cards */}
         <motion.div
           id="attendance-section"
-          className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-1.5 md:gap-2 lg:gap-3 mb-1 sm:mb-2 md:mb-4 lg:mb-6"
+          className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-3 lg:gap-4 mb-4 sm:mb-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
@@ -724,7 +796,7 @@ const calendarEvents = [
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.3, delay: idx * 0.05 }}
-                        className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-2 sm:p-3 md:p-4 lg:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between min-w-0 overflow-hidden"
+                        className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-4 sm:p-5 md:p-4 lg:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between min-w-0 overflow-hidden"
                       >
                         <div className="mb-2 sm:mb-3 md:mb-4">
                           <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{rec.fullname}</h3>
@@ -800,22 +872,23 @@ const calendarEvents = [
         </motion.div>
 
         {/* Full Attendance List */}
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">Full Attendance Records</h2>
+        <h2 className="text-sm sm:text-lg md:text-xl font-semibold text-gray-700 mb-2">Full Attendance Records</h2>
         {/* Calendar for filtering */}
         <div className="mb-4 flex flex-col items-center">
-          <div className="bg-white p-4 rounded-xl shadow-md w-full max-w-5xl">
+          <div className="bg-white p-2 sm:p-4 rounded-xl shadow-md w-full max-w-5xl">
             {/* Show selected date above calendar */}
             {selectedDate && (
-              <div className="mb-2 text-center text-gray-700 font-semibold">
+              <div className="mb-2 text-center text-gray-700 font-semibold text-xs sm:text-sm md:text-base">
                 Showing attendance for: {new Date(selectedDate).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
               </div>
             )}
-            <div className="mx-auto max-w-[600px]">
+            <div className="mx-auto w-full">
               <FullCalendar
                 plugins={[dayGridPlugin, interactionPlugin]}
                 initialView="dayGridMonth"
-                height={400}
-                contentHeight={350}
+                height="auto"
+                contentHeight="auto"
+                aspectRatio={1.35}
                 showNonCurrentDates={false}
                 events={calendarEvents}
                 eventClick={(info) => {
@@ -826,7 +899,7 @@ const calendarEvents = [
                       position: relative;
                       border-radius: 10px;
                       padding: 0;
-                      max-width: 320px;
+                      max-width: min(320px, 90vw);
                       font-family: sans-serif;
                       overflow: hidden;
                     ">
@@ -863,13 +936,43 @@ const calendarEvents = [
                   if (existingCard) existingCard.remove();
                   const card = document.createElement("div");
                   card.id = "leaveCard";
-                  card.style.position = "absolute";
+                  card.style.position = "fixed";
                   card.style.zIndex = "9999";
-                  card.style.top = `${info.jsEvent.pageY + 10}px`;
-                  card.style.left = `${info.jsEvent.pageX + 10}px`;
+                  
+                  // Mobile-responsive positioning
+                  const isMobile = window.innerWidth < 640;
+                  if (isMobile) {
+                    card.style.top = "50%";
+                    card.style.left = "50%";
+                    card.style.transform = "translate(-50%, -50%)";
+                  } else {
+                    card.style.top = `${info.jsEvent.pageY + 10}px`;
+                    card.style.left = `${info.jsEvent.pageX + 10}px`;
+                  }
+                  
                   card.innerHTML = details;
                   document.body.appendChild(card);
-                  document.getElementById("closeCardBtn")?.addEventListener("click", () => card.remove());
+                  
+                  // Add backdrop for mobile
+                  if (isMobile) {
+                    const backdrop = document.createElement("div");
+                    backdrop.id = "leaveCardBackdrop";
+                    backdrop.style.position = "fixed";
+                    backdrop.style.inset = "0";
+                    backdrop.style.background = "rgba(0,0,0,0.5)";
+                    backdrop.style.zIndex = "9998";
+                    backdrop.onclick = () => {
+                      card.remove();
+                      backdrop.remove();
+                    };
+                    document.body.appendChild(backdrop);
+                    document.getElementById("closeCardBtn")?.addEventListener("click", () => {
+                      card.remove();
+                      backdrop.remove();
+                    });
+                  } else {
+                    document.getElementById("closeCardBtn")?.addEventListener("click", () => card.remove());
+                  }
                 }}
                 dateClick={(arg) => {
                   const local = new Date(arg.date.getTime() - arg.date.getTimezoneOffset() * 60000);
@@ -883,9 +986,14 @@ const calendarEvents = [
                   }
                 }}
                 headerToolbar={{
-                  left: "prev,next today",
+                  left: "prev,next",
                   center: "title",
-                  right: "dayGridMonth,dayGridWeek",
+                  right: "today",
+                }}
+                buttonText={{
+                  today: "Today",
+                  month: "Month",
+                  week: "Week"
                 }}
               />
             </div>
@@ -893,14 +1001,14 @@ const calendarEvents = [
           {selectedDate && (
             <button
               onClick={() => setSelectedDate(null)}
-              className="mt-3 px-4 py-2 rounded-lg bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200 transition"
+              className="mt-3 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-gray-100 border border-gray-300 text-gray-600 hover:bg-gray-200 transition text-xs sm:text-sm"
             >
               Clear
             </button>
           )}
         </div>
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-3 lg:gap-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}

@@ -195,16 +195,16 @@ const handleSendTask = async () => {
                       }
                     />
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-1">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-1 truncate">
                       {emp.fullname}
                     </h3>
-                    <p className="text-sm text-gray-500 mb-1">{emp.email}</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-500 mb-1 truncate" title={emp.email}>{emp.email}</p>
+                    <p className="text-sm text-gray-600 truncate">
                       <span className="font-medium">Role:</span>{" "}
                       {emp.designation || "N/A"}
                     </p>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-gray-600 mb-3 truncate">
                       <span className="font-medium">Department:</span>{" "}
                       {emp.department || "N/A"}
                     </p>
@@ -266,7 +266,7 @@ const handleSendTask = async () => {
             </select>
 
             {assignedTo && (
-              <p className="mb-3 text-gray-700">
+              <p className="mb-3 text-gray-700 truncate" title={assignedTo}>
                 Assigning to: <span className="font-medium">{assignedTo}</span>
               </p>
             )}
@@ -303,11 +303,11 @@ const handleSendTask = async () => {
                     key={task.task_id}
                     className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
                   >
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-2">
-                      <h3 className="font-semibold text-gray-800 text-lg">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-2 gap-2">
+                      <h3 className="font-semibold text-gray-800 text-lg truncate min-w-0 flex-1">
                         {task.title}
                       </h3>
-                      <div className="flex space-x-2 mt-2 md:mt-0">
+                      <div className="flex space-x-2 flex-shrink-0">
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityClass(
                             task.priority
@@ -325,16 +325,21 @@ const handleSendTask = async () => {
                       </div>
                     </div>
 
-                    <p className="text-gray-600 mb-3">{task.description}</p>
+                    <p className="text-gray-600 mb-3 break-words">{task.description}</p>
 
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <FiUser className="mr-1" />
-                        <span className="font-medium">{task.email}</span>
-                        <span className="font-medium">{task.department || "N/A"}</span>
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between text-sm text-gray-500 gap-2">
+                      <div className="flex items-center min-w-0 flex-1">
+                        <FiUser className="mr-1 flex-shrink-0" />
+                        <span className="font-medium truncate" title={task.email}>{task.email}</span>
+                        {task.department && (
+                          <>
+                            <span className="mx-2 flex-shrink-0">•</span>
+                            <span className="font-medium truncate">{task.department}</span>
+                          </>
+                        )}
                       </div>
 
-                      <div className="mt-2 md:mt-0">
+                      <div className="flex-shrink-0 whitespace-nowrap">
                         {task.due_date && (
                           <>
                             <span>Due: {formatDate(task.due_date)}</span>

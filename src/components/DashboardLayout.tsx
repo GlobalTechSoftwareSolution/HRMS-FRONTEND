@@ -192,20 +192,20 @@ export default function DashboardLayout({ children, role }: Props) {
     <div className="flex min-h-screen bg-gray-100 font-sans text-gray-800">
       {/* Sidebar (desktop) */}
       <aside className="hidden md:flex fixed top-0 left-0 bottom-0 w-72 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex-col z-20">
-        <div className="p-6 flex items-center gap-4 border-b border-blue-700">
+        <div className="p-6 flex items-center gap-4 border-b border-blue-700 min-w-0">
           <Image
             src={profilePic}
             alt={userInfo?.name || "Profile"}
             width={64}
             height={64}
             unoptimized
-            className="rounded-full border-2 border-white shadow-md object-cover w-16 h-16"
+            className="rounded-full border-2 border-white shadow-md object-cover w-16 h-16 flex-shrink-0"
           />
-          <div className="flex flex-col">
-            <p className="text-lg font-semibold text-white">
+          <div className="flex flex-col min-w-0 flex-1">
+            <p className="text-lg font-semibold text-white truncate" title={userInfo?.name || "Guest User"}>
               {userInfo?.name || "Guest User"}
             </p>
-            <p className="text-sm text-blue-200">{role.toUpperCase()}</p>
+            <p className="text-sm text-blue-200 truncate">{role.toUpperCase()}</p>
           </div>
         </div>
 
@@ -214,9 +214,10 @@ export default function DashboardLayout({ children, role }: Props) {
             <Link
               href={link.path}
               key={link.name}
-              className={`px-4 py-2 rounded-lg transition-all font-medium ${
+              className={`px-4 py-2 rounded-lg transition-all font-medium truncate ${
                 currentPath.startsWith(link.path) ? "bg-blue-500 shadow-md" : "hover:bg-blue-500 hover:shadow-md"
               }`}
+              title={link.name}
             >
               {link.name}
             </Link>
@@ -248,18 +249,18 @@ export default function DashboardLayout({ children, role }: Props) {
               <FiX size={24} />
             </button>
 
-            <div className="p-4 flex flex-col items-center gap-2 border-b border-blue-700">
+            <div className="p-4 flex flex-col items-center gap-2 border-b border-blue-700 min-w-0">
               <Image
                 src={profilePic}
                 alt={userInfo?.name || "Profile"}
                 width={56}
                 height={56}
                 unoptimized
-                className="rounded-full border-2 border-white shadow-md object-cover w-14 h-14"
+                className="rounded-full border-2 border-white shadow-md object-cover w-14 h-14 flex-shrink-0"
               />
-              <div className="text-center">
-                <p className="text-md font-semibold text-white break-words">{userInfo?.name || "Guest"}</p>
-                <p className="text-xs text-blue-200 uppercase break-words">{role.toUpperCase()}</p>
+              <div className="text-center min-w-0 w-full px-2">
+                <p className="text-md font-semibold text-white truncate" title={userInfo?.name || "Guest"}>{userInfo?.name || "Guest"}</p>
+                <p className="text-xs text-blue-200 uppercase truncate">{role.toUpperCase()}</p>
               </div>
             </div>
 
@@ -272,6 +273,7 @@ export default function DashboardLayout({ children, role }: Props) {
                   className={`px-3 py-2 rounded-lg transition-all font-medium text-sm truncate ${
                     currentPath.startsWith(link.path) ? "bg-blue-500 shadow-md" : "hover:bg-blue-500 hover:shadow-md"
                   }`}
+                  title={link.name}
                 >
                   {link.name}
                 </Link>
@@ -295,9 +297,9 @@ export default function DashboardLayout({ children, role }: Props) {
 
       {/* Logout Confirmation Modal */}
       {logoutModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="bg-white rounded-lg shadow-lg p-6 w-80 max-w-full">
-            <h3 className="text-lg font-semibold mb-4">Are you sure you want to logout?</h3>
+            <h3 className="text-lg font-semibold mb-4 break-words">Are you sure you want to logout?</h3>
             <div className="flex justify-end gap-4">
               <button
                 onClick={() => setLogoutModalOpen(false)}
@@ -321,20 +323,20 @@ export default function DashboardLayout({ children, role }: Props) {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col ml-0 md:ml-72">
-        <header className="fixed top-0 left-0 right-0 md:left-72 bg-white shadow-md p-4 flex justify-between items-center border-b border-gray-200 sticky z-30">
-          <div className="flex items-center gap-4">
+        <header className="fixed top-0 left-0 right-0 md:left-72 bg-white shadow-md p-2 sm:p-4 flex justify-between items-center border-b border-gray-200 sticky z-30">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
             <button
               onClick={() => setMenuOpen(prev => !prev)}
-              className="md:hidden text-blue-700"
+              className="md:hidden text-blue-700 flex-shrink-0"
             >
               <FiMenu size={24} />
             </button>
-            <h2 className="text-2xl font-semibold text-blue-700 tracking-wide">
+            <h2 className="text-lg sm:text-2xl font-semibold text-blue-700 tracking-wide truncate">
               {role.toUpperCase()} Dashboard
             </h2>
           </div>
 
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <button
               onClick={() => router.push(`/${role}/profile`)}
               className="focus:outline-none"
@@ -351,7 +353,7 @@ export default function DashboardLayout({ children, role }: Props) {
           </div>
         </header>
 
-        <div className="pt-20 p-6 flex-1 overflow-auto">{children}</div>
+        <div className="pt-16 sm:pt-20 p-3 sm:p-4 md:p-6 flex-1 overflow-auto">{children}</div>
       </main>
     </div>
   );

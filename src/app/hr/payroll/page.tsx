@@ -3,6 +3,8 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { PDFDocument, rgb, StandardFonts, PDFFont } from "pdf-lib";
 import { Plus, Eye, Download, X, CheckCircle, AlertCircle, Info } from "lucide-react";
+import axios from "@/lib/axios";
+import { AxiosError } from "axios";
 // import {  eachDayOfInterval, isWeekend } from 'date-fns';
 
 type PayslipData = {
@@ -35,12 +37,14 @@ type PayslipData = {
 };
 
 type Employee = {
-  id: number;
+  id?: number;
+  emp_id?: number;
   email: string;
   fullname: string;
   department: string;
   bank_name?: string;
   branch?: string;
+  account_number?: string;
   date_joined?: string;
   pf_no?: string;
   residential_address?: string;
@@ -48,15 +52,13 @@ type Employee = {
 };
 
 type PayrollAPIResponse = {
+  id: number;
   email: string;
-  basic_salary: number;
-  allowances: number;
-  deductions: number;
-  bonus: number;
-  tax: number;
-  net_salary: number;
+  basic_salary: string | number;
+  STD: number;
+  LOP: number;
   month: string;
-  year: string;
+  year: number;
   status: string;
   pay_date: string;
 };
@@ -114,7 +116,7 @@ export default function HRPayrollDashboard() {
   });
 
   // --- Month filter state ---
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  const [selectedMonth, setSelectedMonth] = useState<number>(-1); // -1 means show all months
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   const filteredPayslips = useMemo(() => {
@@ -127,20 +129,26 @@ export default function HRPayrollDashboard() {
         "july", "august", "september", "october", "november", "december"
       ].indexOf(monthStr?.toLowerCase());
       const yearNum = Number(yearStr);
-      return (
-        monthIndex === selectedMonth &&
-        yearNum === selectedYear
-      );
+      
+      // If selectedMonth is -1, show all months for the selected year
+      const monthMatch = selectedMonth === -1 || monthIndex === selectedMonth;
+      const yearMatch = yearNum === selectedYear;
+      
+      return monthMatch && yearMatch;
     });
-    // Remove duplicates by employeeId-period
+    
+    // Remove duplicates by unique ID (email-period is more reliable than employeeId-period)
     const uniqueMap = new Map();
     monthFiltered.forEach((p) => {
-      const key = `${p.employeeId}-${p.period}`;
+      // Use the payslip ID which includes email, month, and year - this is unique
+      const key = p.id;
       if (!uniqueMap.has(key)) {
         uniqueMap.set(key, p);
       }
     });
-    return Array.from(uniqueMap.values());
+    
+    const finalResult = Array.from(uniqueMap.values());
+    return finalResult;
   }, [payslips, selectedMonth, selectedYear]);
 
   // Helper function to convert month name to index (0-11)
@@ -164,19 +172,11 @@ export default function HRPayrollDashboard() {
   const fetchSTDDays = useCallback(
     async (email: string, month: string, year: number): Promise<number> => {
       try {
-        console.log(`📊 Fetching STD days for ${email} - ${month} ${year}`);
-        
-        const response = await fetch(
+        const response = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_attendance/${encodeURIComponent(email)}/`
         );
-        
-        if (!response.ok) {
-          console.warn(`❌ Failed to fetch attendance for ${email}`);
-          return 22;
-        }
 
-        const attendanceData = await response.json();
-        console.log(`✅ Raw attendance data for ${email}:`, attendanceData);
+        const attendanceData = response.data;
 
         let presentDays = 0;
         const monthIndex = getMonthIndex(month);
@@ -196,7 +196,6 @@ export default function HRPayrollDashboard() {
             }
           });
           presentDays = monthAttendance.length;
-          console.log(`📈 Filtered ${monthAttendance.length} attendance records for ${month} ${year}`);
           
         } else if (attendanceData.present_days !== undefined) {
           presentDays = attendanceData.present_days;
@@ -209,11 +208,9 @@ export default function HRPayrollDashboard() {
         }
 
         if (presentDays === 0) {
-          console.log(`ℹ️ No attendance data found, using default 22 days for ${email}`);
           return 28;
         }
 
-        console.log(`✅ Calculated STD days for ${email}: ${presentDays}`);
         return presentDays;
 
       } catch (error) {
@@ -228,19 +225,11 @@ export default function HRPayrollDashboard() {
   const fetchLOPDays = useCallback(
     async (email: string, month: string, year: number): Promise<number> => {
       try {
-        console.log(`📊 Fetching LOP days for ${email} - ${month} ${year}`);
-        
-        const response = await fetch(
+        const response = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/get_absent/${encodeURIComponent(email)}/`
         );
-        
-        if (!response.ok) {
-          console.warn(`❌ Failed to fetch absent data for ${email}`);
-          return 0;
-        }
 
-        const absentData = await response.json();
-        console.log(`✅ Absent data for ${email}:`, absentData);
+        const absentData = response.data;
 
         let lopDays = 0;
         const monthIndex = getMonthIndex(month);
@@ -259,7 +248,6 @@ export default function HRPayrollDashboard() {
           lopDays = absentData.count;
         }
 
-        console.log(`📉 Calculated LOP days for ${email}: ${lopDays}`);
         return lopDays;
 
       } catch (error) {
@@ -310,50 +298,56 @@ export default function HRPayrollDashboard() {
     setLoading(true);
     setError(null);
     try {
-      console.log('🔄 Starting data fetch...');
-
-      // Fetch employees
-      const employeesResponse = await fetch(
+      // Fetch employees using axios
+      const employeesResponse = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`
       );
 
-      if (!employeesResponse.ok) {
-        throw new Error('Failed to fetch employees');
-      }
+      const employeesData = employeesResponse.data;
+      
+      // Handle both direct array and nested employees array
+      const employeesList = Array.isArray(employeesData) 
+        ? employeesData 
+        : (employeesData.employees || []);
+      
+      setEmployees(employeesList);
 
-      const employeesData = await employeesResponse.json();
-      setEmployees(Array.isArray(employeesData) ? employeesData : []);
-      console.log('👥 Employees loaded:', employeesData.length);
-
-      // Fetch payrolls
-      const payrollsResponse = await fetch(
+      // Fetch payrolls using axios
+      const payrollsResponse = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_payrolls/`
       );
 
-      if (!payrollsResponse.ok) {
-        throw new Error('Failed to fetch payroll data');
-      }
-
-      const payrollsData = await payrollsResponse.json();
-      console.log('💰 Payrolls loaded:', payrollsData.payrolls?.length || 0);
+      const payrollsData = payrollsResponse.data;
 
       if (payrollsData.payrolls && Array.isArray(payrollsData.payrolls)) {
+        // Filter out invalid payroll records
+        const validPayrolls = payrollsData.payrolls.filter((payroll: PayrollAPIResponse) => {
+          const isValid = payroll && payroll.email && payroll.month && payroll.year;
+          return isValid;
+        });
+        
         const transformedPayslips: PayslipData[] = await Promise.all(
-          payrollsData.payrolls.map(async (payroll: PayrollAPIResponse) => {
-            const employee = employeesData.find((emp: Employee) => emp.email === payroll.email);
+          validPayrolls.map(async (payroll: PayrollAPIResponse) => {
+            const employee = employeesList.find((emp: Employee) => emp.email === payroll.email);
             
-            console.log(`🔄 Processing payroll for ${payroll.email} - ${payroll.month} ${payroll.year}`);
+            // Convert numeric month to month name
+            const monthNames = [
+              "January", "February", "March", "April", "May", "June",
+              "July", "August", "September", "October", "November", "December"
+            ];
+            const monthIndex = typeof payroll.month === 'string' ? parseInt(payroll.month) - 1 : payroll.month - 1;
+            const monthName = monthNames[monthIndex] || payroll.month.toString();
             
-            // Fetch STD and LOP days for this employee and period
-            const stdDays = await fetchSTDDays(payroll.email, payroll.month, parseInt(payroll.year));
-            const lopDays = await fetchLOPDays(payroll.email, payroll.month, parseInt(payroll.year));            
+            // Use STD and LOP from API response, fallback to fetching if not available
+            const stdDays = payroll.STD ?? await fetchSTDDays(payroll.email, monthName, payroll.year);
+            const lopDays = payroll.LOP ?? await fetchLOPDays(payroll.email, monthName, payroll.year);            
             // Calculate earnings and deductions based on basic salary
-            const basicSalary = payroll.basic_salary || 0;
+            const basicSalary = typeof payroll.basic_salary === 'string' ? parseFloat(payroll.basic_salary) : payroll.basic_salary || 0;
             
             return {
               id: `${payroll.email}_${payroll.month}_${payroll.year}`,
               companyName: "GLOBAL TECH SOFTWARE SOLUTIONS",
-              period: `${payroll.month} ${payroll.year}`,
+              period: `${monthName} ${payroll.year}`,
               employeeId: employee?.emp_id?.toString() || "N/A",
               employeeName: employee?.fullname || payroll.email,
               bank: employee?.bank_name || "N/A",
@@ -382,7 +376,6 @@ export default function HRPayrollDashboard() {
         );
 
         setPayslips(transformedPayslips);
-        console.log('✅ Payslips transformed with STD/LOP data:', transformedPayslips.length);
       } else {
         setPayslips([]);
       }
@@ -401,7 +394,10 @@ export default function HRPayrollDashboard() {
     fetchData();
   }, [fetchData]);
 
-  const handleCreatePayroll = async () => {
+  const handleCreatePayroll = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
     if (!formData.email || !formData.basic_salary || !formData.month || !formData.year) {
       addNotification('error', 'Validation Error', 'Please fill in all required fields.');
       return;
@@ -410,38 +406,28 @@ export default function HRPayrollDashboard() {
     try {
       setCreating(true);
 
+      // Convert month name (e.g. "November") to numeric ("11")
+      const monthIndex = new Date(`${formData.month} 1, ${formData.year}`).getMonth() + 1;
+      const monthNumber = monthIndex.toString().padStart(2, "0");
+
+      // Fetch STD and LOP
+      const stdDays = await fetchSTDDays(formData.email, formData.month, parseInt(formData.year));
+      const lopDays = await fetchLOPDays(formData.email, formData.month, parseInt(formData.year));
+
       const payrollData = {
         email: formData.email,
         basic_salary: parseFloat(formData.basic_salary),
-        month: formData.month,
+        month: monthNumber,
         year: parseInt(formData.year),
         status: formData.status,
-        pay_date: formData.pay_date,
+        STD: stdDays,
+        LOP: lopDays
       };
 
-      const token = localStorage.getItem("authToken");
-      const response = await fetch(
+      await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/create_payroll/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify(payrollData),
-        }
+        payrollData
       );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (errorData?.error?.includes("already exists")) {
-          addNotification('error', 'Payroll Already Exists', errorData.error);
-          return;
-        }
-        throw new Error(`Failed to create payroll: ${response.status} - ${errorData.error}`);
-      }
-
-      await response.json();
 
       setFormData({
         email: "",
@@ -453,22 +439,17 @@ export default function HRPayrollDashboard() {
       });
 
       setShowCreateModal(false);
-
-      addNotification(
-        'success',
-        'Payroll Created',
-        `Payroll for ${formData.email} has been created successfully!`
-      );
-
+      addNotification('success', 'Payroll Created', `Payroll for ${formData.email} created successfully!`);
       await fetchData();
 
     } catch (err) {
-      console.error("Error creating payroll:", err);
-      addNotification(
-        'error',
-        'Creation Failed',
-        err instanceof Error ? err.message : 'Failed to create payroll. Please try again.'
-      );
+      let errorMessage = 'Failed to create payroll. Please try again.';
+      if (err instanceof AxiosError) {
+        errorMessage = err.response?.data?.error || err.response?.data?.message || errorMessage;
+      } else if (err instanceof Error) {
+        errorMessage = err.message;
+      }
+      addNotification('error', 'Creation Failed', errorMessage);
     } finally {
       setCreating(false);
     }
@@ -1318,18 +1299,31 @@ export default function HRPayrollDashboard() {
                 </button>
               </div>
 
-              {/* Month Picker */}
+              {/* Month and Year Picker */}
               <div className="flex justify-end items-center mb-4 gap-3">
-                <input
-                  type="month"
-                  value={`${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`}
-                  onChange={(e) => {
-                    const [year, month] = e.target.value.split("-").map(Number);
-                    setSelectedYear(year);
-                    setSelectedMonth(month - 1);
-                  }}
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                />
+                >
+                  <option value={-1}>All Months</option>
+                  {months.map((month, index) => (
+                    <option key={month} value={index}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                >
+                  {years.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {filteredPayslips.length === 0 ? (
