@@ -179,73 +179,82 @@ const ReleavedList = () => {
   };
 
   return (
+    <>
+      <style jsx global>{`
+        body {
+          overflow-x: hidden;
+        }
+        * {
+          max-width: 100%;
+        }
+      `}</style>
     <DashboardLayout role="manager">
-      <div className="p-6 bg-gray-50 min-h-screen">
-        <div className="max-w-7xl mx-auto">
+      <div className="p-3 sm:p-4 md:p-6 bg-gray-50 min-h-screen overflow-x-hidden w-full">
+        <div className="max-w-7xl mx-auto w-full">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Releaved Employees</h1>
-            <p className="text-gray-600">Review and manage employee releaving requests</p>
+          <div className="mb-4 sm:mb-6 md:mb-8">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2">Releaved Employees</h1>
+            <p className="text-sm sm:text-base text-gray-600">Review and manage employee releaving requests</p>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8 w-full">
+            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6 min-w-0">
               <div className="flex items-center">
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-2 sm:p-3 bg-blue-50 rounded-lg">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Requests</p>
-                  <p className="text-2xl font-semibold text-gray-900">{employees.length}</p>
+                <div className="ml-2 sm:ml-3 md:ml-4 min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Requests</p>
+                  <p className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900">{employees.length}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6 min-w-0">
               <div className="flex items-center">
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-2 sm:p-3 bg-green-50 rounded-lg">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Approved</p>
-                  <p className="text-2xl font-semibold text-gray-900">
+                <div className="ml-2 sm:ml-3 md:ml-4 min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Approved</p>
+                  <p className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900">
                     {employees.filter(emp => emp.approved === 'yes').length}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6 min-w-0">
               <div className="flex items-center">
-                <div className="p-3 bg-red-50 rounded-lg">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-2 sm:p-3 bg-red-50 rounded-lg">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Rejected</p>
-                  <p className="text-2xl font-semibold text-gray-900">
+                <div className="ml-2 sm:ml-3 md:ml-4 min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Rejected</p>
+                  <p className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900">
                     {employees.filter(emp => emp.approved === 'no').length}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6 min-w-0">
               <div className="flex items-center">
-                <div className="p-3 bg-orange-50 rounded-lg">
-                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="p-2 sm:p-3 bg-orange-50 rounded-lg">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Pending</p>
-                  <p className="text-2xl font-semibold text-gray-900">
+                <div className="ml-2 sm:ml-3 md:ml-4 min-w-0">
+                  <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Pending</p>
+                  <p className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900">
                     {employees.filter(emp => !emp.approved || emp.approved === 'pending').length}
                   </p>
                 </div>
@@ -254,18 +263,18 @@ const ReleavedList = () => {
           </div>
 
           {/* Table with Tab Filtering */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 overflow-hidden w-full">
             {/* Tab Buttons */}
-            <div className="flex space-x-4 mb-6 px-6 pt-6">
+            <div className="flex space-x-2 sm:space-x-4 mb-4 sm:mb-6 px-3 sm:px-4 md:px-6 pt-4 sm:pt-6">
               <button
                 onClick={() => setActiveTab('pending')}
-                className={`px-4 py-2 rounded-lg font-medium ${activeTab === 'pending' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium ${activeTab === 'pending' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
               >
                 Pending Requests
               </button>
               <button
                 onClick={() => setActiveTab('reviewed')}
-                className={`px-4 py-2 rounded-lg font-medium ${activeTab === 'reviewed' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+                className={`px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium ${activeTab === 'reviewed' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
               >
                 Reviewed Requests
               </button>
@@ -615,6 +624,7 @@ const ReleavedList = () => {
         )}
       </div>
     </DashboardLayout>
+    </>
   );
 };
 

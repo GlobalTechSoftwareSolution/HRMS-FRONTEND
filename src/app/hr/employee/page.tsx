@@ -226,22 +226,72 @@ const [error, setError] = useState<string>("");
       : "N/A";
 
   return (
+    <>
+      <style jsx global>{`
+        body {
+          overflow-x: hidden;
+        }
+        * {
+          max-width: 100%;
+        }
+        
+        /* Custom breakpoints for extra small devices */
+        @media (max-width: 480px) {
+          .xs\\:grid-cols-2 {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .max-w-7xl {
+            margin-left: 0.5rem;
+            margin-right: 0.5rem;
+          }
+        }
+
+        /* Ensure modal is properly sized on very small screens */
+        @media (max-width: 360px) {
+          .fixed.inset-0 {
+            padding: 0.5rem;
+          }
+          
+          .bg-white.rounded-lg {
+            border-radius: 0.5rem;
+          }
+        }
+
+        /* Improve touch targets on mobile */
+        @media (max-width: 768px) {
+          button, 
+          [role="button"] {
+            min-height: 44px;
+            min-width: 44px;
+          }
+        }
+
+        /* Smooth scrolling for mobile */
+        @media (max-width: 768px) {
+          html {
+            -webkit-overflow-scrolling: touch;
+          }
+        }
+      `}</style>
     <DashboardLayout role="hr">
       <ToastContainer position="top-right" autoClose={3000} />
-      <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-3 sm:p-4 md:p-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">Employee Management</h2>
+      <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-3 sm:p-4 md:p-6 overflow-x-hidden w-full">
+        <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 mb-3 sm:mb-4 md:mb-6">Employee Management</h2>
 
         {/* Search & Filter */}
-        <div className="bg-gray-50 p-3 sm:p-4 rounded-md border mb-4 sm:mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-            <div className="relative">
+        <div className="bg-gray-50 p-3 sm:p-4 rounded-md border mb-3 sm:mb-4 md:mb-6 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 w-full">
+            <div className="relative w-full">
               <FiSearch className="absolute left-3 top-3 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search employees..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border rounded-md w-full focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
+                className="pl-10 pr-4 py-2 border rounded-md w-full focus:ring-2 focus:ring-blue-500 text-sm sm:text-base min-w-0"
               />
             </div>
             <select
@@ -259,17 +309,17 @@ const [error, setError] = useState<string>("");
 
         {/* Employee Modal */}
         {selectedEmployee && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50">
-            <div className="bg-white p-4 sm:p-6 rounded-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-3 sm:mb-4">
-                <h3 className="text-lg sm:text-xl font-semibold">Employee Details</h3>
-                <button onClick={() => setSelectedEmployee(null)} className="text-gray-500 hover:text-gray-700">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+            <div className="bg-white p-4 sm:p-6 rounded-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto overflow-x-hidden my-auto">
+              <div className="flex justify-between items-center mb-3 sm:mb-4 w-full">
+                <h3 className="text-lg sm:text-xl font-semibold break-words flex-1 mr-2">Employee Details</h3>
+                <button onClick={() => setSelectedEmployee(null)} className="text-gray-500 hover:text-gray-700 flex-shrink-0">
                   <FiX size={20} />
                 </button>
               </div>
 
               {/* Profile */}
-              <div className="flex items-center mb-4 sm:mb-6">
+              <div className="flex items-center mb-4 sm:mb-6 w-full overflow-hidden">
                 <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center text-blue-600 font-bold text-lg sm:text-xl">
                   {selectedEmployee.profile_picture ? (
                     <Image
@@ -283,31 +333,31 @@ const [error, setError] = useState<string>("");
                     selectedEmployee.fullname.charAt(0)
                   )}
                 </div>
-                <div className="ml-3 sm:ml-4">
-                  <h4 className="text-base sm:text-lg font-medium">{selectedEmployee.fullname}</h4>
-                  <p className="text-gray-500 text-sm sm:text-base">{selectedEmployee.email}</p>
+                <div className="ml-3 sm:ml-4 min-w-0 flex-1">
+                  <h4 className="text-base sm:text-lg font-medium break-words">{selectedEmployee.fullname}</h4>
+                  <p className="text-gray-500 text-sm sm:text-base break-all">{selectedEmployee.email}</p>
                 </div>
               </div>
 
               {/* Details */}
-              <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 text-xs sm:text-sm">
-                <p><strong>Designation:</strong> {selectedEmployee.designation || "N/A"}</p>
-                <p><strong>Department:</strong> {selectedEmployee.department || "N/A"}</p>
-                <p><strong>Phone:</strong> {selectedEmployee.phone || "N/A"}</p>
-                <p><strong>Joined:</strong> {formatDate(selectedEmployee.date_joined)}</p>
-                <p><strong>Salary:</strong> {formatSalary(payrollData[selectedEmployee.email]?.basic_salary)}</p>
+              <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 text-xs sm:text-sm w-full overflow-hidden">
+                <p className="break-words"><strong>Designation:</strong> {selectedEmployee.designation || "N/A"}</p>
+                <p className="break-words"><strong>Department:</strong> {selectedEmployee.department || "N/A"}</p>
+                <p className="break-words"><strong>Phone:</strong> {selectedEmployee.phone || "N/A"}</p>
+                <p className="break-words"><strong>Joined:</strong> {formatDate(selectedEmployee.date_joined)}</p>
+                <p className="break-words"><strong>Salary:</strong> {formatSalary(payrollData[selectedEmployee.email]?.basic_salary)}</p>
               </div>
 
               {/* Documents */}
-              <div className="mb-4 sm:mb-6">
+              <div className="mb-4 sm:mb-6 w-full overflow-hidden">
                 <h4 className="text-base sm:text-lg font-semibold flex items-center mb-2">
                   <FiFileText className="mr-2 text-blue-600" /> Documents
                 </h4>
                 {documentData[selectedEmployee.email]?.length ? (
                   <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-2">
                     {documentData[selectedEmployee.email].map((doc) => (
-                      <li key={doc.id} className="flex justify-between items-center text-xs sm:text-sm">
-                        <span className="truncate mr-2">{doc.document_name}</span>
+                      <li key={doc.id} className="flex justify-between items-center text-xs sm:text-sm gap-2">
+                        <span className="truncate mr-2 flex-1 min-w-0">{doc.document_name}</span>
                         <button
                           onClick={() => window.open(doc.document_file, "_blank")}
                           className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 whitespace-nowrap"
@@ -499,49 +549,7 @@ const [error, setError] = useState<string>("");
           </div>
         )}
       </div>
-
-      <style jsx global>{`
-        /* Custom breakpoints for extra small devices */
-        @media (max-width: 480px) {
-          .xs\\:grid-cols-2 {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        @media (max-width: 640px) {
-          .max-w-7xl {
-            margin-left: 0.5rem;
-            margin-right: 0.5rem;
-          }
-        }
-
-        /* Ensure modal is properly sized on very small screens */
-        @media (max-width: 360px) {
-          .fixed.inset-0 {
-            padding: 0.5rem;
-          }
-          
-          .bg-white.rounded-lg {
-            border-radius: 0.5rem;
-          }
-        }
-
-        /* Improve touch targets on mobile */
-        @media (max-width: 768px) {
-          button, 
-          [role="button"] {
-            min-height: 44px;
-            min-width: 44px;
-          }
-        }
-
-        /* Smooth scrolling for mobile */
-        @media (max-width: 768px) {
-          html {
-            -webkit-overflow-scrolling: touch;
-          }
-        }
-      `}</style>
     </DashboardLayout>
+    </>
   );
 }

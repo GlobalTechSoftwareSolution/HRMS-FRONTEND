@@ -384,7 +384,10 @@ export default function Onboarding() {
 
   // Mobile Card View for Employees
   const EmployeeCard = ({ employee }: { employee: Employee }) => (
-    <div className="bg-white p-4 rounded-lg shadow-sm border mb-4">
+    <div 
+      className="bg-white p-4 rounded-lg shadow-sm border mb-4 cursor-pointer hover:shadow-md transition-shadow"
+      onClick={() => handleViewDetails(employee)}
+    >
       <div className="flex items-center mb-3">
         <div className="flex-shrink-0 h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold overflow-hidden mr-3">
           {employee.profile_picture ? (
@@ -407,9 +410,9 @@ export default function Onboarding() {
             (employee.email && employee.email.charAt(0))
           )}
         </div>
-        <div>
-          <h3 className="text-sm font-medium text-gray-900">{employee.fullname}</h3>
-          <p className="text-xs text-gray-500">{employee.email}</p>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-medium text-gray-900 truncate">{employee.fullname}</h3>
+          <p className="text-xs text-gray-500 truncate">{employee.email}</p>
         </div>
       </div>
       
@@ -430,13 +433,19 @@ export default function Onboarding() {
       
       <div className="flex justify-between pt-2 border-t border-gray-100">
         <button
-          onClick={() => handleViewDetails(employee)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleViewDetails(employee);
+          }}
           className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
         >
           <FiEye className="mr-1" /> View
         </button>
         <button
-          onClick={() => handleEditEmployee(employee)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleEditEmployee(employee);
+          }}
           className="text-green-600 hover:text-green-800 text-sm flex items-center"
         >
           <FiEdit className="mr-1" /> Edit
@@ -447,16 +456,36 @@ export default function Onboarding() {
 
   // Mobile Card View for Pending Users
   const PendingUserCard = ({ user }: { user: User }) => (
-    <div className="bg-white p-4 rounded-lg shadow-sm border mb-4">
+    <div 
+      className="bg-white p-4 rounded-lg shadow-sm border mb-4 cursor-pointer hover:shadow-md transition-shadow"
+      onClick={() => {
+        const employeeData = employees.find(emp => emp.email === user.email) || {
+          id: user.id,
+          email: user.email,
+          fullname: user.fullname,
+          age: null,
+          phone: null,
+          department: null,
+          designation: null,
+          date_of_birth: null,
+          date_joined: null,
+          skills: null,
+          profile_picture: null,
+          reports_to: null,
+          status: 'pending'
+        };
+        handleViewDetails(employeeData);
+      }}
+    >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center">
           <div className="flex-shrink-0 h-12 w-12 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 font-bold overflow-hidden mr-3">
             {(user.fullname && user.fullname.charAt(0)) ||
              (user.email && user.email.charAt(0))}
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-900">{user.fullname}</h3>
-            <p className="text-xs text-gray-500">{user.email}</p>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-medium text-gray-900 truncate">{user.fullname}</h3>
+            <p className="text-xs text-gray-500 truncate">{user.email}</p>
           </div>
         </div>
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
@@ -466,7 +495,8 @@ export default function Onboarding() {
       
       <div className="flex justify-between pt-2 border-t border-gray-100">
         <button
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
             const employeeData = employees.find(emp => emp.email === user.email) || {
               id: user.id,
               email: user.email,
@@ -489,7 +519,10 @@ export default function Onboarding() {
           <FiEye className="mr-1" /> View
         </button>
         <button
-          onClick={() => handleApproveEmployee(user)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleApproveEmployee(user);
+          }}
           className="text-green-600 hover:text-green-800 text-sm flex items-center"
         >
           <FiCheck className="mr-1" /> Approve
@@ -499,14 +532,38 @@ export default function Onboarding() {
   );
 
   return (
+    <>
+      <style jsx global>{`
+        body {
+          overflow-x: hidden;
+        }
+        * {
+          max-width: 100%;
+        }
+        
+        @media (max-width: 640px) {
+          .max-w-7xl {
+            padding: 0.5rem;
+          }
+          .p-6 {
+            padding: 1rem;
+          }
+          .text-2xl {
+            font-size: 1.5rem;
+          }
+          .grid-cols-2 {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     <DashboardLayout role="hr">
       <ToastContainer position="top-right" autoClose={3000} />
-      <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Employee Management</h2>
+      <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-3 sm:p-4 md:p-6 overflow-x-hidden w-full">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3 sm:gap-4 w-full">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800">Employee Management</h2>
           <button
             onClick={handleOnboardEmployee}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition w-full sm:w-auto"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-md text-sm sm:text-base transition w-full sm:w-auto"
           >
             Onboard New Employee
           </button>
@@ -514,11 +571,11 @@ export default function Onboarding() {
 
         {/* Onboard New Employee Modal */}
         {isOnboarding && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-4 sm:p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg sm:text-xl font-semibold">Onboard New Employee</h3>
-                <button onClick={() => setIsOnboarding(false)} className="text-gray-500 hover:text-gray-700">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+            <div className="bg-white p-4 sm:p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden my-auto">
+              <div className="flex justify-between items-center mb-4 w-full">
+                <h3 className="text-base sm:text-lg md:text-xl font-semibold break-words flex-1 mr-2">Onboard New Employee</h3>
+                <button onClick={() => setIsOnboarding(false)} className="text-gray-500 hover:text-gray-700 flex-shrink-0">
                   <FiX size={20} />
                 </button>
               </div>
@@ -634,21 +691,21 @@ export default function Onboarding() {
 
         {/* Employee Details/Edit Modal */}
         {selectedEmployee && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white p-4 sm:p-6 rounded-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg sm:text-xl font-semibold">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+            <div className="bg-white p-4 sm:p-6 rounded-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto overflow-x-hidden my-auto">
+              <div className="flex justify-between items-center mb-4 w-full">
+                <h3 className="text-base sm:text-lg md:text-xl font-semibold break-words flex-1 mr-2">
                   {isEditing ? "Edit Employee" : "Employee Details"}
                 </h3>
                 <button onClick={() => {
                   setSelectedEmployee(null);
                   setEditFormData({});
                   setIsEditing(false);
-                }} className="text-gray-500 hover:text-gray-700">
+                }} className="text-gray-500 hover:text-gray-700 flex-shrink-0">
                   <FiX size={20} />
                 </button>
               </div>
-              <div className="flex items-center mb-6">
+              <div className="flex items-center mb-6 w-full overflow-hidden">
                 <div className="flex-shrink-0 h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl overflow-hidden">
                   {profilePictureFile ? (
                     <div className="relative h-16 w-16">
@@ -679,9 +736,9 @@ export default function Onboarding() {
                     (selectedEmployee.email && selectedEmployee.email.charAt(0))
                   )}
                 </div>
-                <div className="ml-4">
-                  <h4 className="text-lg font-medium text-gray-900">{selectedEmployee.fullname}</h4>
-                  <p className="text-gray-500">{selectedEmployee.email}</p>
+                <div className="ml-4 min-w-0 flex-1">
+                  <h4 className="text-base sm:text-lg font-medium text-gray-900 break-words">{selectedEmployee.fullname}</h4>
+                  <p className="text-sm sm:text-base text-gray-500 break-all">{selectedEmployee.email}</p>
                 </div>
               </div>
               {/* Show profile picture upload only if editing and not in pending tab */}
@@ -1075,23 +1132,7 @@ export default function Onboarding() {
           </>
         )}
       </div>
-
-      <style jsx>{`
-        @media (max-width: 640px) {
-          .max-w-7xl {
-            padding: 0.5rem;
-          }
-          .p-6 {
-            padding: 1rem;
-          }
-          .text-2xl {
-            font-size: 1.5rem;
-          }
-          .grid-cols-2 {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
     </DashboardLayout>
+    </>
   );
 }

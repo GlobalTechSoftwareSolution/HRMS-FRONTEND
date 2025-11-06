@@ -316,20 +316,29 @@ const EmployeeList = () => {
   }
 
   return (
+    <>
+      <style jsx global>{`
+        body {
+          overflow-x: hidden;
+        }
+        * {
+          max-width: 100%;
+        }
+      `}</style>
     <DashboardLayout role="hr">
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6 text-black">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-3 sm:p-4 md:p-6 text-black overflow-x-hidden w-full">
       {/* Header */}
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Employee Management</h1>
-            <p className="text-gray-600 mt-2">Manage your team members and offboarding process</p>
+      <div className="max-w-7xl mx-auto w-full">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 md:mb-8 gap-3 sm:gap-4">
+          <div className="w-full sm:w-auto">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Employee Management</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Manage your team members and offboarding process</p>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="bg-white rounded-lg px-4 py-2 shadow-sm">
+          <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto">
+            <div className="bg-white rounded-lg px-3 sm:px-4 py-2 shadow-sm">
               <div className="flex items-center space-x-2">
-                <Users className="w-5 h-5 text-blue-600" />
-                <span className="text-sm font-medium">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                <span className="text-xs sm:text-sm font-medium">
                   {employees.length} Active • {releavedEmployees.length} Releaved
                 </span>
               </div>
@@ -341,40 +350,43 @@ const EmployeeList = () => {
         {!selectedEmployee && !selectedReleavedEmployee && (
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
             {/* Tab Navigation */}
-            <div className="border-b">
-              <div className="flex">
+            <div className="border-b overflow-x-auto">
+              <div className="flex min-w-max">
                 <button
                   onClick={() => setActiveTab("active")}
-                  className={`flex items-center px-6 py-4 font-medium text-sm transition-all ${
+                  className={`flex items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-all whitespace-nowrap ${
                     activeTab === "active"
                       ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
                       : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
-                  <User className="w-4 h-4 mr-2" />
-                  Active Employees ({employees.length})
+                  <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                  <span className="hidden sm:inline">Active Employees ({employees.length})</span>
+                  <span className="sm:hidden">Active ({employees.length})</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("applied")}
-                  className={`flex items-center px-6 py-4 font-medium text-sm transition-all ${
+                  className={`flex items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-all whitespace-nowrap ${
                     activeTab === "applied"
                       ? "text-yellow-600 border-b-2 border-yellow-500 bg-yellow-50"
                       : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
-                  <Users className="w-4 h-4 mr-2" />
-                  Applied for Relieve ({appliedEmployees.length})
+                  <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                  <span className="hidden sm:inline">Applied for Relieve ({appliedEmployees.length})</span>
+                  <span className="sm:hidden">Applied ({appliedEmployees.length})</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("releaved")}
-                  className={`flex items-center px-6 py-4 font-medium text-sm transition-all ${
+                  className={`flex items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-all whitespace-nowrap ${
                     activeTab === "releaved"
                       ? "text-red-600 border-b-2 border-red-600 bg-red-50"
                       : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Releaved Employees ({releavedEmployees.length})
+                  <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                  <span className="hidden sm:inline">Releaved Employees ({releavedEmployees.length})</span>
+                  <span className="sm:hidden">Releaved ({releavedEmployees.length})</span>
                 </button>
               </div>
             </div>
@@ -386,7 +398,7 @@ const EmployeeList = () => {
                   {employees.map((emp) => (
                     <div
                       key={emp.email}
-                      className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-blue-200"
+                      className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-blue-200 w-full overflow-hidden"
                     >
                       <div className="flex flex-col items-center text-center">
                         <div className="relative mb-4">
@@ -400,12 +412,12 @@ const EmployeeList = () => {
                           <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
                         </div>
                         
-                        <h3 className="font-bold text-lg text-gray-900 mb-1">
+                        <h3 className="font-bold text-base sm:text-lg text-gray-900 mb-1 break-words w-full">
                           {emp.fullname}
                         </h3>
-                        <p className="text-sm text-gray-600 mb-3 flex items-center">
-                          <Mail className="w-3 h-3 mr-1" />
-                          {emp.email}
+                        <p className="text-xs sm:text-sm text-gray-600 mb-3 flex items-center justify-center w-full">
+                          <Mail className="w-3 h-3 mr-1 flex-shrink-0" />
+                          <span className="truncate">{emp.email}</span>
                         </p>
                         
                         <div className="w-full space-y-2 mb-4">
@@ -587,34 +599,36 @@ const EmployeeList = () => {
 
         {/* Employee Detail View */}
         {(selectedEmployee || selectedReleavedEmployee) && (
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <div className="max-w-4xl mx-auto w-full">
+            <div className="bg-white rounded-2xl shadow-lg overflow-hidden w-full">
               <div className="border-b border-gray-200">
-                <div className="flex items-center justify-between p-6">
+                <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 gap-2">
                   <button
                     onClick={() => {
                       setSelectedEmployee(null);
                       setSelectedReleavedEmployee(null);
                     }}
-                    className="flex items-center text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                    className="flex items-center text-gray-600 hover:text-gray-900 font-medium transition-colors text-sm sm:text-base"
                   >
-                    <ChevronLeft className="w-5 h-5 mr-1" />
-                    Back to list
+                    <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-1 flex-shrink-0" />
+                    <span className="hidden sm:inline">Back to list</span>
+                    <span className="sm:hidden">Back</span>
                   </button>
                   {selectedEmployee && (
                     <button
                       onClick={() => setShowRemoveForm(selectedEmployee)}
-                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center"
+                      className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center text-xs sm:text-sm whitespace-nowrap"
                     >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Remove Employee
+                      <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                      <span className="hidden sm:inline">Remove Employee</span>
+                      <span className="sm:hidden">Remove</span>
                     </button>
                   )}
                 </div>
               </div>
 
-              <div className="p-8">
-                <div className="flex flex-col lg:flex-row items-start space-y-6 lg:space-y-0 lg:space-x-8">
+              <div className="p-4 sm:p-6 md:p-8 w-full overflow-hidden">
+                <div className="flex flex-col lg:flex-row items-start space-y-4 sm:space-y-6 lg:space-y-0 lg:space-x-8 w-full">
                   <div className="flex-shrink-0">
                     <Image
                       src={
@@ -629,42 +643,42 @@ const EmployeeList = () => {
                     />
                   </div>
 
-                  <div className="flex-1 grid md:grid-cols-2 gap-6">
-                    <div className="space-y-6">
-                      <div>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  <div className="flex-1 grid md:grid-cols-2 gap-4 sm:gap-6 w-full min-w-0">
+                    <div className="space-y-4 sm:space-y-6 min-w-0">
+                      <div className="w-full">
+                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">
                           {selectedEmployee?.fullname || selectedReleavedEmployee?.fullname}
                         </h2>
-                        <p className="text-gray-600 flex items-center">
-                          <Mail className="w-4 h-4 mr-2" />
-                          {selectedEmployee?.email || selectedReleavedEmployee?.email}
+                        <p className="text-sm sm:text-base text-gray-600 flex items-center w-full">
+                          <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
+                          <span className="break-all">{selectedEmployee?.email || selectedReleavedEmployee?.email}</span>
                         </p>
                       </div>
 
-                      <div className="space-y-4">
-                        <div className="flex items-center text-gray-700">
-                          <Building className="w-4 h-4 mr-3 text-blue-600" />
-                          <span className="font-medium mr-2">Department:</span>
-                          <span>{selectedEmployee?.department || selectedReleavedEmployee?.department || "—"}</span>
+                      <div className="space-y-3 sm:space-y-4 w-full">
+                        <div className="flex items-center text-sm sm:text-base text-gray-700 w-full">
+                          <Building className="w-4 h-4 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
+                          <span className="font-medium mr-2 flex-shrink-0">Department:</span>
+                          <span className="truncate">{selectedEmployee?.department || selectedReleavedEmployee?.department || "—"}</span>
                         </div>
-                        <div className="flex items-center text-gray-700">
-                          <Briefcase className="w-4 h-4 mr-3 text-blue-600" />
-                          <span className="font-medium mr-2">Designation:</span>
-                          <span>{selectedEmployee?.designation || selectedReleavedEmployee?.designation || "—"}</span>
+                        <div className="flex items-center text-sm sm:text-base text-gray-700 w-full">
+                          <Briefcase className="w-4 h-4 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
+                          <span className="font-medium mr-2 flex-shrink-0">Designation:</span>
+                          <span className="truncate">{selectedEmployee?.designation || selectedReleavedEmployee?.designation || "—"}</span>
                         </div>
-                        <div className="flex items-center text-gray-700">
-                          <Phone className="w-4 h-4 mr-3 text-blue-600" />
-                          <span className="font-medium mr-2">Phone:</span>
-                          <span>{selectedEmployee?.phone || selectedReleavedEmployee?.phone || "—"}</span>
+                        <div className="flex items-center text-sm sm:text-base text-gray-700 w-full">
+                          <Phone className="w-4 h-4 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
+                          <span className="font-medium mr-2 flex-shrink-0">Phone:</span>
+                          <span className="break-all">{selectedEmployee?.phone || selectedReleavedEmployee?.phone || "—"}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-6">
-                        <div className="flex items-center text-gray-700">
-                          <Calendar className="w-4 h-4 mr-3 text-blue-600" />
-                          <span className="font-medium mr-2">Date Joined:</span>
-                          <span>
+                    <div className="space-y-4 sm:space-y-6 min-w-0">
+                        <div className="flex items-center text-sm sm:text-base text-gray-700 w-full">
+                          <Calendar className="w-4 h-4 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
+                          <span className="font-medium mr-2 flex-shrink-0">Date Joined:</span>
+                          <span className="truncate">
                             {formatDate(selectedEmployee?.date_joined || selectedReleavedEmployee?.date_joined)}
                           </span>
                         </div>
@@ -702,13 +716,13 @@ const EmployeeList = () => {
                           },
                         ];
                         return (
-                          <div>
-                            <div className="flex items-center justify-center gap-4 mb-2 mt-2">
+                          <div className="w-full overflow-x-auto">
+                            <div className="flex items-center justify-center gap-1 sm:gap-2 md:gap-4 mb-2 mt-2 min-w-max px-2">
                               {steps.map((step, index) => (
                                 <React.Fragment key={step.label}>
                                   <div className="flex flex-col items-center">
                                     <div
-                                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${
+                                      className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold ${
                                         step.rejected
                                           ? "bg-red-500 text-white"
                                           : step.active
@@ -718,10 +732,10 @@ const EmployeeList = () => {
                                     >
                                       {step.rejected ? "❌" : step.active && index === steps.length - 1 ? "✅" : index + 1}
                                     </div>
-                                    <span className="text-xs mt-1 text-center w-20">{step.label}</span>
+                                    <span className="text-[10px] sm:text-xs mt-1 text-center w-12 sm:w-16 md:w-20 break-words leading-tight">{step.label}</span>
                                   </div>
                                   {index < steps.length - 1 && (
-                                    <div className="flex-1 h-1 bg-gray-300 w-4 mx-1" />
+                                    <div className="flex-1 h-0.5 sm:h-1 bg-gray-300 w-2 sm:w-4 mx-0.5 sm:mx-1" />
                                   )}
                                 </React.Fragment>
                               ))}
@@ -844,6 +858,7 @@ const EmployeeList = () => {
       </div>
     </div>
     </DashboardLayout>
+    </>
   );
 };
 

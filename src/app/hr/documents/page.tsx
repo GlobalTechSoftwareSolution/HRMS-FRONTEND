@@ -284,8 +284,17 @@ const DocumentPage = () => {
   }
 
   return (
+    <>
+      <style jsx global>{`
+        body {
+          overflow-x: hidden;
+        }
+        * {
+          max-width: 100%;
+        }
+      `}</style>
     <DashboardLayout role="hr">
-      <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+      <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 overflow-x-hidden w-full">
         {/* Header */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 sm:gap-4">
           <div className="w-full lg:w-auto">
@@ -476,8 +485,8 @@ const DocumentPage = () => {
 
         {/* Selected User Modal */}
         {selectedUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-2 sm:p-3 md:p-4">
-            <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl w-full max-w-full sm:max-w-2xl md:max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col mx-1 sm:mx-2 md:mx-0">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-2 sm:p-3 md:p-4 overflow-y-auto">
+            <div className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl w-full max-w-full sm:max-w-2xl md:max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden overflow-x-hidden flex flex-col mx-1 sm:mx-2 md:mx-0 my-auto">
               {/* Header */}
               <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
                 <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0 flex-1">
@@ -593,8 +602,8 @@ const DocumentPage = () => {
                           };
 
                           return (
-                            <div key={docType} className="flex items-center justify-between p-2 sm:p-3 bg-white rounded-lg border border-gray-200">
-                              <div className="flex-1 min-w-0">
+                            <div key={docType} className="flex items-center justify-between gap-2 p-2 sm:p-3 bg-white rounded-lg border border-gray-200 w-full overflow-hidden">
+                              <div className="flex-1 min-w-0 max-w-[calc(100%-100px)]">
                                 <span className="font-medium text-gray-700 text-xs sm:text-sm capitalize block truncate">
                                   {docType.replace(/_/g, ' ')}
                                 </span>
@@ -717,9 +726,9 @@ const DocumentPage = () => {
 
         {/* Award Modal */}
         {awardModal.open && selectedUser && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-2 sm:p-3 md:p-4">
-            <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 max-w-full sm:max-w-md w-full shadow-xl mx-1 sm:mx-2 md:mx-0">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Issue Award to {selectedUser.fullname}</h3>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-2 sm:p-3 md:p-4 overflow-y-auto">
+            <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 max-w-full sm:max-w-md w-full shadow-xl mx-1 sm:mx-2 md:mx-0 overflow-x-hidden my-auto">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 break-words">Issue Award to {selectedUser.fullname}</h3>
               <div className="space-y-3 sm:space-y-4">
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Award Title</label>
@@ -925,6 +934,7 @@ const DocumentPage = () => {
         )}
       </div>
     </DashboardLayout>
+    </>
   );
 };
 

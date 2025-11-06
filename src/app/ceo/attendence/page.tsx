@@ -57,6 +57,7 @@ type Employee = {
   fullname: string;
   department: string;
   date_joined?: string;
+  reports_to?: string;
   [key: string]: unknown;
 };
 
@@ -466,8 +467,13 @@ const calendarEvents = [
     const end = new Date(String(l.end_date));
     end.setDate(end.getDate() + 1);
 
+    // Find employee details from employees array
+    const employee = employees.find(emp => emp.email === l.email);
+    const employeeName = employee?.fullname || l.employee_name || "Employee";
+    const reportingManager = employee?.reports_to || "N/A";
+
     return {
-      title: `${l.employee_name || "Employee"} - ${l.status}`,
+      title: `${employeeName} - ${l.status}`,
       start: String(l.start_date),
       end: end.toISOString().split("T")[0],
       backgroundColor:
@@ -478,7 +484,8 @@ const calendarEvents = [
           : "#ef4444",
       textColor: "#fff",
       extendedProps: {
-        employee_name: l.employee_name,
+        employee_name: employeeName,
+        reporting_manager: reportingManager,
         leave_type: l.leave_type,
         reason: l.reason,
         status: l.status,
@@ -501,19 +508,19 @@ const calendarEvents = [
         }
       `}</style>
       <DashboardLayout role="ceo">
-      <div className="min-h-screen bg-gray-50 p-1 sm:p-3 lg:p-6 max-w-7xl mx-auto">
+      <div className="space-y-4 sm:space-y-6">
         <motion.h1
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-lg sm:text-xl lg:text-2xl font-bold mb-2 sm:mb-3 lg:mb-4 text-gray-800"
+          className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold mb-1 sm:mb-2 md:mb-3 lg:mb-4 text-gray-800 w-full"
         >
           CEO ATTENDANCE 📋
         </motion.h1>
 
         {/* KPI Cards */}
         <motion.div
-          className="flex flex-nowrap overflow-x-auto gap-1.5 sm:gap-2 lg:gap-3 mb-2 sm:mb-3 lg:mb-4 pb-1 scrollbar-thin scrollbar-thumb-gray-300"
+          className="flex flex-row justify-between items-center flex-nowrap gap-1 sm:gap-1.5 md:gap-2 lg:gap-3 w-full overflow-x-hidden mb-4 sm:mb-5 md:mb-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -585,7 +592,7 @@ const calendarEvents = [
           ].map((kpi) => (
             <motion.div
               key={kpi.title}
-              className={`min-w-[100px] sm:min-w-[130px] lg:min-w-[160px] rounded-md p-1.5 sm:p-2.5 lg:p-3 text-white shadow-sm flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color} cursor-pointer`}
+              className={`flex flex-col items-center justify-center bg-white shadow rounded-lg p-0.5 sm:p-1 md:p-2 lg:p-3 w-[65px] sm:w-[90px] md:w-[120px] lg:w-[160px] hover:scale-105 transition-transform duration-300 ${kpi.color} cursor-pointer`}
               onClick={kpi.onClick}
               tabIndex={0}
               role="button"
@@ -595,8 +602,8 @@ const calendarEvents = [
                 }
               }}
             >
-              <p className="text-[10px] sm:text-xs lg:text-sm font-medium opacity-90 leading-tight">{kpi.title}</p>
-              <p className="text-sm sm:text-base lg:text-lg font-bold">{kpi.value}</p>
+              <p className="text-[7px] sm:text-[8px] md:text-[10px] lg:text-sm font-medium text-center leading-tight text-white break-words px-0.5">{kpi.title}</p>
+              <p className="text-[9px] sm:text-[11px] md:text-xs lg:text-base font-bold text-center whitespace-nowrap overflow-hidden truncate leading-tight mt-0.5 text-white px-0.5">{kpi.value}</p>
             </motion.div>
           ))}
         </motion.div>
@@ -604,11 +611,11 @@ const calendarEvents = [
         {/* Charts Section */}
         {/* Charts Section */}
         {/* Always show charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-3 lg:gap-4 mb-2 sm:mb-4 lg:mb-6">
+        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-1 sm:gap-2 md:gap-3 lg:gap-4 mb-1 sm:mb-2 md:mb-4 lg:mb-6">
           {/* Pie Chart - Attendance Distribution */}
-          <div className="bg-white rounded-md shadow-sm p-2 sm:p-3 lg:p-5 flex flex-col items-center">
-            <h3 className="text-xs sm:text-sm lg:text-base font-semibold text-gray-700 mb-1 sm:mb-2 lg:mb-3">Attendance Distribution</h3>
-            <div className="w-full h-40 sm:h-48 lg:h-56">
+          <div className="w-full bg-white rounded shadow-sm p-1 sm:p-2 md:p-3 lg:p-5 flex flex-col items-center overflow-hidden">
+            <h3 className="text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-700 mb-0.5 sm:mb-1 md:mb-2 lg:mb-3">Attendance Distribution</h3>
+            <div className="w-full h-40 sm:h-56 md:h-64 min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -617,7 +624,7 @@ const calendarEvents = [
                     nameKey="name"
                     cx="50%"
                     cy="50%"
-                    outerRadius={60}
+                    outerRadius={50}
                     label={(props) => {
                       const { name, percent } = props as unknown as { name: string; percent: number };
                       return `${name} (${(percent * 100).toFixed(0)}%)`;
@@ -634,11 +641,11 @@ const calendarEvents = [
             </div>
           </div>
           {/* Bar Chart - Hours Worked per Employee */}
-          <div className="bg-white rounded-md shadow-sm p-2 sm:p-3 lg:p-5 flex flex-col items-center">
-            <h3 className="text-xs sm:text-sm lg:text-base font-semibold text-gray-700 mb-1 sm:mb-2 lg:mb-3">
+          <div className="w-full bg-white rounded shadow-sm p-1 sm:p-2 md:p-3 lg:p-5 flex flex-col items-center overflow-hidden">
+            <h3 className="text-[10px] sm:text-xs md:text-sm lg:text-base font-semibold text-gray-700 mb-0.5 sm:mb-1 md:mb-2 lg:mb-3">
               Hours Worked Per Employee ({selectedDate ? formatDate(selectedDate) : "Today"})
             </h3>
-            <div className="w-full h-40 sm:h-48 lg:h-56">
+            <div className="w-full h-40 sm:h-56 md:h-64 min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -653,13 +660,13 @@ const calendarEvents = [
         </div>
 
         {/* Today's/Selected Date Attendance + Download PDF */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 sm:mb-3 gap-1.5 sm:gap-2">
-          <h2 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-700">
+        <div className="w-full flex flex-col sm:flex-row justify-between items-start sm:items-center mb-1 sm:mb-2 md:mb-3 gap-1 sm:gap-2">
+          <h2 className="text-xs sm:text-sm md:text-base lg:text-lg font-semibold text-gray-700">
             {selectedDate ? `${formatDate(selectedDate)} Attendance` : "Today's Attendance"}
           </h2>
           <button
             onClick={downloadPDF}
-            className="w-full sm:w-auto px-3 py-1.5 bg-blue-600 text-white text-xs sm:text-sm rounded-md hover:bg-blue-700 transition-colors"
+            className="w-full sm:w-auto px-2 py-1 sm:px-3 sm:py-1.5 bg-blue-600 text-white text-[10px] sm:text-xs md:text-sm rounded hover:bg-blue-700 transition-colors"
           >
             Download PDF
           </button>
@@ -668,7 +675,7 @@ const calendarEvents = [
         {/* Date Attendance Cards */}
         <motion.div
           id="attendance-section"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5 sm:gap-2 lg:gap-3 mb-2 sm:mb-4 lg:mb-6"
+          className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1 sm:gap-1.5 md:gap-2 lg:gap-3 mb-1 sm:mb-2 md:mb-4 lg:mb-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
@@ -677,7 +684,7 @@ const calendarEvents = [
             Array.from({ length: 4 }).map((_, idx) => (
               <div
                 key={idx}
-                className="animate-pulse bg-white shadow-lg rounded-lg p-3 sm:p-4 lg:p-6 flex flex-col gap-2 sm:gap-3"
+                className="w-full animate-pulse bg-white shadow-lg rounded-lg p-3 sm:p-4 lg:p-6 flex flex-col gap-2 sm:gap-3 min-w-0"
               >
                 <div className="h-5 bg-gray-200 rounded w-3/4"></div>
                 <div className="h-4 bg-gray-200 rounded w-1/2"></div>
@@ -717,14 +724,14 @@ const calendarEvents = [
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.3, delay: idx * 0.05 }}
-                        className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
+                        className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-2 sm:p-3 md:p-4 lg:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between min-w-0 overflow-hidden"
                       >
-                        <div className="mb-3 sm:mb-4">
-                          <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.fullname}</h3>
-                          <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
+                        <div className="mb-2 sm:mb-3 md:mb-4">
+                          <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{rec.fullname}</h3>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-500 break-all truncate">{rec.email}</p>
                         </div>
                         <div className="mb-2 sm:mb-3">
-                          <p className="text-xs text-gray-400">Check-in / Check-out</p>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400">Check-in / Check-out</p>
                           <div className="flex gap-2 mt-1 flex-wrap">
                             <span
                               className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
@@ -753,7 +760,7 @@ const calendarEvents = [
                           </div>
                         </div>
                         <div>
-                          <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">Worked Hours</p>
                           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                             <motion.div
                               initial={{ width: 0 }}
@@ -771,7 +778,7 @@ const calendarEvents = [
                               className={`h-2 ${rec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
                             />
                           </div>
-                          <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-center text-gray-600 mt-1">
                             {rec.check_in
                               ? `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`
                               : "Absent"}
@@ -812,7 +819,7 @@ const calendarEvents = [
                 showNonCurrentDates={false}
                 events={calendarEvents}
                 eventClick={(info) => {
-                  const { leave_type, reason, status, start_date, end_date } = info.event.extendedProps || {};
+                  const { leave_type, reason, status, start_date, end_date, employee_name, reporting_manager } = info.event.extendedProps || {};
                   const details = `
                     <div style="
                       color: black;
@@ -841,6 +848,8 @@ const calendarEvents = [
                         z-index: 1;
                       ">
                         <h3 style="font-size: 15px; font-weight: 700; margin-bottom: 10px; color: #111;">${info.event.title}</h3>
+                        <p style="font-size: 13px; margin: 4px 0; font-weight: 500;"><strong>Employee:</strong> <span style="font-weight:400">${employee_name || "N/A"}</span></p>
+                        <p style="font-size: 13px; margin: 4px 0; font-weight: 500;"><strong>Reporting Manager:</strong> <span style="font-weight:400">${reporting_manager || "N/A"}</span></p>
                         <p style="font-size: 13px; margin: 4px 0; font-weight: 500;"><strong>Type:</strong> <span style="font-weight:400">${leave_type || "N/A"}</span></p>
                         <p style="font-size: 13px; margin: 4px 0; font-weight: 500;"><strong>Reason:</strong> <span style="font-weight:400">${reason || "N/A"}</span></p>
                         <p style="font-size: 13px; margin: 4px 0; font-weight: 500;"><strong>Status:</strong> <span style="font-weight:400">${status || "N/A"}</span></p>
@@ -938,18 +947,18 @@ const calendarEvents = [
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
                           transition={{ duration: 0.3, delay: idx * 0.02 }}
-                          className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
+                          className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-2 sm:p-3 md:p-4 lg:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between min-w-0 overflow-hidden"
                         >
                           <div className="mb-3 sm:mb-4">
-                            <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.fullname}</h3>
-                            <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
+                            <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{rec.fullname}</h3>
+                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-500 break-all truncate">{rec.email}</p>
                           </div>
                           <div className="mb-2 sm:mb-3">
-                            <p className="text-xs text-gray-400">Date</p>
-                            <p className="text-sm sm:text-base text-gray-700 font-medium">{formatDate(rec.date)}</p>
+                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400">Date</p>
+                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-700 font-medium">{formatDate(rec.date)}</p>
                           </div>
                           <div className="mb-2 sm:mb-3">
-                            <p className="text-xs text-gray-400">Check-in / Check-out</p>
+                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400">Check-in / Check-out</p>
                             <div className="flex gap-2 mt-1 flex-wrap">
                               <span
                                 className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
@@ -978,7 +987,7 @@ const calendarEvents = [
                             </div>
                           </div>
                           <div>
-                            <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
+                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">Worked Hours</p>
                             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                               <motion.div
                                 initial={{ width: 0 }}
@@ -989,7 +998,7 @@ const calendarEvents = [
                                 className={`h-2 ${rec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
                               />
                             </div>
-                            <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
+                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-center text-gray-600 mt-1">
                               {rec.check_in
                                 ? `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`
                                 : "Absent"}
@@ -1062,18 +1071,18 @@ const calendarEvents = [
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.3, delay: idx * 0.01 }}
-                        className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
+                        className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-2 sm:p-3 md:p-4 lg:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between min-w-0 overflow-hidden"
                       >
                         <div className="mb-3 sm:mb-4">
-                          <h3 className="text-base sm:text-lg font-semibold text-gray-800">{displayRec.fullname}</h3>
-                          <p className="text-xs sm:text-sm text-gray-500 break-words">{displayRec.email}</p>
+                          <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{displayRec.fullname}</h3>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-500 break-all truncate">{displayRec.email}</p>
                         </div>
                         <div className="mb-2 sm:mb-3">
-                          <p className="text-xs text-gray-400">Date</p>
-                          <p className="text-sm sm:text-base text-gray-700 font-medium">{formatDate(displayRec.date)}</p>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400">Date</p>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-700 font-medium">{formatDate(displayRec.date)}</p>
                         </div>
                         <div className="mb-2 sm:mb-3">
-                          <p className="text-xs text-gray-400">Check-in / Check-out</p>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400">Check-in / Check-out</p>
                           <div className="flex gap-2 mt-1 flex-wrap">
                             <span
                               className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
@@ -1102,7 +1111,7 @@ const calendarEvents = [
                           </div>
                         </div>
                         <div>
-                          <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">Worked Hours</p>
                           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                             <motion.div
                               initial={{ width: 0 }}
@@ -1113,7 +1122,7 @@ const calendarEvents = [
                               className={`h-2 ${displayRec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
                             />
                           </div>
-                          <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-center text-gray-600 mt-1">
                             {displayRec.check_in
                               ? `${displayRec.hours.hrs}h ${displayRec.hours.mins}m ${displayRec.hours.secs}s`
                               : "Absent"}

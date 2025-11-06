@@ -445,20 +445,62 @@ export default function ManagerAttendenceDashboard() {
   };
 
   return (
+    <>
+      <style jsx global>{`
+        body {
+          overflow-x: hidden;
+        }
+        * {
+          max-width: 100%;
+        }
+        .calendar-holiday {
+          background-color: #f59e0b !important;
+          color: white !important;
+          font-weight: bold;
+        }
+        .calendar-holiday:hover {
+          background-color: #d97706 !important;
+        }
+        .calendar-leave {
+          background-color: #10b981 !important;
+          color: white !important;
+          font-weight: bold;
+        }
+        .calendar-leave:hover {
+          background-color: #059669 !important;
+        }
+        .calendar-absent {
+          background-color: #ef4444 !important;
+          color: white !important;
+          font-weight: bold;
+        }
+        .calendar-absent:hover {
+          background-color: #dc2626 !important;
+        }
+        .react-calendar__tile:disabled {
+          background-color: transparent !important;
+          color: transparent !important;
+          cursor: default !important;
+          pointer-events: none;
+        }
+        .react-calendar__month-view__days__day--neighboringMonth {
+          visibility: hidden !important;
+        }
+      `}</style>
     <DashboardLayout role="manager">
-      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto overflow-x-hidden w-full">
         <motion.h1
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 text-gray-800"
+          className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6 text-gray-800 w-full"
         >
           Manager Dashboard 📋
         </motion.h1>
 
         {/* KPI Cards */}
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-6"
+          className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 md:gap-6 mb-4 sm:mb-6 w-full"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -471,26 +513,26 @@ export default function ManagerAttendenceDashboard() {
           ].map((kpi) => (
             <motion.div
               key={kpi.title}
-              className={`rounded-2xl p-4 sm:p-6 text-white shadow-lg flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color}`}
+              className={`rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-4 md:p-6 text-white shadow-lg flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color} min-w-0`}
             >
-              <p className="text-sm sm:text-base font-medium opacity-90">{kpi.title}</p>
-              <p className="text-xl sm:text-2xl md:text-3xl font-bold">{kpi.value}</p>
+              <p className="text-xs sm:text-sm md:text-base font-medium opacity-90 truncate">{kpi.title}</p>
+              <p className="text-base sm:text-xl md:text-2xl lg:text-3xl font-bold break-words">{kpi.value}</p>
             </motion.div>
           ))}
         </motion.div>
 
         {/* Calendar Section */}
         <motion.div
-          className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 mb-6"
+          className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-lg p-3 sm:p-4 md:p-6 mb-4 sm:mb-6 w-full overflow-hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <div className="mb-4">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-700">📅 Attendance Calendar</h2>
+          <div className="mb-3 sm:mb-4">
+            <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-700">📅 Attendance Calendar</h2>
           </div>
           
-          <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 w-full overflow-x-hidden">
               <div className="flex-shrink-0">
                 <Calendar
                   onChange={(value) => handleDateClick(value as Date)}
@@ -501,41 +543,6 @@ export default function ManagerAttendenceDashboard() {
                   tileDisabled={({ date, view }) => view === 'month' && date.getMonth() !== activeStartDate.getMonth()}
                   className="rounded-lg border-2 border-gray-200"
                 />
-                <style jsx global>{`
-                  .calendar-holiday {
-                    background-color: #f59e0b !important;
-                    color: white !important;
-                    font-weight: bold;
-                  }
-                  .calendar-holiday:hover {
-                    background-color: #d97706 !important;
-                  }
-                  .calendar-leave {
-                    background-color: #10b981 !important;
-                    color: white !important;
-                    font-weight: bold;
-                  }
-                  .calendar-leave:hover {
-                    background-color: #059669 !important;
-                  }
-                  .calendar-absent {
-                    background-color: #ef4444 !important;
-                    color: white !important;
-                    font-weight: bold;
-                  }
-                  .calendar-absent:hover {
-                    background-color: #dc2626 !important;
-                  }
-                  .react-calendar__tile:disabled {
-                    background-color: transparent !important;
-                    color: transparent !important;
-                    cursor: default !important;
-                    pointer-events: none;
-                  }
-                  .react-calendar__month-view__days__day--neighboringMonth {
-                    visibility: hidden !important;
-                  }
-                `}</style>
               </div>
               
               {selectedDate && (
@@ -613,8 +620,8 @@ export default function ManagerAttendenceDashboard() {
                             >
                               <div className="flex justify-between items-start mb-3">
                                 <div>
-                                  <h5 className="font-semibold text-gray-800 text-base">{absence.fullname}</h5>
-                                  <p className="text-xs text-gray-600">{absence.email}</p>
+                                  <h5 className="font-semibold text-gray-800 text-sm sm:text-base break-words">{absence.fullname}</h5>
+                                  <p className="text-xs text-gray-600 break-all">{absence.email}</p>
                                   <p className="text-xs text-gray-500 mt-1">
                                     <strong>Department:</strong> {absence.department}
                                   </p>
@@ -926,15 +933,15 @@ export default function ManagerAttendenceDashboard() {
 
         {/* All Dates Attendance Section */}
         <motion.div
-          className="mt-8"
+          className="mt-6 sm:mt-8 w-full"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}
         >
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-700 mb-4">📊 All Attendance Records</h2>
+          <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-700 mb-3 sm:mb-4">📊 All Attendance Records</h2>
           
           {sortedDates.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4 w-full">
               {sortedDates.map((date) => {
                 const records = attendanceByDate[date];
                 const totalHours = records.reduce(
@@ -949,11 +956,11 @@ export default function ManagerAttendenceDashboard() {
                     key={date}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="bg-white rounded-xl shadow-md p-4 sm:p-6 border border-gray-200"
+                    className="bg-white rounded-lg sm:rounded-xl shadow-md p-3 sm:p-4 md:p-6 border border-gray-200 w-full overflow-hidden"
                   >
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
-                      <div>
-                        <h3 className="text-base sm:text-lg font-semibold text-gray-800">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 sm:mb-4 gap-2">
+                      <div className="min-w-0 w-full sm:w-auto">
+                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-800 break-words">
                           {new Date(date).toLocaleDateString('en-US', { 
                             weekday: 'long', 
                             year: 'numeric', 
@@ -1024,5 +1031,6 @@ export default function ManagerAttendenceDashboard() {
 
       </div>
     </DashboardLayout>
+    </>
   );
 }

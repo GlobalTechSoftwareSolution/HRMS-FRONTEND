@@ -419,8 +419,8 @@ export default function EmployeesPage() {
                       <p className="text-gray-600 text-sm mb-2">{emp.department}</p>
 
                       <div className="flex items-center gap-1 text-xs text-gray-500 mb-3">
-                        <Mail className="w-3 h-3" />
-                        <span className="truncate max-w-[120px]">{emp.email}</span>
+                        <Mail className="w-3 h-3 flex-shrink-0" />
+                        <span className="break-all line-clamp-2">{emp.email}</span>
                       </div>
 
                       <div className="w-full space-y-2">
@@ -477,8 +477,8 @@ export default function EmployeesPage() {
                             </div>
 
                             <div className="flex items-center gap-1 text-gray-600 text-sm">
-                              <Mail className="w-4 h-4" />
-                              <span>{selectedUser.email}</span>
+                              <Mail className="w-4 h-4 flex-shrink-0" />
+                              <span className="break-all">{selectedUser.email}</span>
                             </div>
                           </div>
                         </div>

@@ -200,17 +200,54 @@ export default function HRLeavePage() {
     filter === "All" ? leaves : leaves.filter((l) => l.status === filter);
 
   return (
+    <>
+      <style jsx global>{`
+        body {
+          overflow-x: hidden;
+        }
+        * {
+          max-width: 100%;
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes scaleIn {
+          from {
+            transform: scale(0.95);
+            opacity: 0;
+          }
+          to {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out;
+        }
+
+        .animate-scaleIn {
+          animation: scaleIn 0.2s ease-out;
+        }
+      `}</style>
     <DashboardLayout role="hr">
-      <div className="max-w-7xl mx-auto bg-white shadow-xl rounded-xl p-6 md:p-5">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 md:mb-0">
+      <div className="max-w-7xl mx-auto bg-white shadow-xl rounded-xl p-3 sm:p-4 md:p-5 lg:p-6 overflow-x-hidden w-full">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 sm:mb-6 md:mb-8 w-full">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-3 md:mb-0">
             Employee Leave Requests
           </h2>
-          <div className="flex flex-wrap gap-5">
+          <div className="flex flex-wrap gap-2 sm:gap-3 md:gap-5 w-full md:w-auto">
             {["All", "Pending", "Approved", "Rejected"].map((tab) => (
               <button
                 key={tab}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                className={`px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 ${
                   filter === tab
                     ? "bg-blue-600 text-white shadow-md"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -248,7 +285,7 @@ export default function HRLeavePage() {
         ) : (
           <>
             {/* Table for larger screens */}
-            <div className="hidden sm:block overflow-x-auto rounded-xl shadow-md border border-gray-200">
+            <div className="hidden sm:block overflow-x-auto rounded-xl shadow-md border border-gray-200 w-full">
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr className="text-left text-sm text-gray-600 uppercase">
@@ -282,9 +319,9 @@ export default function HRLeavePage() {
                               {leave.name?.[0]?.toUpperCase() || "?"}
                             </div>
                           )}
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-gray-800">{leave.name || "Unknown"}</span>
-                            <span className="text-sm text-gray-500">{leave.email}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-semibold text-gray-800 break-words">{leave.name || "Unknown"}</span>
+                            <span className="text-sm text-gray-500 break-all">{leave.email}</span>
                           </div>
                         </div>
                       </td>
@@ -315,16 +352,16 @@ export default function HRLeavePage() {
               </table>
             </div>
 
-            {/* Cards for small screens */}
-            <div className="sm:hidden mt-4 space-y-4">
+            {/* Cards for mobile */}
+            <div className="sm:hidden space-y-3 sm:space-y-4 w-full">
               {filteredLeaves.map((leave) => (
                 <div
                   key={leave.id}
-                  className="bg-white shadow-md rounded-lg p-4 space-y-2 border border-gray-100 hover:shadow-lg transition-shadow duration-200"
+                  className="bg-white shadow-md rounded-lg p-3 sm:p-4 space-y-2 border border-gray-100 hover:shadow-lg transition-shadow duration-200 w-full overflow-hidden"
                   onClick={() => setSelectedLeave(leave)}
                 >
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-3">
+                  <div className="flex justify-between items-start gap-2 w-full">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                       {leave.profilePic ? (
                         <Image
                           src={leave.profilePic}
@@ -338,13 +375,13 @@ export default function HRLeavePage() {
                           {leave.name?.[0]?.toUpperCase() || "?"}
                         </div>
                       )}
-                      <div>
-                        <h3 className="text-base font-semibold text-gray-800">{leave.name || "Unknown"}</h3>
-                        <p className="text-xs text-gray-500">{leave.email}</p>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm sm:text-base font-semibold text-gray-800 break-words">{leave.name || "Unknown"}</h3>
+                        <p className="text-xs text-gray-500 break-all">{leave.email}</p>
                       </div>
                     </div>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      className={`px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${
                         leave.status === "Approved"
                           ? "bg-green-100 text-green-800"
                           : leave.status === "Rejected"
@@ -356,7 +393,7 @@ export default function HRLeavePage() {
                     </span>
                   </div>
 
-                  <p className="text-sm text-gray-600 line-clamp-2">{leave.reason}</p>
+                  <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 break-words">{leave.reason}</p>
 
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>
@@ -519,36 +556,7 @@ export default function HRLeavePage() {
           </div>
         )}
       </div>
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        @keyframes scaleIn {
-          from {
-            transform: scale(0.95);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-
-        .animate-fadeIn {
-          animation: fadeIn 0.2s ease-out;
-        }
-
-        .animate-scaleIn {
-          animation: scaleIn 0.2s ease-out;
-        }
-      `}</style>
     </DashboardLayout>
+    </>
   );
 }
