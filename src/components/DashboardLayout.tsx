@@ -30,6 +30,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Attendence", path: "/ceo/attendence" },
     { name: "Monthly Report", path: "/ceo/ceo_monthly_report" },
     { name: "Finance", path: "/ceo/finance" },
+    { name: "Petty Cash", path: "/ceo/petty-cash" },
     { name: "Projects", path: "/ceo/projects" },
     { name: "Notice", path: "/ceo/notice" },
     { name: "Calender", path: "/ceo/calender" },
@@ -56,6 +57,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Attendance", path: "/hr/attendance" },
     { name: "Monthly Report", path: "/hr/hr_monthly_report" },
     { name: "Payroll", path: "/hr/payroll" },
+    { name: "Petty Cash", path: "/hr/petty-cash" },
     { name: "Onboarding", path: "/hr/onboardinng" },
     { name: "Offboarding", path: "/hr/offboardinng" },
     { name: "Calender", path: "/hr/calender" },
@@ -84,6 +86,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
   admin: [
     { name: "Attendence", path: "/admin/attendence" },
     { name: "Approvals", path: "/admin/approvals" },
+    { name: "Petty Cash", path: "/admin/petty-cash" },
     { name: "System Settings", path: "/admin/system-settings" },
     { name: "Calender", path: "/admin/calender" },
     { name: "Notice", path: "/admin/notice" },
@@ -189,7 +192,7 @@ export default function DashboardLayout({ children, role }: Props) {
     userInfo?.profile_profile_picture || userInfo?.picture || "/default-profile.png";
 
   return (
-    <div className="flex min-h-screen bg-gray-100 font-sans text-gray-800">
+    <div className="flex min-h-screen bg-gray-100 font-sans text-gray-800 overflow-x-hidden">
       {/* Sidebar (desktop) */}
       <aside className="hidden md:flex fixed top-0 left-0 bottom-0 w-72 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex-col z-20">
         <div className="p-6 flex items-center gap-4 border-b border-blue-700 min-w-0">
@@ -322,8 +325,8 @@ export default function DashboardLayout({ children, role }: Props) {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col ml-0 md:ml-72">
-        <header className="fixed top-0 left-0 right-0 md:left-72 bg-white shadow-md p-2 sm:p-4 flex justify-between items-center border-b border-gray-200 sticky z-30">
+      <main className="flex-1 flex flex-col ml-0 md:ml-72 w-full md:w-[calc(100%-18rem)] overflow-x-hidden">
+        <header className="sticky top-0 left-0 right-0 bg-white shadow-md p-2 sm:p-4 flex justify-between items-center border-b border-gray-200 z-30">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
             <button
               onClick={() => setMenuOpen(prev => !prev)}
@@ -353,7 +356,7 @@ export default function DashboardLayout({ children, role }: Props) {
           </div>
         </header>
 
-        <div className="pt-16 sm:pt-20 p-3 sm:p-4 md:p-6 flex-1 overflow-auto">{children}</div>
+        <div className="p-3 sm:p-4 md:p-6 flex-1 overflow-x-hidden overflow-y-auto w-full">{children}</div>
       </main>
     </div>
   );
