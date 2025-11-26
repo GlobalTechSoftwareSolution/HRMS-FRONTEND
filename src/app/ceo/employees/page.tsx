@@ -398,11 +398,11 @@ export default function EmployeesPage() {
                             alt={emp.name}
                             width={64}
                             height={64}
-                            className="rounded-full object-cover border border-gray-200"
+                            className="w-full h-full rounded-lg object-cover border border-gray-200"
                             unoptimized
                           />
                         </div>
-                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${statusConfig.dot}`} />
+                        {/* <div className={`absolute -bottom-0 -right-1 w-4 h-4 rounded-full border-2 border-white ${statusConfig.dot}`} /> */}
                       </div>
 
                       <h2 className="font-semibold text-gray-900 mb-1">
@@ -457,7 +457,7 @@ export default function EmployeesPage() {
                               alt={selectedUser.name}
                               width={64}
                               height={64}
-                              className="w-16 h-16 rounded-lg object-cover border border-gray-200"
+                              className="rounded-lg object-cover border border-gray-200"
                               unoptimized
                             />
                           ) : (

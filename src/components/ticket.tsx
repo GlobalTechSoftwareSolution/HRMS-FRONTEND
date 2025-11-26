@@ -382,43 +382,43 @@ const Ticket: React.FC<TicketProps> = ({
       ticket.status === 'closed' || ticket.status === 'in-progress';
     return (
       <div 
-        className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 p-6 cursor-pointer hover:border-blue-300"
+        className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 p-4 sm:p-6 cursor-pointer hover:border-blue-300"
         onClick={() => openModal(ticket)}
       >
-        <div className="flex flex-col space-y-4">
+        <div className="flex flex-col space-y-3 sm:space-y-4">
           {/* Header */}
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-1">{ticket.subject}</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 line-clamp-1">{ticket.subject}</h3>
               <p className="text-gray-600 text-sm line-clamp-2">{ticket.description}</p>
             </div>
-            <div className="flex items-center gap-2 ml-4">
+            <div className="flex items-center gap-1 sm:gap-2">
               {getStatusIcon(ticket.status)}
               {getStatusBadge(ticket.status)}
             </div>
           </div>
 
           {/* Metadata */}
-          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
             <div className="flex items-center gap-1">
-              <User className="w-4 h-4" />
+              <User className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="font-medium">Raised by:</span>
-              <span>{ticket.assigned_by || ticket.email}</span>
+              <span className="break-words max-w-[150px] sm:max-w-[200px]">{ticket.assigned_by || ticket.email}</span>
             </div>
             {ticket.assigned_to && (
               <div className="flex items-center gap-1">
-                <Users className="w-4 h-4" />
+                <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="font-medium">Assigned to:</span>
-                <span>{ticket.assigned_to}</span>
+                <span className="break-words max-w-[150px] sm:max-w-[200px]">{ticket.assigned_to}</span>
               </div>
             )}
             <div className="flex items-center gap-1">
-              <Calendar className="w-4 h-4" />
+              <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
               <span>Created: {formatDate(ticket.created_at, true)}</span>
             </div>
             {showClosed && (
               <div className="flex items-center gap-1">
-                <Clock className="w-4 h-4" />
+                <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>
                   Closed: {formatDate(ticket.updated_at, true)}
                 </span>
@@ -427,19 +427,23 @@ const Ticket: React.FC<TicketProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-2 border-t border-gray-100 gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {getPriorityBadge(ticket.priority)}
               {ticket.closed_description && (
                 <div className="flex items-center gap-1 text-xs text-gray-500" title={ticket.closed_description}>
                   <MessageCircle className="w-3 h-3" />
-                  <span>Closure note added</span>
+                  <span className="hidden sm:inline">Closure note added</span>
+                  <span className="sm:hidden">Note</span>
                 </div>
               )}
             </div>
             <button 
-              className="px-4 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium"
-              onClick={() => { openModal(ticket); }}
+              className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium w-full sm:w-auto"
+              onClick={(e) => { 
+                e.stopPropagation();
+                openModal(ticket); 
+              }}
             >
               View Details
             </button>
@@ -455,89 +459,89 @@ const Ticket: React.FC<TicketProps> = ({
         {/* Header */}
         <div className="mb-8 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Tickets</h1>
-            <p className="text-gray-600 text-lg">Manage and track all your tickets</p>
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Tickets</h1>
+            <p className="text-gray-600 text-base sm:text-lg">Manage and track all your tickets</p>
           </div>
           {showCreateButton && (
             <button 
               onClick={openCreateModal} 
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl"
+              className="bg-blue-600 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl w-full sm:w-auto justify-center"
             >
-              <Plus className="w-5 h-5" /> 
-              Create New Ticket
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5" /> 
+              <span className="text-sm sm:text-base">Create New Ticket</span>
             </button>
           )}
         </div>
 
         {/* Stats Dashboard */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Tickets</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Total Tickets</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <Mail className="w-6 h-6 text-blue-600" />
+              <div className="p-2 sm:p-3 bg-blue-50 rounded-lg">
+                <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+          <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Open Tickets</p>
-                <p className="text-2xl font-bold text-red-600">{stats.open}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Open Tickets</p>
+                <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.open}</p>
               </div>
-              <div className="p-3 bg-red-50 rounded-lg">
-                <AlertCircle className="w-6 h-6 text-red-600" />
+              <div className="p-2 sm:p-3 bg-red-50 rounded-lg">
+                <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+          <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">In Progress Tickets</p>
-                <p className="text-2xl font-bold text-blue-600">{tickets.allTickets.filter(t => t.status === 'in-progress').length}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">In Progress</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-600">{tickets.allTickets.filter(t => t.status === 'in-progress').length}</p>
               </div>
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <Clock className="w-6 h-6 text-blue-600" />
+              <div className="p-2 sm:p-3 bg-blue-50 rounded-lg">
+                <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+          <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Assigned to Me</p>
-                <p className="text-2xl font-bold text-orange-600">{stats.assigned}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Assigned to Me</p>
+                <p className="text-xl sm:text-2xl font-bold text-orange-600">{stats.assigned}</p>
               </div>
-              <div className="p-3 bg-orange-50 rounded-lg">
-                <User className="w-6 h-6 text-orange-600" />
+              <div className="p-2 sm:p-3 bg-orange-50 rounded-lg">
+                <User className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
               </div>
             </div>
           </div>
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4">
+        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
               <input 
                 type="text" 
                 placeholder="Search tickets by subject or description..." 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm sm:text-base"
               />
             </div>
             <button 
               onClick={() => setShowFilters(!showFilters)} 
-              className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors"
+              className="px-4 py-2 sm:px-6 sm:py-3 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors text-sm sm:text-base"
             >
-              <Filter className="w-5 h-5" /> 
-              Filters
+              <Filter className="w-4 h-4 sm:w-5 sm:h-5" /> 
+              <span className="hidden sm:inline">Filters</span>
               {(filters.status || filters.priority || filters.email) && (
-                <span className="bg-blue-500 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center">
+                <span className="bg-blue-500 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 text-xs flex items-center justify-center">
                   {[filters.status, filters.priority, filters.email].filter(Boolean).length}
                 </span>
               )}
@@ -545,14 +549,14 @@ const Ticket: React.FC<TicketProps> = ({
           </div>
           
           {showFilters && (
-            <div className="mt-6 p-6 border border-gray-200 rounded-lg bg-gray-50">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="mt-4 sm:mt-6 p-3 sm:p-6 border border-gray-200 rounded-lg bg-gray-50">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Status</label>
                   <select 
                     value={filters.status} 
                     onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all"
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                   >
                     <option value="">All Status</option>
                     <option value="open">Open</option>
@@ -560,11 +564,11 @@ const Ticket: React.FC<TicketProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Priority</label>
                   <select 
                     value={filters.priority} 
                     onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all"
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                   >
                     <option value="">All Priority</option>
                     <option value="low">Low</option>
@@ -574,23 +578,23 @@ const Ticket: React.FC<TicketProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Email</label>
                   <input 
                     type="email" 
                     value={filters.email} 
                     onChange={(e) => setFilters(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="Filter by email..." 
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all"
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                   />
                 </div>
               </div>
               {(filters.status || filters.priority || filters.email || searchTerm) && (
-                <div className="mt-4 flex justify-end">
+                <div className="mt-3 sm:mt-4 flex justify-end">
                   <button 
                     onClick={clearFilters} 
-                    className="text-sm text-gray-600 hover:text-gray-800 flex items-center gap-2 transition-colors"
+                    className="text-xs sm:text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1 sm:gap-2 transition-colors"
                   >
-                    <X className="w-4 h-4" /> 
+                    <X className="w-3 h-3 sm:w-4 sm:h-4" /> 
                     Clear all filters
                   </button>
                 </div>
@@ -600,47 +604,47 @@ const Ticket: React.FC<TicketProps> = ({
         </div>
 
         {/* Section Tabs */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 mb-6">
-          <div className="flex flex-wrap gap-2">
+        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-2 mb-6">
+          <div className="flex flex-wrap gap-1 sm:gap-2">
             <button
               onClick={() => setActiveSection('all')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                 activeSection === 'all' 
                   ? 'bg-blue-600 text-white shadow-md' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              All Tickets ({tickets.allTickets.length})
+              All ({tickets.allTickets.length})
             </button>
             <button
               onClick={() => setActiveSection('assigned')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                 activeSection === 'assigned' 
                   ? 'bg-orange-600 text-white shadow-md' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              Assigned to Me ({tickets.assignedToMe.length})
+              Assigned ({tickets.assignedToMe.length})
             </button>
             <button
               onClick={() => setActiveSection('raised')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                 activeSection === 'raised' 
                   ? 'bg-green-600 text-white shadow-md' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              Raised by Me ({tickets.raisedByMe.length})
+              Raised ({tickets.raisedByMe.length})
             </button>
             <button
               onClick={() => setActiveSection('closed')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
                 activeSection === 'closed' 
                   ? 'bg-gray-600 text-white shadow-md' 
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              Closed by Me ({tickets.closedByMe.length})
+              Closed ({tickets.closedByMe.length})
             </button>
           </div>
         </div>
@@ -676,83 +680,83 @@ const Ticket: React.FC<TicketProps> = ({
           const showClosed =
             selectedTicket.status === 'closed' || selectedTicket.status === 'in-progress';
           return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-              <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-                <div className="p-6 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-gray-900">{selectedTicket.subject}</h2>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+              <div className="bg-white rounded-lg sm:rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <div className="p-4 sm:p-6 border-b border-gray-200">
+                  <div className="flex items-start justify-between">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 pr-4">{selectedTicket.subject}</h2>
                     <button 
-                      className="text-gray-500 hover:text-gray-700 transition-colors" 
+                      className="text-gray-500 hover:text-gray-700 transition-colors p-1" 
                       onClick={closeModal}
                     >
-                      <X className="w-6 h-6" />
+                      <X className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
                   </div>
                 </div>
                 
-                <div className="p-6 space-y-6">
+                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                   {/* Description */}
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
-                    <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">{selectedTicket.description}</p>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Description</h3>
+                    <p className="text-gray-700 bg-gray-50 p-3 sm:p-4 rounded-lg text-sm sm:text-base">{selectedTicket.description}</p>
                   </div>
 
                   {/* Closure Description */}
                   {selectedTicket.closed_description && (
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Closure Notes</h3>
-                      <p className="text-gray-700 bg-green-50 p-4 rounded-lg border border-green-200">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Closure Notes</h3>
+                      <p className="text-gray-700 bg-green-50 p-3 sm:p-4 rounded-lg border border-green-200 text-sm sm:text-base">
                         {selectedTicket.closed_description}
                       </p>
                     </div>
                   )}
 
                   {/* Ticket Metadata */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">Status</h3>
+                      <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">Status</h3>
                       <div className="flex items-center gap-2">
                         {getStatusIcon(selectedTicket.status)}
                         {getStatusBadge(selectedTicket.status)}
                       </div>
                     </div>
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">Priority</h3>
+                      <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">Priority</h3>
                       {getPriorityBadge(selectedTicket.priority)}
                     </div>
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">Raised By</h3>
-                      <p className="text-gray-900">{selectedTicket.assigned_by || selectedTicket.email}</p>
+                      <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">Raised By</h3>
+                      <p className="text-gray-900 break-words text-sm sm:text-base">{selectedTicket.assigned_by || selectedTicket.email}</p>
                     </div>
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">Assigned To</h3>
-                      <p className="text-gray-900">{selectedTicket.assigned_to || 'Unassigned'}</p>
+                      <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">Assigned To</h3>
+                      <p className="text-gray-900 break-words text-sm sm:text-base">{selectedTicket.assigned_to || 'Unassigned'}</p>
                     </div>
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">Created</h3>
-                      <p className="text-gray-900">{formatDate(selectedTicket.created_at, true)}</p>
+                      <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">Created</h3>
+                      <p className="text-gray-900 text-sm sm:text-base">{formatDate(selectedTicket.created_at, true)}</p>
                     </div>
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">Last Updated</h3>
-                      <p className="text-gray-900">{formatDate(selectedTicket.updated_at, true)}</p>
+                      <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">Last Updated</h3>
+                      <p className="text-gray-900 text-sm sm:text-base">{formatDate(selectedTicket.updated_at, true)}</p>
                     </div>
                     {showClosed && (
                       <div>
-                        <h3 className="text-sm font-medium text-gray-500 mb-2">Closed</h3>
-                        <p className="text-gray-900">{formatDate(selectedTicket.updated_at, true)}</p>
+                        <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">Closed</h3>
+                        <p className="text-gray-900 text-sm sm:text-base">{formatDate(selectedTicket.updated_at, true)}</p>
                       </div>
                     )}
                   </div>
 
                   {/* Status Update (for assigned users or creators) */}
                   {(isAssignedUser || isTicketCreator) && (
-                    <div className="border-t pt-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Update Status</h3>
+                    <div className="border-t pt-4 sm:pt-6">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Update Status</h3>
                       
                       {/* Status Selector */}
-                      <div className="mb-4">
+                      <div className="mb-3 sm:mb-4">
                         <select
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 mb-3"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 mb-2 sm:mb-3 text-sm sm:text-base"
                           value={editFields.status}
                           onChange={(e) => {
                             const newStatus = e.target.value as Ticket['status'];
@@ -771,12 +775,12 @@ const Ticket: React.FC<TicketProps> = ({
 
                       {/* Closure/Progress Description Input */}
                       {(editFields.status === 'closed' || editFields.status === 'in-progress') && (
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <div className="mb-3 sm:mb-4">
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                             {editFields.status === 'closed' ? 'Closure Description *' : 'Progress Description *'}
                           </label>
                           <textarea
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 min-h-[80px] sm:min-h-[100px] text-sm"
                             placeholder={
                               editFields.status === 'closed'
                                 ? "Please provide details about how this ticket was resolved or why it's being closed..."
@@ -789,7 +793,7 @@ const Ticket: React.FC<TicketProps> = ({
                             }))}
                             required
                           />
-                          <p className="text-sm text-gray-500 mt-1">
+                          <p className="text-xs text-gray-500 mt-1">
                             {editFields.status === 'closed'
                               ? 'This description will be visible to the ticket creator and other team members.'
                               : 'This progress update will be visible to the ticket creator and other team members.'}
@@ -811,7 +815,7 @@ const Ticket: React.FC<TicketProps> = ({
                             editFields.closed_description
                           );
                         }}
-                        className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        className="w-full bg-blue-600 text-white py-2.5 sm:py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base"
                       >
                         Update Ticket Status
                       </button>
@@ -819,11 +823,11 @@ const Ticket: React.FC<TicketProps> = ({
                   )}
                 </div>
                 
-                <div className="p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-                  <div className="flex justify-end gap-3">
+                <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50 rounded-b-lg sm:rounded-b-xl">
+                  <div className="flex justify-end gap-2 sm:gap-3">
                     <button 
                       type="button" 
-                      className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      className="px-4 py-2 sm:px-6 sm:py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
                       onClick={closeModal}
                     >
                       Close
@@ -837,27 +841,27 @@ const Ticket: React.FC<TicketProps> = ({
 
         {/* Create Ticket Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900">Create New Ticket</h2>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+            <div className="bg-white rounded-lg sm:rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6 border-b border-gray-200">
+                <div className="flex items-start justify-between">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Create New Ticket</h2>
                   <button 
-                    className="text-gray-500 hover:text-gray-700 transition-colors" 
+                    className="text-gray-500 hover:text-gray-700 transition-colors p-1" 
                     onClick={closeCreateModal}
                     disabled={creating}
                   >
-                    <X className="w-6 h-6" />
+                    <X className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
                 </div>
               </div>
               
-              <form onSubmit={submitCreateTicket} className="p-6 space-y-4">
+              <form onSubmit={submitCreateTicket} className="p-4 sm:p-6 space-y-3 sm:space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Subject</label>
                   <input 
                     type="text" 
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all text-sm sm:text-base"
                     value={createFields.subject} 
                     onChange={e => handleCreateFieldChange('subject', e.target.value)} 
                     required 
@@ -865,9 +869,9 @@ const Ticket: React.FC<TicketProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Description</label>
                   <textarea 
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all min-h-[120px]"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all min-h-[100px] sm:min-h-[120px] text-sm sm:text-base"
                     value={createFields.description} 
                     onChange={e => handleCreateFieldChange('description', e.target.value)} 
                     required 
@@ -875,9 +879,9 @@ const Ticket: React.FC<TicketProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Priority</label>
                   <select 
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all text-sm sm:text-base"
                     value={createFields.priority} 
                     onChange={e => handleCreateFieldChange('priority', e.target.value)}
                   >
@@ -892,10 +896,10 @@ const Ticket: React.FC<TicketProps> = ({
                   onSelect={email => handleCreateFieldChange('assigned_to', email)}
                 />
                 
-                <div className="flex justify-end gap-3 pt-4">
+                <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4">
                   <button 
                     type="button" 
-                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                    className="px-4 py-2 sm:px-6 sm:py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base"
                     onClick={closeCreateModal}
                     disabled={creating}
                   >
@@ -903,7 +907,7 @@ const Ticket: React.FC<TicketProps> = ({
                   </button>
                   <button 
                     type="submit" 
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 sm:px-6 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
                     disabled={creating}
                   >
                     {creating ? 'Creating...' : 'Create Ticket'}
@@ -915,13 +919,13 @@ const Ticket: React.FC<TicketProps> = ({
         )}
         {/* Dialog Modal */}
         {showDialog && (
-          <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Notice</h3>
-              <p className="text-gray-700 mb-6">{dialogMessage}</p>
+          <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black bg-opacity-50 p-2 sm:p-4">
+            <div className="bg-white rounded-lg sm:rounded-xl shadow-2xl w-full max-w-sm p-4 sm:p-6 text-center">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Notice</h3>
+              <p className="text-gray-700 text-sm sm:text-base mb-4 sm:mb-6">{dialogMessage}</p>
               <button
                 onClick={() => setShowDialog(false)}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
+                className="px-4 py-2 sm:px-6 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm sm:text-base"
               >
                 OK
               </button>
@@ -985,10 +989,10 @@ const UserDropdown: React.FC<{
 
   return (
     <div className="relative">
-      <label className="block text-sm font-medium text-gray-700 mb-2">Assign To (Optional)</label>
+      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Assign To (Optional)</label>
       <button
         type="button"
-        className="w-full flex items-center px-3 py-2 border border-gray-300 rounded-lg bg-white hover:border-blue-400 transition-all focus:outline-none"
+        className="w-full flex items-center px-3 py-2 border border-gray-300 rounded-lg bg-white hover:border-blue-400 transition-all focus:outline-none text-left text-sm"
         onClick={() => setOpen(o => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -999,53 +1003,53 @@ const UserDropdown: React.FC<{
               <Image
                 src={selectedUser.profile_picture || '/placeholder.png'}
                 alt={selectedUser.fullname || selectedUser.email}
-                width={28}
-                height={28}
+                width={24}
+                height={24}
                 className="rounded-full object-cover"
               />
             ) : (
-              <span className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-base">
+              <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs">
                 {selectedUser.fullname?.[0]?.toUpperCase() || selectedUser.email[0].toUpperCase()}
               </span>
             )}
-            <span>
+            <span className="break-words max-w-[calc(100%-32px)] text-xs sm:text-sm">
               {selectedUser.fullname || selectedUser.email} <span className="text-gray-500 text-xs">({selectedUser.email})</span>
             </span>
           </span>
         ) : (
-          <span className="text-gray-400">Select a user to assign (optional)</span>
+          <span className="text-gray-400 text-xs sm:text-sm">Select a user to assign (optional)</span>
         )}
-        <svg className="ml-auto w-4 h-4 text-gray-400" fill="none" viewBox="0 0 20 20">
+        <svg className="ml-auto w-3 h-3 sm:w-4 sm:h-4 text-gray-400" fill="none" viewBox="0 0 20 20">
           <path d="M7 8l3 3 3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
       {open && (
-        <div className="absolute z-40 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-72 overflow-y-auto">
+        <div className="absolute z-40 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 sm:max-h-72 overflow-y-auto">
           <div className="p-2">
             <input
               type="text"
-              className="w-full border border-gray-200 rounded px-2 py-1 text-sm mb-2"
+              className="w-full border border-gray-200 rounded px-2 py-1 text-xs sm:text-sm mb-2"
               placeholder="Search user..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
           {loading ? (
-            <div className="p-4 text-center text-gray-500">Loading users...</div>
+            <div className="p-4 text-center text-gray-500 text-xs sm:text-sm">Loading users...</div>
           ) : error ? (
-            <div className="p-4 text-center text-red-500">{error}</div>
+            <div className="p-4 text-center text-red-500 text-xs sm:text-sm">{error}</div>
           ) : (
             <>
               <button
                 type="button"
-                className={`w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 transition flex items-center gap-2 ${!selectedEmail ? 'bg-blue-50' : ''}`}
+                className={`w-full text-left px-3 py-2 rounded-lg hover:bg-gray-100 transition flex items-center gap-2 text-xs sm:text-sm ${!selectedEmail ? 'bg-blue-50' : ''}`}
                 onClick={() => {
                   onSelect('');
                   setOpen(false);
                 }}
               >
-                <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold text-base">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 20 20">
+                <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold text-xs">
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" viewBox="0 0 20 20">
                     <path d="M10 4v8m0 0l-4-4m4 4l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </span>
@@ -1058,13 +1062,13 @@ const UserDropdown: React.FC<{
                 );
                 if (!filtered.length) return null;
                 return (
-                  <div key={role} className="mb-2">
-                    <div className="px-4 py-1 text-xs text-gray-500 font-semibold uppercase bg-gray-50">{role}</div>
+                  <div key={role} className="mb-1">
+                    <div className="px-3 py-1 text-xs text-gray-500 font-semibold uppercase bg-gray-50">{role}</div>
                     {filtered.map(u => (
                       <button
                         type="button"
                         key={u.email}
-                        className={`w-full text-left px-4 py-2 rounded-lg hover:bg-blue-50 transition flex items-center gap-3 ${selectedEmail === u.email ? 'bg-blue-100' : ''}`}
+                        className={`w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 transition flex items-center gap-2 text-xs sm:text-sm ${selectedEmail === u.email ? 'bg-blue-100' : ''}`}
                         onClick={() => {
                           onSelect(u.email);
                           setOpen(false);
@@ -1074,18 +1078,18 @@ const UserDropdown: React.FC<{
                           <Image
                             src={u.profile_picture || '/placeholder.png'}
                             alt={u.fullname || u.email}
-                            width={32}
-                            height={32}
-                            className="rounded-full object-cover ring-2 ring-gray-100"
+                            width={24}
+                            height={24}
+                            className="rounded-full object-cover ring-1 ring-gray-100"
                           />
                         ) : (
-                          <span className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-base">
+                          <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-xs">
                             {(u.fullname?.split(' ').map(n => n[0]).join('') || u.email[0]).toUpperCase()}
                           </span>
                         )}
                         <span className="flex flex-col items-start">
-                          <span className="font-medium text-gray-900 text-sm">{u.fullname || u.email}</span>
-                          <span className="text-gray-500 text-xs">{u.email}</span>
+                          <span className="font-medium text-gray-900">{u.fullname || u.email}</span>
+                          <span className="text-gray-500 text-xs break-words max-w-[150px] sm:max-w-[200px]">{u.email}</span>
                         </span>
                       </button>
                     ))}

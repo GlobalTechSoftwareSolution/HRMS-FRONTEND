@@ -718,8 +718,10 @@ const holidays = Array.isArray(holidaysRaw)
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-xl">
               <div className="flex justify-between items-start">
                 <div>
-                  <h2 className="text-2xl font-bold">Employee Performance Report</h2>
-                  <p className="text-blue-100 truncate max-w-xs">{`Detailed overview for ${selectedEmployee.name}`}</p>
+                  <h2 className="text-2xl font-bold">Employee Performance Report</h2> <br />
+                  <p className="text-blue-100 max-w-[180px] mx-auto break-words text-center">
+                    {`Detailed overview for ${selectedEmployee.name}`}
+                  </p>
                 </div>
                 <button 
                   onClick={closeEmployeeReport}

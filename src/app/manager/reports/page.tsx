@@ -92,7 +92,7 @@ export default function Reports() {
                       >
                         <div className="flex justify-between items-center mb-2">
                           <h3 className="font-semibold text-gray-900 text-lg">{report.title}</h3>
-                          <span className="text-xs text-gray-500">{report.email}</span>
+                          <span className="text-xs text-gray-500 break-words max-w-[120px] text-right">{report.email}</span>
                         </div>
                         <p className="text-gray-700">{report.description}</p>
                       </div>
@@ -113,7 +113,7 @@ export default function Reports() {
                     >
                       <h3 className="font-semibold text-gray-900 text-lg">{report.title}</h3>
                       <p className="text-gray-700 mt-1">{report.description}</p>
-                      <p className="text-xs text-gray-500 mt-2">By {report.email}</p>
+                      <p className="text-xs text-gray-500 mt-2 break-words">By {report.email}</p>
                     </div>
                   ))}
                 </div>
@@ -131,7 +131,7 @@ export default function Reports() {
                     </button>
                     <h2 className="text-2xl font-bold mb-3 text-gray-900">{selectedReport.title}</h2>
                     <p className="text-gray-700 mb-2">{selectedReport.description}</p>
-                    <p className="text-gray-500 mb-1">By: {selectedReport.email}</p>
+                    <p className="text-gray-500 mb-1 break-words">By: {selectedReport.email}</p>
                     <p className="text-gray-500 mb-3">Date: {new Date(selectedReport.date).toLocaleDateString()}</p>
                     <div className="mt-4 border-t pt-3 text-gray-700 whitespace-pre-wrap">{selectedReport.content}</div>
                   </div>
