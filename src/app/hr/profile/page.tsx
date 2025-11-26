@@ -291,7 +291,7 @@ export default function Profile() {
       let updatedUser: FetchUserResponse;
       try {
         updatedUser = JSON.parse(text);
-      } catch (parseError) {
+      } catch {
         console.log("Failed to parse response, using current user data");
         // If parsing fails, use current user data with updates
         updatedUser = {
