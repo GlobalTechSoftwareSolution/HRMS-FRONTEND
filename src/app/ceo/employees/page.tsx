@@ -25,6 +25,7 @@ type Employee = {
   email: string;
   status: "active" | "on-leave" | "offboarded" | "pre-boarded";
   joinDate: string;
+  date_joined?: string;
   phone: string;
   salary: number;
   picture?: string;
@@ -113,6 +114,7 @@ export default function EmployeesPage() {
           email: emp.email_id ?? "unknown@example.com",
           status: (emp.status as Employee["status"]) ?? "active",
           joinDate: emp.join_date ?? new Date().toISOString(),
+          date_joined: emp.join_date ?? new Date().toISOString(),
           phone: emp.phone ?? "",
           salary: emp.salary ?? 0,
           picture: emp.profile_picture || undefined,
@@ -529,7 +531,7 @@ export default function EmployeesPage() {
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="font-medium text-gray-700">Joined:</span>
-                              <span className="text-gray-900">{formatDate(selectedUser.joinDate)}</span>
+                              <span className="text-gray-900">{formatDate(selectedUser.date_joined)}</span>
                             </div>
                           </div>
                         </div>

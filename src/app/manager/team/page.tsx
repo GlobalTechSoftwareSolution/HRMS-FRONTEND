@@ -176,17 +176,35 @@ export default function TeamReport() {
         />
       );
     } else if (["jpg", "jpeg", "png", "webp"].includes(ext)) {
-      return (
-        <div className="flex justify-center">
-          <Image
-            src={url}
-            alt="Document"
-            width={800}
-            height={500}
-            className="max-w-full h-auto rounded-lg shadow-sm border"
-          />
-        </div>
-      );
+      // Validate URL before rendering
+      try {
+        new URL(url);
+        return (
+          <div className="flex justify-center">
+            <Image
+              src={url}
+              alt="Document"
+              width={800}
+              height={500}
+              unoptimized
+              className="max-w-full h-auto rounded-lg shadow-sm border"
+              onError={(e) => {
+                // Handle image loading errors
+                const target = e.target as HTMLImageElement;
+                target.src = "/placeholder-image.png";
+              }}
+            />
+          </div>
+        );
+      } catch (e) {
+        // If URL is invalid, show error message
+        return (
+          <div className="text-center py-8">
+            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500">Invalid image URL</p>
+          </div>
+        );
+      }
     } else if (["mp4", "webm"].includes(ext)) {
       return (
         <video
@@ -216,11 +234,21 @@ export default function TeamReport() {
   };
 
   // 🔹 Avatar fallback
-  const getAvatar = (emp: Employee) =>
-    emp.profile_picture ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+  const getAvatar = (emp: Employee) => {
+    // Check if profile picture exists and is a valid URL
+    if (emp.profile_picture) {
+      try {
+        new URL(emp.profile_picture);
+        return emp.profile_picture;
+      } catch (e) {
+        // If not a valid URL, fall back to the generated avatar
+      }
+    }
+    
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(
       emp.fullname || emp.email
     )}&background=0D8ABC&color=fff&bold=true`;
+  };
 
   // 🔹 Get role icon and color
   const getRoleConfig = (role: string) => {
@@ -395,7 +423,13 @@ export default function TeamReport() {
                           alt="Profile"
                           width={48}
                           height={48}
+                          unoptimized
                           className="rounded-xl sm:rounded-2xl border-2 border-white shadow-md group-hover:scale-105 transition-transform"
+                          onError={(e) => {
+                            // Handle image loading errors
+                            const target = e.target as HTMLImageElement;
+                            target.src = "/placeholder-profile.png";
+                          }}
                         />
                         <div className="absolute -bottom-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 bg-blue-500 rounded-full border-2 border-white flex items-center justify-center">
                           {getRoleConfig(view).icon}
@@ -471,7 +505,13 @@ export default function TeamReport() {
                         alt="Profile"
                         width={60}
                         height={60}
+                        unoptimized
                         className="rounded-xl sm:rounded-2xl border-4 border-white/20"
+                        onError={(e) => {
+                          // Handle image loading errors
+                          const target = e.target as HTMLImageElement;
+                          target.src = "/placeholder-profile.png";
+                        }}
                       />
                       <div className="flex-1 min-w-0">
                         <h2 className="text-lg sm:text-xl md:text-2xl font-bold truncate" title={selectedEmp.fullname}>{selectedEmp.fullname}</h2>
@@ -563,11 +603,19 @@ export default function TeamReport() {
                             <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                             Documents
                           </h3>
-                          {docs && (
-                            <span className="text-xs sm:text-sm text-gray-500">
-                              {Object.keys(docs).filter(key => key !== "email_id" && docs[key]).length} files
-                            </span>
-                          )}
+                         {docs && (
+  <span className="text-xs sm:text-sm text-gray-500">
+    {
+      Object.keys(docs)
+        .filter(key =>
+          docs[key] &&
+          typeof docs[key] === "string" &&
+          !["email_id", "email", "id", "created_at", "updated_at"].includes(key)
+        ).length
+    } files
+  </span>
+)}
+
                         </div>
 
                         {docLoading ? (
@@ -590,27 +638,38 @@ export default function TeamReport() {
                                   typeof value === "string" &&
                                   value.startsWith("https")
                               )
-                              .map(([key, value]) => (
-                                <motion.div
-                                  key={key}
-                                  whileHover={{ scale: 1.02 }}
-                                  className="bg-gray-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-gray-200 flex justify-between items-center hover:bg-gray-100 transition-colors"
-                                >
-                                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
-                                    <span className="capitalize text-gray-700 font-medium text-sm sm:text-base truncate" title={key.replace(/_/g, " ")}>
-                                      {key.replace(/_/g, " ")}
-                                    </span>
-                                  </div>
-                                  <button
-                                    onClick={() => setSelectedDoc(value as string)}
-                                    className="px-3 py-1 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2"
+                              .map(([key, value]) => {
+                                // Validate URL
+                                try {
+                                  new URL(value as string);
+                                } catch (e) {
+                                  // Skip invalid URLs
+                                  return null;
+                                }
+                                
+                                return (
+                                  <motion.div
+                                    key={key}
+                                    whileHover={{ scale: 1.02 }}
+                                    className="bg-gray-50 p-3 sm:p-4 rounded-lg sm:rounded-xl border border-gray-200 flex justify-between items-center hover:bg-gray-100 transition-colors"
                                   >
-                                    <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                                    View
-                                  </button>
-                                </motion.div>
-                              ))}
+                                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                      <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                                      <span className="capitalize text-gray-700 font-medium text-sm sm:text-base truncate" title={key.replace(/_/g, " ")}>
+                                        {key.replace(/_/g, " ")}
+                                      </span>
+                                    </div>
+                                    <button
+                                      onClick={() => setSelectedDoc(value as string)}
+                                      className="px-3 py-1 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2"
+                                    >
+                                      <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                                      View
+                                    </button>
+                                  </motion.div>
+                                );
+                              })
+                              .filter(Boolean)}
                           </div>
                         ) : selectedDoc ? (
                           <div className="space-y-3 sm:space-y-4">
@@ -677,7 +736,16 @@ export default function TeamReport() {
                                   </div>
                                   {award.photo && (
                                     <button
-                                      onClick={() => setSelectedDoc(award.photo!)}
+                                      onClick={() => {
+                                        // Validate URL before setting
+                                        try {
+                                          new URL(award.photo!);
+                                          setSelectedDoc(award.photo!);
+                                        } catch (e) {
+                                          // Handle invalid URL
+                                          console.error("Invalid award photo URL:", award.photo);
+                                        }
+                                      }}
                                       className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium flex items-center gap-1"
                                     >
                                       <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
