@@ -51,6 +51,7 @@ type Document = {
 };
 
 type Award = {
+  pk?: number;
   id?: number;
   title: string;
   description: string;
@@ -76,6 +77,13 @@ const DocumentPage = () => {
     message: string,
     docType?: string,
     link?: string
+  }>({ open: false, type: 'success', message: '' });
+
+  // Separate state for delete messages
+  const [deleteMessage, setDeleteMessage] = useState<{
+    open: boolean,
+    type: 'success' | 'error',
+    message: string
   }>({ open: false, type: 'success', message: '' });
 
   const [confirmIssue, setConfirmIssue] = useState<{ open: boolean, docType?: string, endpoint?: string }>({ open: false });
@@ -110,8 +118,8 @@ const DocumentPage = () => {
         })
       );
       setUsers(results.flat());
-    } catch (err) {
-      console.error('Error fetching users', err);
+    } catch (error) {
+      console.error('Error fetching users:', error);
     }
   };
 
@@ -120,37 +128,55 @@ const DocumentPage = () => {
     try {
       const res = await axios.get<Document[]>(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_documents/`);
       setDocuments(res.data);
-    } catch (err) {
-      console.error('Error fetching documents', err);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
     }
   };
 
   // Fetch all awards and filter by selected user's email
   const fetchAwards = async (email?: string) => {
-    if (!email) return;
+    if (!email) {
+      setAwards([]);
+      return;
+    }
+    
     try {
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_awards/`);
+      
       if (res.data && Array.isArray(res.data)) {
         // Filter awards by selected email
         const userAwards = res.data.filter((a: Award) => a.email === email);
-        setAwards(userAwards);
+        
+        // Map awards to ensure they have proper IDs
+        const mappedAwards = userAwards.map((award: Award) => {
+          // Use pk as id if id is not available
+          if (award.pk && !award.id) {
+            return { ...award, id: award.pk };
+          }
+          return award;
+        });
+        
+        setAwards(mappedAwards);
       } else {
+
         setAwards([]);
       }
     } catch (err) {
-      console.error('Error fetching awards:', err);
+
+      // Show error message to user
+      if (axios.isAxiosError(err)) {
+        const errorMsg = err.response?.data?.message || 'Failed to load awards';
+        setIssueMessage({ open: true, type: 'error', message: errorMsg });
+      }
       setAwards([]);
     }
   };
 
   useEffect(() => {
-    if (selectedUser?.email_id) fetchAwards(String(selectedUser.email_id));
-  }, [selectedUser]);
-
-  // Trigger fetch when selectedUser changes
-  useEffect(() => {
     if (selectedUser?.email) {
       fetchAwards(selectedUser.email);
+    } else if (selectedUser?.email_id) {
+      fetchAwards(String(selectedUser.email_id));
     } else {
       setAwards([]);
     }
@@ -193,26 +219,97 @@ const DocumentPage = () => {
 
   // Delete award function
   const deleteAward = async (awardId: number) => {
+    
+    // Validate that we have a valid award ID
+    if (!awardId || isNaN(awardId)) {
+      setDeleteMessage({ 
+        open: true, 
+        type: 'error', 
+        message: 'Invalid award ID. Cannot delete award.' 
+      });
+      return;
+    }
+    
     setLoadingDocs(prev => ({ ...prev, [`delete-${awardId}`]: true }));
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/delete_award/${awardId}/`);
+      // Ensure the awardId is a valid number
+      const numericAwardId = Number(awardId);
       
-      setIssueMessage({ 
-        open: true, 
-        type: 'success', 
-        message: 'Award deleted successfully!' 
-      });
+      const deleteUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/delete_award/${numericAwardId}/`;
       
-      // Refresh awards list
-      if (selectedUser?.email) {
-        fetchAwards(selectedUser.email);
+      // Make the API call to delete the award
+      const response = await axios.delete(
+        deleteUrl,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          // Add credentials if needed
+          withCredentials: true,
+        }
+      );
+      
+
+      
+      // The backend returns a 200 status with JSON response
+      // Check if the response indicates success
+      if (response.status === 200) {
+        // Check if the response has the expected success message
+        if (response.data?.message) {
+          setDeleteMessage({ 
+            open: true, 
+            type: 'success', 
+            message: response.data.message 
+          });
+        } else {
+          setDeleteMessage({ 
+            open: true, 
+            type: 'success', 
+            message: 'Award deleted successfully!' 
+          });
+        }
+        
+        // Refresh awards list
+        if (selectedUser?.email) {
+          fetchAwards(selectedUser.email);
+        } else if (selectedUser?.email_id) {
+          fetchAwards(String(selectedUser.email_id));
+        }
+      } else {
+        throw new Error(`Unexpected response status: ${response.status}`);
       }
       
+      // Also close the delete confirmation modal
       setDeleteConfirm({ open: false, awardId: undefined, awardTitle: '' });
     } catch (err: unknown) {
       let msg = 'Failed to delete award';
-      if (axios.isAxiosError(err)) msg = err.response?.data?.message || msg;
-      setIssueMessage({ open: true, type: 'error', message: msg });
+      if (axios.isAxiosError(err)) {
+        if (err.response) {
+
+          
+          // The backend might return error details in different formats
+          if (err.response.data?.error) {
+            msg = err.response.data.error;
+          } else if (err.response.data?.message) {
+            msg = err.response.data.message;
+          } else if (err.response.data?.detail) {
+            msg = err.response.data.detail;
+          } else if (err.response.status === 404) {
+            msg = 'Award not found. It may have already been deleted or the ID is incorrect.';
+          } else {
+            msg = `Server error: ${err.response.status} - ${err.response.statusText}`;
+          }
+        } else if (err.request) {
+          // Request was made but no response received
+          msg = 'Network error - unable to reach server';
+        } else {
+          // Something else happened
+          msg = err.message || 'Unknown error occurred';
+        }
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      setDeleteMessage({ open: true, type: 'error', message: msg });
     } finally {
       setLoadingDocs(prev => ({ ...prev, [`delete-${awardId}`]: false }));
     }
@@ -659,9 +756,9 @@ const DocumentPage = () => {
 
                         {awards.length > 0 ? (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
-                            {awards.map((award) => (
+                            {awards.map((award, index) => (
                               <div
-                                key={award.id}
+                                key={`${award.id || index}-${award.title || 'award'}-${index}`}
                                 className="border border-gray-200 rounded-lg p-2 sm:p-3 md:p-4 bg-white hover:shadow transition"
                               >
                                 <h4 className="font-bold text-gray-900 text-sm sm:text-base truncate">{award.title}</h4>
@@ -686,13 +783,34 @@ const DocumentPage = () => {
                                 </p>
                                 <div className="flex justify-end mt-2 sm:mt-3 gap-1 sm:gap-2">
                                   <button
-                                    onClick={() =>
+                                    onClick={() => {
+                                      // Check if award has a valid ID before allowing delete
+                                      const awardId = award.id || award.pk;
+                                      
+                                      if (awardId === undefined || awardId === null) {
+                                        setDeleteMessage({ 
+                                          open: true, 
+                                          type: 'error', 
+                                          message: `Cannot delete this award - missing ID. Award data: ${JSON.stringify(award)}` 
+                                        });
+                                        return;
+                                      }
+                                      
+                                      if (typeof awardId === 'number' && isNaN(awardId)) {
+                                        setDeleteMessage({ 
+                                          open: true, 
+                                          type: 'error', 
+                                          message: `Cannot delete this award - invalid ID (NaN). Award data: ${JSON.stringify(award)}` 
+                                        });
+                                        return;
+                                      }
+                                      
                                       setDeleteConfirm({
                                         open: true,
-                                        awardId: award.id,
+                                        awardId: awardId,
                                         awardTitle: award.title,
-                                      })
-                                    }
+                                      });
+                                    }}
                                     className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-red-500 text-white rounded hover:bg-red-600 flex items-center gap-1"
                                   >
                                     <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" /> 
@@ -819,7 +937,7 @@ const DocumentPage = () => {
             <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 max-w-full sm:max-w-md w-full shadow-xl mx-1 sm:mx-2 md:mx-0">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Delete Award</h3>
               <p className="text-xs sm:text-sm text-gray-700 mb-3 sm:mb-4">
-                Are you sure you want to delete the award &quot;{deleteConfirm.awardTitle}&quot;? This action cannot be undone.
+                Are you sure you want to delete the award &quot;{deleteConfirm.awardTitle}&quot; with ID {deleteConfirm.awardId}? This action cannot be undone.
               </p>
               <div className="flex justify-end gap-2">
                 <button
@@ -927,6 +1045,33 @@ const DocumentPage = () => {
                   ) : (
                     'Issue Again'
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Message Modal */}
+        {deleteMessage.open && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-2 sm:p-3 md:p-4">
+            <div className="bg-white rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 max-w-full sm:max-w-md w-full shadow-xl mx-1 sm:mx-2 md:mx-0">
+              <div className="flex justify-between items-start mb-3 sm:mb-4">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+                  Delete Award
+                </h3>
+                <button className="text-gray-500 hover:text-gray-700" onClick={() => setDeleteMessage({ ...deleteMessage, open: false })}>
+                  <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+              </div>
+              <p className={`text-xs sm:text-sm ${deleteMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                {deleteMessage.message}
+              </p>
+              <div className="mt-3 sm:mt-4 text-right">
+                <button 
+                  className="px-3 sm:px-4 py-2 bg-blue-500 text-white rounded-lg text-sm" 
+                  onClick={() => setDeleteMessage({ ...deleteMessage, open: false })}
+                >
+                  Close
                 </button>
               </div>
             </div>

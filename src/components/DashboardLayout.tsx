@@ -212,7 +212,7 @@ export default function DashboardLayout({ children, role }: Props) {
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto flex flex-col p-4 space-y-2">
+        <nav className={`flex-1 overflow-y-auto flex flex-col p-4 space-y-2 ${role === 'hr' ? 'scrollbar-thin scrollbar-thumb-blue-700 scrollbar-track-blue-800 scrollbar-thumb-rounded-full' : ''}`}>
           {roleLinks?.map((link) => (
             <Link
               href={link.path}
@@ -267,7 +267,7 @@ export default function DashboardLayout({ children, role }: Props) {
               </div>
             </div>
 
-            <nav className="flex-1 overflow-y-auto flex flex-col p-2 space-y-1">
+            <nav className={`flex-1 overflow-y-auto flex flex-col p-2 space-y-1 ${role === 'hr' ? 'scrollbar-thin scrollbar-thumb-blue-700 scrollbar-track-blue-800 scrollbar-thumb-rounded-full' : ''}`}>
               {roleLinks?.map((link) => (
                 <Link
                   href={link.path}

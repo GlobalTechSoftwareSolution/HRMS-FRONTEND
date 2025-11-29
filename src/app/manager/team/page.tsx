@@ -69,6 +69,7 @@ export default function TeamReport() {
   const [docs, setDocs] = useState<DocumentData | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
   const [docLoading, setDocLoading] = useState(false);
+  const [docOpening, setDocOpening] = useState(false);
   const [docError, setDocError] = useState("");
 
   const [awards, setAwards] = useState<Award[]>([]);
@@ -190,13 +191,14 @@ export default function TeamReport() {
               className="max-w-full h-auto rounded-lg shadow-sm border"
               onError={(e) => {
                 // Handle image loading errors
+                console.error("Error loading image:", e);
                 const target = e.target as HTMLImageElement;
                 target.src = "/placeholder-image.png";
               }}
             />
           </div>
         );
-      } catch (e) {
+      } catch  {
         // If URL is invalid, show error message
         return (
           <div className="text-center py-8">
@@ -240,8 +242,9 @@ export default function TeamReport() {
       try {
         new URL(emp.profile_picture);
         return emp.profile_picture;
-      } catch (e) {
+      } catch (error) {
         // If not a valid URL, fall back to the generated avatar
+        console.error("Invalid profile picture URL:", error);
       }
     }
     
@@ -417,24 +420,24 @@ export default function TeamReport() {
                 >
                   <div className="flex items-start justify-between mb-3 sm:mb-4 min-w-0">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                      <div className="relative flex-shrink-0">
-                        <Image
-                          src={getAvatar(emp)}
-                          alt="Profile"
-                          width={48}
-                          height={48}
-                          unoptimized
-                          className="rounded-xl sm:rounded-2xl border-2 border-white shadow-md group-hover:scale-105 transition-transform"
-                          onError={(e) => {
-                            // Handle image loading errors
-                            const target = e.target as HTMLImageElement;
-                            target.src = "/placeholder-profile.png";
-                          }}
-                        />
-                        <div className="absolute -bottom-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 bg-blue-500 rounded-full border-2 border-white flex items-center justify-center">
-                          {getRoleConfig(view).icon}
-                        </div>
+                    <div className="relative flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20">
+                      <Image
+                        src={getAvatar(emp)}
+                        alt="Profile"
+                        fill
+                        unoptimized
+                        className="rounded-xl object-cover border-2 border-white shadow-md group-hover:scale-105 transition-transform"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = "/placeholder-profile.png";
+                        }}
+                      />
+
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 bg-blue-500 rounded-full border-2 border-white flex items-center justify-center">
+                        {getRoleConfig(view).icon}
                       </div>
+                    </div>
+
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-gray-900 text-sm sm:text-base group-hover:text-blue-600 transition-colors truncate" title={emp.fullname}>
                           {emp.fullname}
@@ -642,8 +645,9 @@ export default function TeamReport() {
                                 // Validate URL
                                 try {
                                   new URL(value as string);
-                                } catch (e) {
+                                } catch (error) {
                                   // Skip invalid URLs
+                                  console.error("Invalid document URL:", error);
                                   return null;
                                 }
                                 
@@ -660,11 +664,27 @@ export default function TeamReport() {
                                       </span>
                                     </div>
                                     <button
-                                      onClick={() => setSelectedDoc(value as string)}
-                                      className="px-3 py-1 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2"
+                                      onClick={() => {
+                                        setDocOpening(true);
+                                        setTimeout(() => {
+                                          setSelectedDoc(value as string);
+                                          setDocOpening(false);
+                                        }, 300);
+                                      }}
+                                      disabled={docOpening}
+                                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 ${docOpening ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
                                     >
-                                      <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                                      View
+                                      {docOpening ? (
+                                        <>
+                                          <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
+                                          Opening...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                                          View
+                                        </>
+                                      )}
                                     </button>
                                   </motion.div>
                                 );
@@ -740,16 +760,30 @@ export default function TeamReport() {
                                         // Validate URL before setting
                                         try {
                                           new URL(award.photo!);
-                                          setSelectedDoc(award.photo!);
-                                        } catch (e) {
+                                          setDocOpening(true);
+                                          setTimeout(() => {
+                                            setSelectedDoc(award.photo!);
+                                            setDocOpening(false);
+                                          }, 300);
+                                        } catch (error) {
                                           // Handle invalid URL
-                                          console.error("Invalid award photo URL:", award.photo);
+                                          console.error("Invalid award photo URL:", error);
                                         }
                                       }}
-                                      className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium flex items-center gap-1"
+                                      disabled={docOpening}
+                                      className={`text-xs sm:text-sm font-medium flex items-center gap-1 ${docOpening ? 'text-gray-500 cursor-not-allowed' : 'text-blue-600 hover:text-blue-700'}`}
                                     >
-                                      <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                                      View Photo
+                                      {docOpening ? (
+                                        <>
+                                          <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-current"></div>
+                                          Opening...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                                          View Photo
+                                        </>
+                                      )}
                                     </button>
                                   )}
                                 </div>

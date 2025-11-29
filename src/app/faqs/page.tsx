@@ -51,7 +51,7 @@ const faqs: FAQItem[] = [
     id: 6,
     question: "How often do you update the system?",
     answer:
-      "We release regular updates every month with new features, security patches, and performance improvements. Major updates are rolled out quarterly with significant enhancements.",
+      "We release regular updates every 6 month with new features, security patches, and performance improvements. Major updates are rolled out quarterly with significant enhancements.",
     category: "General",
   },
   {
@@ -65,7 +65,7 @@ const faqs: FAQItem[] = [
     id: 8,
     question: "Can I try the system before purchasing?",
     answer:
-      "Yes, we offer a 14-day free trial with full access to all features. No credit card is required to start the trial, and our team will guide you through the setup process.",
+      "Yes, we offer a 2-day free trial with full access to all features. No credit card is required to start the trial, and our team will guide you through the setup process.",
     category: "General",
   },
 ];

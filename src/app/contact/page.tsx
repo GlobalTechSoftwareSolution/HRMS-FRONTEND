@@ -2,7 +2,6 @@
 import React, { useState, ChangeEvent, FormEvent } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/footer";
-import emailjs from "@emailjs/browser";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -26,27 +25,29 @@ export default function ContactPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const templateParams = {
-        from_name: formData.name,
-        from_email: formData.email,
-        from_phone: formData.phone,
-        message: formData.message,
-      };
-      await emailjs.send(
-        process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
-        process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
-        templateParams,
-        process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
-      );
+      // Send data to our API route which uses Nodemailer
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...formData,
+          service: "Contact Form Inquiry"
+        }),
+      });
 
-      setPopupMessage(
-"Thank you for your message! We&apos;ll get back to you soon."      );
-      setFormData({ name: "", email: "", phone: "", message: "" });
+      const result = await response.json();
+      
+      if (response.ok) {
+        setPopupMessage("Thank you for your message! We'll get back to you soon.");
+        setFormData({ name: "", email: "", phone: "", message: "" });
+      } else {
+        setPopupMessage(result.error || "There was an error sending your message. Please try again.");
+      }
     } catch (error) {
       console.error(error);
-      setPopupMessage(
-        "There was an error sending your message. Please try again."
-      );
+      setPopupMessage("There was an error sending your message. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -57,7 +58,7 @@ export default function ContactPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-16">
+      <main className="min-h-screen bg-gray-50 text-black flex flex-col items-center px-4 py-16">
         {/* Header Section */}
         <section className="text-center mb-12 max-w-3xl">
           <h1 className="text-5xl font-bold text-gray-800 mb-4">

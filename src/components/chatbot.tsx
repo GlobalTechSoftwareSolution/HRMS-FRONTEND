@@ -1,113 +1,150 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import Image from "next/image";
+
+import React, { useState, useEffect, useRef } from "react";
 
 const Chatbot: React.FC = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
+  const [messages, setMessages] = useState<{ text: string; user: boolean }[]>([]);
+  const [input, setInput] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const toggleChatbot = () => {
-    if (isChatOpen) {
-      setIsVisible(false);
-      setTimeout(() => setIsChatOpen(false), 300);
-    } else {
-      setIsChatOpen(true);
-      setTimeout(() => setIsVisible(true), 10);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const escapeHtml = (text: string) => {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
+  const sendMessage = async (msg: string) => {
+    if (!msg.trim()) return;
+
+    setMessages((prev) => [...prev, { text: msg, user: true }]);
+    setInput("");
+
+    try {
+      const res = await fetch("http://127.0.0.1:8000/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg }),
+      });
+
+      const data = await res.json();
+      setMessages((prev) => [...prev, { text: data.reply, user: false }]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { text: "Sorry, connection failed. Try again.", user: false },
+      ]);
     }
   };
 
-  const closeChatbot = () => {
-    setIsVisible(false);
-    setTimeout(() => setIsChatOpen(false), 300);
+  const handleQuickButton = (query: string, text: string) => {
+    setMessages((prev) => [...prev, { text, user: true }]);
+    sendMessage(query);
   };
 
-  // Close chatbot when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const chatbot = document.getElementById('chatbot-container');
-      const button = document.getElementById('chatbot-button');
-      
-      if (isChatOpen && chatbot && button && 
-          !chatbot.contains(event.target as Node) && 
-          !button.contains(event.target as Node)) {
-        closeChatbot();
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isChatOpen]);
+  const toggleChat = () => {
+    setIsChatOpen(!isChatOpen);
+  };
 
   return (
-    <>
-      {/* Floating AI Chat Button */}
-      <div
-        id="chatbot-button"
-        onClick={toggleChatbot}
-        className="fixed bottom-6 right-6 z-50 cursor-pointer flex items-center justify-center bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-300 rounded-full shadow-2xl w-16 h-16 hover:scale-110 hover:rotate-12 group"
+    <div className="fixed bottom-6 right-6 z-50 text-black">
+      {/* Floating Chat Button */}
+      <button
+        onClick={toggleChat}
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 shadow-xl flex items-center justify-center text-white text-xl hover:scale-110 transition-transform duration-300 focus:outline-none"
       >
-        <Image
-          src="https://cdn-icons-png.flaticon.com/512/4712/4712035.png"
-          alt="AI Chat"
-          width={40}
-          height={40}
-          className="w-8 h-8 group-hover:scale-110 transition-transform"
-        />
-        
-        {/* Pulse animation */}
-        <div className="absolute inset-0 rounded-full bg-blue-400 animate-ping opacity-20"></div>
-      </div>
+        💬
+      </button>
 
-      {/* Optional floating hint text */}
-      <div className="fixed bottom-24 right-6 bg-white shadow-lg px-3 py-2 rounded-lg text-sm text-gray-700 border border-gray-200 backdrop-blur-sm">
-        💬 Need help? Chat with AI
-      </div>
-
-      {/* Chatbot Container */}
+      {/* Chat Window */}
       {isChatOpen && (
-        <div
-          id="chatbot-container"
-          className={`fixed bottom-24 right-6 z-50 w-96 h-120 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col transform transition-all duration-300 ${
-            isVisible 
-              ? 'opacity-100 scale-100 translate-y-0' 
-              : 'opacity-0 scale-95 translate-y-4'
-          }`}
-        >
-          {/* Chat Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-t-2xl flex justify-between items-center">
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-                <div className="absolute inset-0 bg-green-400 rounded-full animate-ping"></div>
-              </div>
-              <div>
-                <h3 className="font-semibold">AI Assistant</h3>
-                <p className="text-xs text-blue-100">Online • Ready to help</p>
-              </div>
-            </div>
+        <div className="fixed bottom-24 right-6 z-50 w-[calc(100%-2rem)] sm:w-96 h-[500px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden transform transition-all duration-300">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 flex justify-between items-center">
+            <div className="font-bold">🤖 Global Tech HRMS Chat</div>
             <button
-              onClick={closeChatbot}
-              className="text-white hover:text-gray-200 transition text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20"
+              onClick={toggleChat}
+              className="text-white hover:text-gray-200 text-2xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20"
             >
               ×
             </button>
           </div>
 
-          {/* Chat Iframe */}
-          <div className="flex-1 rounded-b-2xl overflow-hidden">
-            <iframe
-              src="https://cdn.botpress.cloud/webchat/v3.3/shareable.html?configUrl=https://files.bpcontent.cloud/2025/10/15/12/20251015120204-XK1X8YE6.json"
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              className="rounded-b-2xl"
-              title="AI Chatbot"
-              allow="microphone"
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-100">
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className={`p-3 rounded-lg whitespace-pre-wrap max-w-[75%] ${
+                  msg.user
+                    ? "ml-auto bg-blue-600 text-white text-right"
+                    : "mr-auto bg-white border text-gray-800"
+                }`}
+              >
+                <strong>{msg.user ? "You:" : "Bot:"}</strong>
+                <br />
+                {escapeHtml(msg.text)}
+              </div>
+            ))}
+
+            {/* Quick Buttons after bot reply */}
+            {messages.length > 0 && !messages[messages.length - 1].user && (
+              <div className="flex flex-wrap gap-2 mr-auto mt-2">
+                {[
+                  { text: "HRMS", query: "hrms", emoji: "📊" },
+                  { text: "Support", query: "support", emoji: "📞" },
+                  { text: "About", query: "about", emoji: "🏢" },
+                  { text: "Blogs", query: "blogs", emoji: "📰" },
+                ].map((btn) => (
+                  <button
+                    key={btn.text}
+                    onClick={() => handleQuickButton(btn.query, btn.text)}
+                    className="px-3 py-1 bg-gradient-to-r from-pink-300 to-orange-200 rounded-full text-xs font-semibold shadow-sm"
+                  >
+                    {btn.emoji} {btn.text}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div ref={messagesEndRef}></div>
+          </div>
+
+          {/* Input Bar */}
+          <div className="p-3 border-t bg-white flex gap-2">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
+              className="flex-1 border rounded-lg p-2 text-sm focus:border-blue-500 outline-none"
+              placeholder="Ask about our HRMS..."
             />
+            <button
+              onClick={() => sendMessage(input)}
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg text-white text-sm font-semibold"
+            >
+              Send ➤
+            </button>
           </div>
         </div>
       )}
-    </>
+
+      {/* Background overlay when chat is open on mobile */}
+      {isChatOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={toggleChat}
+        ></div>
+      )}
+    </div>
   );
 };
 

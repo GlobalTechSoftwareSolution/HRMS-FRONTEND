@@ -717,15 +717,28 @@ const holidays = Array.isArray(holidaysRaw)
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-xl">
               <div className="flex justify-between items-start">
-                <div>
-                  <h2 className="text-2xl font-bold">Employee Performance Report</h2> <br />
-                  <p className="text-blue-100 max-w-[180px] mx-auto break-words text-center">
-                    {`Detailed overview for ${selectedEmployee.name}`}
-                  </p>
+                <div className="flex items-center space-x-4 min-w-0">
+                  <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img 
+                      src={selectedEmployee.profile_picture as string} 
+                      alt={selectedEmployee.name} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=User';
+                      }}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-xl font-bold text-white truncate">{selectedEmployee.name}</h2>
+                    {selectedEmployee.email && (
+                      <p className="text-blue-100 text-sm truncate">{selectedEmployee.email}</p>
+                    )}
+                  </div>
                 </div>
                 <button 
                   onClick={closeEmployeeReport}
-                  className="text-white hover:text-gray-200 text-2xl font-bold"
+                  className="text-white hover:text-gray-200 text-2xl font-bold ml-2"
                 >
                   ×
                 </button>
