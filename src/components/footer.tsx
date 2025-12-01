@@ -92,17 +92,17 @@ export const Footer: React.FC = () => {
               <a
                 href="mailto:hrglobaltechsoftwaresolutions@gmail.com"
                 className="hover:text-white transition md:ml-5"
-              >
+              > 
                 hrglobaltechsoftwaresolutions@gmail.com
               </a>
             </li>
             <li className="flex items-start gap-3">
               <Phone size={20} className="text-indigo-400 mt-1" />
               <a
-                href="tel:+919844281875"
+                href="tel:+91 8495862494"
                 className="hover:text-white transition"
               >
-                +91 98442 81875
+                +91 8495862494
               </a>
             </li>
             <li className="flex items-start gap-3">

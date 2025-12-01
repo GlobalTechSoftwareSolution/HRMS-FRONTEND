@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer';
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, phone, message, service } = await request.json();
+    const { name, email, phone, message } = await request.json();
 
     // Validate required fields
     if (!name || !email || !phone || !message) {
@@ -51,7 +51,6 @@ New Inquiry from Website Contact Form
 Name: ${name}
 Phone: ${phone}
 Email: ${email}
-Service Interested: ${service || 'Not specified'}
 
 Message:
 ${message}
@@ -68,7 +67,7 @@ Hi ${name},
 
 Thank you for contacting Global Tech Software Solutions.
 
-We have received your request regarding: ${service || 'General Inquiry'}.
+We have received your request regarding: ${message || 'General Inquiry'}.
 Our team will contact you soon.
 
 Regards,

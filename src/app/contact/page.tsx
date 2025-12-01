@@ -1,17 +1,38 @@
 "use client";
-import React, { useState, ChangeEvent, FormEvent } from "react";
+import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
+import { useSearchParams } from 'next/navigation';
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/footer";
 
 export default function ContactPage() {
+  const searchParams = useSearchParams();
+  
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     message: "",
   });
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [popupMessage, setPopupMessage] = useState<string | null>(null);
+
+  // Auto-fill form from query parameters
+  useEffect(() => {
+    const name = searchParams.get('name') || "";
+    const email = searchParams.get('email') || "";
+    const phone = searchParams.get('phone') || "";
+    const message = searchParams.get('message') || "";
+    
+    if (name || email || phone || message) {
+      setFormData({
+        name,
+        email,
+        phone,
+        message
+      });
+    }
+  }, [searchParams]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -31,10 +52,7 @@ export default function ContactPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...formData,
-          service: "Contact Form Inquiry"
-        }),
+        body: JSON.stringify(formData),
       });
 
       const result = await response.json();
