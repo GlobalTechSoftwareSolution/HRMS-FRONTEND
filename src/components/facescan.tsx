@@ -9,6 +9,7 @@ export default function AttendancePage() {
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" | "warning" } | null>(null);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+  const [address, setAddress] = useState<string>("Fetching address...");
   const [mapUrl, setMapUrl] = useState<string>("https://www.google.com/maps?q=0,0&z=15&output=embed");
   const [mounted, setMounted] = useState(false);
   const [canvasVisible, setCanvasVisible] = useState(false);
@@ -20,6 +21,29 @@ export default function AttendancePage() {
 
   // State for simulated face tracking offsets
   const [faceOffset, setFaceOffset] = useState({ x: 0, y: 0, scale: 1 });
+
+  // New function to reverse geocode coordinates to address
+  const reverseGeocode = async (lat: number, lon: number) => {
+    try {
+      // Use the existing backend geocoding API
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/geocoding/?lat=${lat}&lon=${lon}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch address');
+      }
+      
+      const data = await response.json();
+      if (data.display_name) {
+        setAddress(data.display_name);
+      } else {
+        setAddress(`Latitude: ${lat.toFixed(5)}, Longitude: ${lon.toFixed(5)}`);
+      }
+    } catch (error: unknown) {
+      console.error('Reverse geocoding error:', error instanceof Error ? error.message : String(error));
+      // Fallback to coordinates if reverse geocoding fails
+      setAddress(`Latitude: ${lat.toFixed(5)}, Longitude: ${lon.toFixed(5)}`);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -61,11 +85,19 @@ export default function AttendancePage() {
       }
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setLatitude(pos.coords.latitude);
-          setLongitude(pos.coords.longitude);
-          setMapUrl(`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}&z=17&output=embed`);
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          setLatitude(lat);
+          setLongitude(lon);
+          setMapUrl(`https://www.google.com/maps?q=${lat},${lon}&z=17&output=embed`);
+          
+          // Reverse geocode to get address
+          reverseGeocode(lat, lon);
         },
-        () => showMessage("Unable to access location. Allow permission.", "error"),
+        (error) => {
+          console.error('Geolocation error:', error);
+          showMessage("Unable to access location. Allow permission.", "error");
+        },
         { enableHighAccuracy: true }
       );
     };
@@ -478,9 +510,7 @@ export default function AttendancePage() {
                 <div className="mb-4">
                   <p className="text-gray-600 mb-2 font-medium">Current Location:</p>
                   <p className="text-gray-800 p-3 bg-gray-50 rounded-lg">
-                    {latitude && longitude ?
-                      `📍 Latitude: ${latitude.toFixed(5)}, Longitude: ${longitude.toFixed(5)}` :
-                      "Getting location..."}
+                    {address}
                   </p>
                 </div>
                 <div className="w-full h-64 rounded-lg shadow-md overflow-hidden">
