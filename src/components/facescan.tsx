@@ -9,7 +9,8 @@ export default function AttendancePage() {
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" | "warning" } | null>(null);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
-  const [address, setAddress] = useState<string>("Fetching address...");
+  const [address, setAddress] = useState<string>("Fetching location...");
+  const [isGeocoding, setIsGeocoding] = useState<boolean>(false);
   const [mapUrl, setMapUrl] = useState<string>("https://www.google.com/maps?q=0,0&z=15&output=embed");
   const [mounted, setMounted] = useState(false);
   const [canvasVisible, setCanvasVisible] = useState(false);
@@ -25,6 +26,10 @@ export default function AttendancePage() {
   // New function to reverse geocode coordinates to address
   const reverseGeocode = async (lat: number, lon: number) => {
     try {
+      // Set loading state
+      setIsGeocoding(true);
+      setAddress("Fetching location...");
+      
       // Use the existing backend geocoding API
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/geocoding/?lat=${lat}&lon=${lon}`);
       
@@ -42,6 +47,9 @@ export default function AttendancePage() {
       console.error('Reverse geocoding error:', error instanceof Error ? error.message : String(error));
       // Fallback to coordinates if reverse geocoding fails
       setAddress(`Latitude: ${lat.toFixed(5)}, Longitude: ${lon.toFixed(5)}`);
+    } finally {
+      // Reset loading state
+      setIsGeocoding(false);
     }
   };
 
@@ -509,8 +517,18 @@ export default function AttendancePage() {
                 <h2 className="text-xl font-semibold text-gray-800 mb-4">Location Information</h2>
                 <div className="mb-4">
                   <p className="text-gray-600 mb-2 font-medium">Current Location:</p>
-                  <p className="text-gray-800 p-3 bg-gray-50 rounded-lg">
-                    {address}
+                  <p className="text-gray-800 p-3 bg-gray-50 rounded-lg min-h-[60px] flex items-center">
+                    {isGeocoding ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Fetching location...
+                      </>
+                    ) : (
+                      address
+                    )}
                   </p>
                 </div>
                 <div className="w-full h-64 rounded-lg shadow-md overflow-hidden">
