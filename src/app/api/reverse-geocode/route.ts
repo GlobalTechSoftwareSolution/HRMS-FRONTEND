@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 // Helper function to try LocationIQ first
 async function getLocationIQAddress(lat: string, lon: string) {
   try {
-    const API_KEY = process.env.LOCATIONIQ_API_KEY || 'pk.cb86e99650036bef1474ebdb7586f405';
+    const API_KEY = process.env.LOCATIONIQ_API_KEY;
     
     // Add timeout to prevent hanging requests
     const controller = new AbortController();
