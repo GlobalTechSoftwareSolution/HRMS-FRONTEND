@@ -246,16 +246,12 @@ const scrollToUserMessage = (index: number) => {
     setConversationStarted(false);
   };
 
-  const openContactPage = () => {
-    setIsChatOpen(false);
-  };
-
-  const [suggestedQuestions, setSuggestedQuestions] = useState([
+  const suggestedQuestions = [
     { text: "HRMS Features", query: "hrms features", emoji: "🚀", color: "bg-blue-600" },
     { text: "Get Support", query: "support", emoji: "🛟", color: "bg-blue-600" },
     { text: "Contact Us", query: "contact", emoji: "📧", color: "bg-blue-600" },
     { text: "Latest Updates", query: "blogs", emoji: "📰", color: "bg-blue-600" },
-  ]);
+  ];
 
   return (
     <div className="fixed bottom-6 right-6 z-50 text-black">
@@ -275,8 +271,11 @@ const scrollToUserMessage = (index: number) => {
             fill="white" 
             className="w-10 h-10 transition-transform duration-500 group-hover:rotate-12"
           >
-            {/* Professional Bot Icon */}
+            {/* Realistic Bot Icon */}
             <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.9 1 3 1.9 3 3V7H1V9H3V15C3 16.1 3.9 17 5 17H7V21H9V17H11V21H13V17H15V21H17V17H19C20.1 17 21 16.1 21 15V9H21ZM5 15V7H11V9H13V7H19V15H5Z" />
+            {/* Additional bot details */}
+            <circle cx="12" cy="12" r="1.5" fill="#3B82F6" />
+            <path d="M9 11h1v2H9zM14 11h1v2h-1z" fill="#3B82F6" />
           </svg>
         </div>
       </button>
