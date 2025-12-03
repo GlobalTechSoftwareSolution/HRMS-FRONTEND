@@ -32,10 +32,43 @@ type Employee = {
   department: string;
 };
 
+// Shift types
+type ShiftData = {
+  shift_id: number;
+  date: string;
+  start_time: string;
+  end_time: string;
+  emp_email: string;
+  emp_name: string;
+  manager_email: string;
+  manager_name: string;
+  shift: string;
+};
+
 export default function HrAttendencePage() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [shifts, setShifts] = useState<ShiftData[]>([]);
+  const [shiftsLoading, setShiftsLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
+
+  // ---------------- Utility Functions ----------------
+  // Convert 24-hour time to 12-hour format
+  const convertTo12HourFormat = (timeString: string) => {
+    if (!timeString) return "Pending";
+    
+    // Handle case where timeString might include seconds
+    const timeParts = timeString.split(":");
+    let hours = parseInt(timeParts[0]);
+    const minutes = timeParts[1];
+    
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12; // Convert 0 to 12
+    
+    return `${hours}:${minutes} ${ampm}`;
+  };
 
   // ---------------- Fetch Attendance ----------------
   useEffect(() => {
@@ -98,13 +131,60 @@ export default function HrAttendencePage() {
     fetchEmployees();
   }, []);
 
-  const today = new Date().toISOString().split("T")[0];
-  const todaysAttendance = attendance.filter((a) => a.date === today);
-  const checkedIn = todaysAttendance.filter((a) => a.check_in).length;
+  // ---------------- Fetch Shifts ----------------
+  useEffect(() => {
+    const fetchShifts = async () => {
+      try {
+        setShiftsLoading(true);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_shifts/`
+        );
+        if (!res.ok) throw new Error("Failed to fetch shifts");
+        const data: ShiftData[] = await res.json();
+        setShifts(data);
+      } catch (err) {
+        console.error("Error fetching shifts:", err);
+      } finally {
+        setShiftsLoading(false);
+      }
+    };
+    fetchShifts();
+  }, []);
+
+  // ---------------- Date Navigation Functions ----------------
+  const goToPreviousDay = () => {
+    const currentDate = new Date(selectedDate);
+    currentDate.setDate(currentDate.getDate() - 1);
+    setSelectedDate(currentDate.toISOString().split("T")[0]);
+  };
+
+  const goToNextDay = () => {
+    const currentDate = new Date(selectedDate);
+    currentDate.setDate(currentDate.getDate() + 1);
+    setSelectedDate(currentDate.toISOString().split("T")[0]);
+  };
+
+  const goToToday = () => {
+    setSelectedDate(new Date().toISOString().split("T")[0]);
+  };
+
+  // ---------------- Filter Data by Selected Date ----------------
+  const getFilteredAttendance = () => {
+    return attendance.filter((a) => a.date === selectedDate);
+  };
+
+  const getFilteredShifts = () => {
+    return shifts.filter((s) => s.date === selectedDate);
+  };
+
+  const filteredAttendance = getFilteredAttendance();
+  const filteredShifts = getFilteredShifts();
+  
+  const checkedIn = filteredAttendance.filter((a) => a.check_in).length;
   const totalEmployees = employees.length;
   const absent = totalEmployees - checkedIn;
 
-  const totalHoursToday = todaysAttendance.reduce(
+  const totalHoursToday = filteredAttendance.reduce(
     (acc, a) => acc + (a.hours.hrs * 3600 + a.hours.mins * 60 + a.hours.secs),
     0
   );
@@ -114,6 +194,22 @@ export default function HrAttendencePage() {
     const secs = Math.round(totalHoursToday % 60);
     return `${hrs}h ${mins}m ${secs}s`;
   })();
+
+  // Get employee shifts for selected date
+  const getEmployeeShifts = (empEmail: string) => {
+    return filteredShifts.filter(shift => shift.emp_email === empEmail);
+  };
+
+  // Format date for display
+  const formatDateForDisplay = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { 
+      weekday: "long", 
+      year: "numeric", 
+      month: "long", 
+      day: "numeric" 
+    });
+  };
 
   // ---------------- PDF Generation ----------------
  const downloadPDF = async () => {
@@ -156,7 +252,7 @@ export default function HrAttendencePage() {
   // --- ATTENDANCE REPORT TITLE ---
   doc.setFontSize(20);
   doc.text(
-    "Today's Attendance Report",
+    `Attendance Report - ${formatDateForDisplay(selectedDate)}`,
     doc.internal.pageSize.getWidth() / 2,
     90,
     { align: "center" }
@@ -164,8 +260,7 @@ export default function HrAttendencePage() {
 
   doc.setFontSize(12);
   doc.setFont("helvetica", "normal");
-  const todayStr = new Date().toLocaleDateString();
-  doc.text(`Date: ${todayStr}`, doc.internal.pageSize.getWidth() / 2, 110, {
+  doc.text(`Date: ${formatDateForDisplay(selectedDate)}`, doc.internal.pageSize.getWidth() / 2, 110, {
     align: "center",
   });
 
@@ -181,17 +276,17 @@ export default function HrAttendencePage() {
   ];
   const tableRows: (string | number)[][] = [];
 
-  todaysAttendance.forEach((rec, idx) => {
+  filteredAttendance.forEach((rec, idx) => {
     tableRows.push([
       idx + 1,
       rec.fullname || "Unknown",
       rec.email || "-",
       rec.department || "-",
       rec.check_in
-        ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
+        ? convertTo12HourFormat(rec.check_in)
         : "Pending",
       rec.check_out
-        ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
+        ? convertTo12HourFormat(rec.check_out)
         : "Pending",
       `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`,
     ]);
@@ -220,9 +315,8 @@ export default function HrAttendencePage() {
     },
   });
 
-  doc.save(`Attendance-Report-${todayStr}.pdf`);
+  doc.save(`Attendance-Report-${selectedDate}.pdf`);
 };
-
 
   return (
     <DashboardLayout role="hr">
@@ -235,6 +329,56 @@ export default function HrAttendencePage() {
         >
           HR Attendance Dashboard 
         </motion.h1>
+
+        {/* Date Navigation Controls */}
+        <motion.div
+          className="bg-white rounded-xl shadow-md p-4 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goToPreviousDay}
+              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+              aria-label="Previous day"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={goToToday}
+              className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              Today
+            </button>
+            
+            <button
+              onClick={goToNextDay}
+              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
+              aria-label="Next day"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+          
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-700 text-center">
+            {formatDateForDisplay(selectedDate)}
+          </h2>
+          
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+        </motion.div>
 
         {/* KPI Cards */}
         <motion.div
@@ -261,7 +405,7 @@ export default function HrAttendencePage() {
 
         {/* Today Attendance + Download PDF */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-700">Today Attendance</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-700">Attendance & Shifts</h2>
           <button
             onClick={downloadPDF}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg sm:mt-5 sm:mb-5 hover:bg-blue-700"
@@ -270,14 +414,14 @@ export default function HrAttendencePage() {
           </button>
         </div>
 
-        {/* Today Attendance Cards */}
+        {/* Combined Attendance and Shifts Cards */}
         <motion.div
           className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mb-8"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
         >
-          {loading ? (
+          {loading || shiftsLoading ? (
             Array.from({ length: 4 }).map((_, idx) => (
               <div
                 key={idx}
@@ -288,71 +432,106 @@ export default function HrAttendencePage() {
                 <div className="h-4 bg-gray-200 rounded w-full"></div>
               </div>
             ))
-          ) : todaysAttendance.length ? (
+          ) : filteredAttendance.length ? (
             <AnimatePresence>
-              {todaysAttendance.map((rec, idx) => (
-                <motion.div
-                  key={`${rec.email}-${rec.date}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3, delay: idx * 0.05 }}
-                  className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
-                >
-                  <div className="mb-3 sm:mb-4">
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.fullname}</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
-                  </div>
-                  <div className="mb-2 sm:mb-3">
-                    <p className="text-xs text-gray-400">Check-in / Check-out</p>
-                    <div className="flex gap-2 mt-1 flex-wrap">
-                      <span
-                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                          rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {rec.check_in ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString() : "Pending"}
-                      </span>
-                      <span
-                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                          rec.check_out ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
-                        }`}
-                      >
-                        {rec.check_out ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString() : "Pending"}
-                      </span>
+              {filteredAttendance.map((rec, idx) => {
+                const empShifts = getEmployeeShifts(rec.email);
+                return (
+                  <motion.div
+                    key={`${rec.email}-${rec.date}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3, delay: idx * 0.05 }}
+                    className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 sm:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between"
+                  >
+                    <div className="mb-3 sm:mb-4">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-800">{rec.fullname}</h3>
+                      <p className="text-xs sm:text-sm text-gray-500 break-words">{rec.email}</p>
                     </div>
-                  </div>
-                  <div>
-                    <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
-                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{
-                          width: `${
-                            Math.min(
-                              ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
-                              100
-                            )
-                          }%`
-                        }}
-                        transition={{ duration: 1 }}
-                        className="h-2 bg-blue-500 rounded-full"
-                      />
+                    
+                    {/* Department */}
+                    <div className="mb-3">
+                      <p className="text-xs text-gray-400">Department</p>
+                      <p className="text-sm text-gray-600">{rec.department || "Not specified"}</p>
                     </div>
-                    <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
-                      {rec.hours.hrs}h {rec.hours.mins}m {rec.hours.secs}s
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
+                    
+                    {/* Attendance Info */}
+                    <div className="mb-3">
+                      <p className="text-xs text-gray-400">Check-in / Check-out</p>
+                      <div className="flex gap-2 mt-1 flex-wrap">
+                        <span
+                          className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                            rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {rec.check_in ? convertTo12HourFormat(rec.check_in) : "Pending"}
+                        </span>
+                        <span
+                          className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                            rec.check_out ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                          }`}
+                        >
+                          {rec.check_out ? convertTo12HourFormat(rec.check_out) : "Pending"}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Worked Hours */}
+                    <div className="mb-3">
+                      <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
+                      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{
+                            width: `${
+                              Math.min(
+                                ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
+                                100
+                              )
+                            }%`
+                          }}
+                          transition={{ duration: 1 }}
+                          className="h-2 bg-blue-500 rounded-full"
+                        />
+                      </div>
+                      <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
+                        {rec.hours.hrs}h {rec.hours.mins}m {rec.hours.secs}s
+                      </p>
+                    </div>
+                    
+                    {/* Shifts Info */}
+                    <div>
+                      <p className="text-xs text-gray-400">Today&#39;s Shifts</p>
+                      {empShifts.length > 0 ? (
+                        <div className="flex gap-2 mt-1 flex-wrap">
+                          {empShifts.map((shift) => (
+                            <span
+                              key={shift.shift_id}
+                              className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                shift.shift === "Morning" 
+                                  ? "bg-blue-100 text-blue-700" 
+                                  : shift.shift === "Evening" 
+                                  ? "bg-yellow-100 text-yellow-700" 
+                                  : "bg-purple-100 text-purple-700"
+                              }`}
+                            >
+                              {shift.shift} ({convertTo12HourFormat(shift.start_time)} - {convertTo12HourFormat(shift.end_time)})
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-600 mt-1">No shifts assigned</p>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           ) : (
-            <div className="col-span-full text-center text-gray-500 p-6 sm:p-8 bg-white rounded-xl shadow-lg">
-              No attendance records for today.
-            </div>
+            <p className="text-gray-500 col-span-full text-center">No attendance records for this date.</p>
           )}
         </motion.div>
-
       </div>
     </DashboardLayout>
   );

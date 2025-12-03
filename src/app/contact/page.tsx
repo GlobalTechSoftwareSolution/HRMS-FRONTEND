@@ -97,7 +97,7 @@ function ContactPageContent() {
         try {
           const errorData = await response.json();
           errorMessage += errorData.error || `Server responded with status ${response.status}`;
-        } catch (_error) {
+        } catch {
           errorMessage += `Server responded with status ${response.status}`;
         }
         

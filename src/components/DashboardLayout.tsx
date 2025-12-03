@@ -35,6 +35,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Notice", path: "/ceo/notice" },
     { name: "Calender", path: "/ceo/calender" },
     { name: "Tickets", path: "/ceo/ceo_tickets" },
+    { name: "Shift Maker", path: "/ceo/shift-maker" },
     { name: "Profile", path: "/ceo/profile" },
   ],
   manager: [
@@ -49,6 +50,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Tickets", path: "/manager/manager_tickets" },
     { name: "Projects", path: "/manager/manager_projects" },
     { name: "Resigned Employee", path: "/manager/resigned_employee" },
+    { name: "Shift maker", path: "/manager/shift-maker" },
     { name: "Profile", path: "/manager/profile" },
   ],
   hr: [
@@ -66,6 +68,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Issue Documents", path: "/hr/documents" },
     { name: "HR Careers", path: "/hr/hrcareers" },
     { name: "Projects", path: "/hr/hr_projects" },
+    { name: "Shift Viewer", path: "/hr/shift-viewer" },
     { name: "Profile", path: "/hr/profile" },
   ],
   employee: [
@@ -80,6 +83,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Tickets", path: "/employee/employee_tickets" },
     { name: "Projects", path: "/employee/employee_projects" },
     { name: "Resign", path: "/employee/employee_resign" },
+    { name: "Shift Viewer", path: "/employee/shift-viewer" },
     { name: "Profile", path: "/employee/profile" },
     
   ],
@@ -212,12 +216,12 @@ export default function DashboardLayout({ children, role }: Props) {
           </div>
         </div>
 
-        <nav className={`flex-1 overflow-y-auto flex flex-col p-4 space-y-2 ${role === 'hr' ? 'scrollbar-thin scrollbar-thumb-blue-700 scrollbar-track-blue-800 scrollbar-thumb-rounded-full' : ''}`}>
+        <nav className="flex-1 overflow-y-auto flex flex-col p-4 space-y-2 scrollbar-thin scrollbar-thumb-blue-700 scrollbar-track-blue-800 scrollbar-thumb-rounded-full">
           {roleLinks?.map((link) => (
             <Link
               href={link.path}
               key={link.name}
-              className={`px-4 py-2 rounded-lg transition-all font-medium truncate ${
+              className={`px-4 py-3 rounded-lg transition-all font-medium truncate ${
                 currentPath.startsWith(link.path) ? "bg-blue-500 shadow-md" : "hover:bg-blue-500 hover:shadow-md"
               }`}
               title={link.name}
@@ -267,7 +271,7 @@ export default function DashboardLayout({ children, role }: Props) {
               </div>
             </div>
 
-            <nav className={`flex-1 overflow-y-auto flex flex-col p-2 space-y-1 ${role === 'hr' ? 'scrollbar-thin scrollbar-thumb-blue-700 scrollbar-track-blue-800 scrollbar-thumb-rounded-full' : ''}`}>
+            <nav className="flex-1 overflow-y-auto flex flex-col p-2 space-y-1 scrollbar-thin scrollbar-thumb-blue-700 scrollbar-track-blue-800 scrollbar-thumb-rounded-full">
               {roleLinks?.map((link) => (
                 <Link
                   href={link.path}

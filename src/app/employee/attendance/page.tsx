@@ -102,6 +102,38 @@ export default function AttendancePortal() {
     const [raiseMessage, setRaiseMessage] = useState<string | null>(null);
     // Track submitted requests: { "email|date": { reason, status, timestamp } }
     const [submittedRequests, setSubmittedRequests] = useState<Record<string, { reason: string; status: string; timestamp: number }>>({});
+    
+    // Add shift states and types
+    type ShiftData = {
+        shift_id: number;
+        date: string;
+        start_time: string;
+        end_time: string;
+        emp_email: string;
+        emp_name: string;
+        manager_email: string;
+        manager_name: string;
+        shift: string;
+    };
+
+    const [todayShifts, setTodayShifts] = useState<ShiftData[]>([]);
+    const [loadingShifts, setLoadingShifts] = useState(false);
+
+    // Add function to convert 24-hour time to 12-hour format
+    const convertTo12HourFormat = (timeString: string) => {
+        if (!timeString || timeString === "-" || timeString === "null") return "N/A";
+        
+        // Handle case where timeString might include seconds
+        const timeParts = timeString.split(":");
+        let hours = parseInt(timeParts[0]);
+        const minutes = timeParts[1] || "00";
+        
+        const ampm = hours >= 12 ? "PM" : "AM";
+        hours = hours % 12;
+        hours = hours ? hours : 12; // Convert 0 to 12
+        
+        return `${hours}:${minutes} ${ampm}`;
+    };
 
     // Profile data state (moved to top level)
     const [profileData, setProfileData] = useState<ProfileData | null>(null);
@@ -324,6 +356,35 @@ export default function AttendancePortal() {
         };
         fetchLeaves();
     }, []);
+
+    // Add fetch shifts useEffect
+    useEffect(() => {
+        const fetchShifts = async () => {
+            if (!loggedInEmail) return;
+            
+            setLoadingShifts(true);
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_shifts/`);
+                if (!res.ok) throw new Error(`Error fetching shifts: ${res.statusText}`);
+                const data: ShiftData[] = await res.json();
+                
+                // Get shifts for the selected date or today
+                const targetDate = selectedDate || new Date().toISOString().split("T")[0];
+                const userShifts = data.filter(
+                    (shift) => shift.emp_email === loggedInEmail && shift.date === targetDate
+                );
+                setTodayShifts(userShifts);
+            } catch (err) {
+                console.error("Error fetching shifts:", err);
+            } finally {
+                setLoadingShifts(false);
+            }
+        };
+
+        if (loggedInEmail) {
+            fetchShifts();
+        }
+    }, [loggedInEmail, selectedDate]);
 
     // Fetch absences for the logged-in user
     useEffect(() => {
@@ -878,8 +939,81 @@ export default function AttendancePortal() {
                     </div>
                 </div>
 
+                {/* Today's Shift Card */}
+                {loggedInEmail && (
+                    <div className="mb-6 sm:mb-8">
+                        <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-700">
+                            {selectedDate 
+                                ? `Shifts for ${new Date(selectedDate).toLocaleDateString('en-US', { 
+                                    weekday: 'long', 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                })}` 
+                                : "Today&#39;s Shift"}
+                        </h2>
+                        {loadingShifts ? (
+                            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
+                                <div className="animate-pulse flex space-x-4">
+                                    <div className="flex-1 space-y-4 py-1">
+                                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                                        <div className="space-y-2">
+                                            <div className="h-4 bg-gray-200 rounded"></div>
+                                            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : todayShifts.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {todayShifts.map((shift) => (
+                                    <div 
+                                        key={shift.shift_id} 
+                                        className={`p-4 rounded-lg border ${
+                                            shift.shift === "Morning" 
+                                                ? "bg-blue-50 border-blue-200" 
+                                                : shift.shift === "Evening" 
+                                                    ? "bg-yellow-50 border-yellow-200" 
+                                                    : "bg-purple-50 border-purple-200"
+                                        }`}
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h3 className="font-semibold text-gray-800">{shift.shift} Shift</h3>
+                                                <p className="text-sm text-gray-600 mt-1">
+                                                    {convertTo12HourFormat(shift.start_time)} - {convertTo12HourFormat(shift.end_time)}
+                                                </p>
+                                            </div>
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                shift.shift === "Morning" 
+                                                    ? "bg-blue-100 text-blue-800" 
+                                                    : shift.shift === "Evening" 
+                                                        ? "bg-yellow-100 text-yellow-800" 
+                                                        : "bg-purple-100 text-purple-800"
+                                            }`}>
+                                                {shift.shift}
+                                            </span>
+                                        </div>
+                                        <div className="mt-3 pt-3 border-t border-gray-200">
+                                            <p className="text-xs text-gray-500">Manager</p>
+                                            <p className="text-sm font-medium text-gray-700">{shift.manager_name}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
+                                <p className="text-gray-500 text-center">No shifts assigned for today</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Calendar Section */}
                 <div className="mb-8 sm:mb-10">
+
+           
+
                     <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-700">Attendance Calendar</h2>
                     <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-4 sm:gap-6 md:gap-8 items-stretch">
                         {/* Calendar Card */}
