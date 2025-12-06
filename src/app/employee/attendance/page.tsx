@@ -16,6 +16,8 @@ type AttendanceRecord = {
     email: string;
     fullname?: string;
     department?: string;
+    checkInPhoto?: string | null;
+    checkOutPhoto?: string | null;
 };
 
 type APIResponseRecord = {
@@ -23,6 +25,8 @@ type APIResponseRecord = {
     status?: string;
     check_in?: string | null;
     check_out?: string | null;
+    check_in_photo?: string | null;
+    check_out_photo?: string | null;
     email: string;
 };
 
@@ -47,6 +51,13 @@ type AbsenceRecord = {
     date: string;
 };
 
+type OTRecord = {
+    id: number;
+    email: string;
+    ot_start: string;
+    ot_end: string;
+    [key: string]: unknown;
+};
 type ProfileData = {
   email: string;
   fullname: string;
@@ -102,7 +113,7 @@ export default function AttendancePortal() {
     const [raiseMessage, setRaiseMessage] = useState<string | null>(null);
     // Track submitted requests: { "email|date": { reason, status, timestamp } }
     const [submittedRequests, setSubmittedRequests] = useState<Record<string, { reason: string; status: string; timestamp: number }>>({});
-    
+
     // Add shift states and types
     type ShiftData = {
         shift_id: number;
@@ -119,6 +130,11 @@ export default function AttendancePortal() {
     const [todayShifts, setTodayShifts] = useState<ShiftData[]>([]);
     const [loadingShifts, setLoadingShifts] = useState(false);
 
+    // Add OT states
+    const [otRecords, setOtRecords] = useState<OTRecord[]>([]);    const [loadingOT, setLoadingOT] = useState(false);
+
+    // Add photo modal state
+    const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
     // Add function to convert 24-hour time to 12-hour format
     const convertTo12HourFormat = (timeString: string) => {
         if (!timeString || timeString === "-" || timeString === "null") return "N/A";
@@ -227,6 +243,8 @@ export default function AttendancePortal() {
                         checkOut: rec.check_out || "-",
                         hoursWorked,
                         email: rec.email,
+                        checkInPhoto: rec.check_in_photo || null,
+                        checkOutPhoto: rec.check_out_photo || null,
                     };
                 });
 
@@ -483,6 +501,25 @@ export default function AttendancePortal() {
             fetchApprovedLeaves();
         }
     }, [loggedInEmail]);
+
+    // Fetch OT records
+    useEffect(() => {
+        const fetchOtRecords = async () => {
+            try {
+                setLoadingOT(true);
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_ot/`);
+                if (!response.ok) throw new Error("Failed to fetch OT records");
+                const data = await response.json();
+                setOtRecords(data.ot_records || []);
+            } catch (err) {
+                console.error("Error fetching OT records:", err);
+            } finally {
+                setLoadingOT(false);
+            }
+        };
+
+        fetchOtRecords();
+    }, []);
 
     // Update selected date record when selectedDate changes
     useEffect(() => {
@@ -939,71 +976,140 @@ export default function AttendancePortal() {
                     </div>
                 </div>
 
-                {/* Today's Shift Card */}
+                {/* Today&apos;s Schedule - Combined Shifts & OT */}
                 {loggedInEmail && (
                     <div className="mb-6 sm:mb-8">
                         <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-700">
-                            {selectedDate 
-                                ? `Shifts for ${new Date(selectedDate).toLocaleDateString('en-US', { 
-                                    weekday: 'long', 
-                                    year: 'numeric', 
-                                    month: 'long', 
-                                    day: 'numeric' 
-                                })}` 
-                                : "Today&#39;s Shift"}
+                            Today&apos;s Schedule
                         </h2>
-                        {loadingShifts ? (
-                            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
-                                <div className="animate-pulse flex space-x-4">
-                                    <div className="flex-1 space-y-4 py-1">
-                                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                                        <div className="space-y-2">
-                                            <div className="h-4 bg-gray-200 rounded"></div>
-                                            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : todayShifts.length > 0 ? (
+                        {loadingShifts || loadingOT ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {todayShifts.map((shift) => (
-                                    <div 
-                                        key={shift.shift_id} 
-                                        className={`p-4 rounded-lg border ${
-                                            shift.shift === "Morning" 
-                                                ? "bg-blue-50 border-blue-200" 
-                                                : shift.shift === "Evening" 
-                                                    ? "bg-yellow-50 border-yellow-200" 
-                                                    : "bg-purple-50 border-purple-200"
-                                        }`}
-                                    >
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <h3 className="font-semibold text-gray-800">{shift.shift} Shift</h3>
-                                                <p className="text-sm text-gray-600 mt-1">
-                                                    {convertTo12HourFormat(shift.start_time)} - {convertTo12HourFormat(shift.end_time)}
-                                                </p>
+                                {[...Array(3)].map((_, i) => (
+                                    <div key={i} className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
+                                        <div className="animate-pulse">
+                                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
+                                            <div className="space-y-2">
+                                                <div className="h-3 bg-gray-200 rounded"></div>
+                                                <div className="h-3 bg-gray-200 rounded w-5/6"></div>
                                             </div>
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                shift.shift === "Morning" 
-                                                    ? "bg-blue-100 text-blue-800" 
-                                                    : shift.shift === "Evening" 
-                                                        ? "bg-yellow-100 text-yellow-800" 
-                                                        : "bg-purple-100 text-purple-800"
-                                            }`}>
-                                                {shift.shift}
-                                            </span>
-                                        </div>
-                                        <div className="mt-3 pt-3 border-t border-gray-200">
-                                            <p className="text-xs text-gray-500">Manager</p>
-                                            <p className="text-sm font-medium text-gray-700">{shift.manager_name}</p>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
-                                <p className="text-gray-500 text-center">No shifts assigned for today</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {(() => {
+                                    const today = new Date().toISOString().split("T")[0];
+                                    const employeeEmail = loggedInEmail;
+
+                                    // Get today's shifts
+                                    const todayShiftsFiltered = todayShifts;
+
+                                    // Get OT records for selected date (or today if no date selected)
+                                    const targetDate = selectedDate || today;
+                                    const dateOT = otRecords.filter((ot) => {
+                                        const otDate = new Date(ot.ot_start);
+                                        const selectedDateObj = new Date(targetDate);
+                                        return ot.email === employeeEmail &&
+                                               otDate.toDateString() === selectedDateObj.toDateString();
+                                    });
+
+                                    // Combine shifts and OT
+                                    const allScheduleItems = [
+                                        ...todayShiftsFiltered.map(shift => ({ type: 'shift', data: shift })),
+                                        ...dateOT.map(ot => ({ type: 'ot', data: ot }))
+                                    ];
+
+                                    if (allScheduleItems.length === 0) {
+                                        return (
+                                            <div className="col-span-full bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
+                                                <p className="text-gray-500 text-center">No shifts or overtime scheduled for today.</p>
+                                            </div>
+                                        );
+                                    }
+
+                                    return allScheduleItems.map((item, index) => {
+                                        if (item.type === 'shift') {
+                                            const shift = item.data as ShiftData;
+                                            return (
+                                                <div
+                                                    key={`shift-${shift.shift_id}`}
+                                                    className={`p-4 rounded-lg border ${
+                                                        shift.shift === "Morning"
+                                                            ? "bg-blue-50 border-blue-200"
+                                                            : shift.shift === "Evening"
+                                                                ? "bg-yellow-50 border-yellow-200"
+                                                                : "bg-purple-50 border-purple-200"
+                                                    }`}
+                                                >
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <h3 className="font-semibold text-gray-800">{shift.shift} Shift</h3>
+                                                            <p className="text-sm text-gray-600 mt-1">
+                                                                {convertTo12HourFormat(shift.start_time)} - {convertTo12HourFormat(shift.end_time)}
+                                                            </p>
+                                                        </div>
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                            shift.shift === "Morning"
+                                                                ? "bg-blue-100 text-blue-800"
+                                                                : shift.shift === "Evening"
+                                                                    ? "bg-yellow-100 text-yellow-800"
+                                                                    : "bg-purple-100 text-purple-800"
+                                                        }`}>
+                                                            {shift.shift}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                                        <p className="text-xs text-gray-500">Manager</p>
+                                                        <p className="text-sm font-medium text-gray-700">{shift.manager_name}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        } else {
+                                            const ot = item.data as OTRecord;                                            const startTime = new Date(ot.ot_start).toLocaleTimeString('en-US', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                hour12: true
+                                            });
+                                            const endTime = new Date(ot.ot_end).toLocaleTimeString('en-US', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                hour12: true
+                                            });
+
+                                            // Calculate duration in hours and minutes
+                                            const start = new Date(ot.ot_start);
+                                            const end = new Date(ot.ot_end);
+                                            const diffMs = end.getTime() - start.getTime();
+                                            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                                            const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                                            const duration = diffHours > 0
+                                                ? `${diffHours}h ${diffMinutes}m`
+                                                : `${diffMinutes}m`;
+
+                                            return (
+                                                <div key={`ot-${index}`} className="p-4 rounded-lg border bg-green-50 border-green-200">
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <h3 className="font-semibold text-gray-800">Overtime</h3>
+                                                            <p className="text-sm text-gray-600 mt-1">
+                                                                {startTime} - {endTime}
+                                                            </p>
+                                                        </div>
+                                                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                            OT
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                                        <p className="text-xs text-gray-500">Duration</p>
+                                                        <p className="text-sm font-medium text-gray-700">{duration}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                    });
+                                })()}
                             </div>
                         )}
                     </div>
@@ -1639,6 +1745,7 @@ export default function AttendancePortal() {
                         onDateChange={setSelectedDate}
                         formatDateForComparison={formatDateForComparison}
                         absences={absences}
+                        setSelectedPhoto={setSelectedPhoto}
                     />
                 </div>
 
@@ -2038,6 +2145,25 @@ export default function AttendancePortal() {
                     }
                 }
             `}</style>
+
+            {/* Photo Modal */}
+            {selectedPhoto && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-4xl max-h-full overflow-auto relative">
+                        <button
+                            onClick={() => setSelectedPhoto(null)}
+                            className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl font-bold"
+                        >
+                            ×
+                        </button>
+                        <Image
+                            src={selectedPhoto}
+                            alt="Attendance photo"
+                            className="max-w-full max-h-screen object-contain"
+                        />
+                    </div>
+                </div>
+            )}
         </DashboardLayout>
     );
 }
@@ -2050,6 +2176,7 @@ function AttendanceRecordsWithDatePicker({
     selectedDate,
     formatDateForComparison,
     absences,
+    setSelectedPhoto,
 }: {
     fetchedAttendance: AttendanceRecord[];
     loggedInEmail: string | null;
@@ -2059,6 +2186,7 @@ function AttendanceRecordsWithDatePicker({
     onDateChange: (date: string | null) => void;
     formatDateForComparison: (date: Date | string) => string;
     absences: AbsenceRecord[];
+    setSelectedPhoto: (photo: string | null) => void;
 }) {
     if (loadingFetchedAttendance) {
         return (
@@ -2211,6 +2339,17 @@ const displayStatus = deriveStatus(record);
                                         : new Date(`${record.date}T${record.checkIn}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                                 </span>
                             </div>
+                            {record.checkInPhoto && (
+                                <div className="flex justify-center mt-2">
+                                    <Image
+                                        src={record.checkInPhoto}
+                                        alt="Check-in photo"
+                                        className="w-16 h-16 object-cover rounded border cursor-pointer hover:opacity-80"
+                                        onClick={() => setSelectedPhoto(record.checkInPhoto || null)}
+                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                    />
+                                </div>
+                            )}
                             <div className="flex justify-between text-xs">
                                 <span>Check-out:</span>
                                 <span className={`font-medium ${displayStatus === "Absent" ? "text-orange-700" : "text-red-700"}`}>
@@ -2219,6 +2358,17 @@ const displayStatus = deriveStatus(record);
                                         : new Date(`${record.date}T${record.checkOut}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                                 </span>
                             </div>
+                            {record.checkOutPhoto && (
+                                <div className="flex justify-center mt-2">
+                                    <Image
+                                        src={record.checkOutPhoto}
+                                        alt="Check-out photo"
+                                        className="w-16 h-16 object-cover rounded border cursor-pointer hover:opacity-80"
+                                        onClick={() => setSelectedPhoto(record.checkOutPhoto || null)}
+                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                    />
+                                </div>
+                            )}
                             <div className="flex justify-between text-xs">
                                 <span>Hours:</span>
                                 <span className={`font-medium ${displayStatus === "Absent" ? "text-orange-700" : "text-blue-700"}`}>

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 
 type AttendanceRecord = {
   email: string;
@@ -12,6 +13,8 @@ type AttendanceRecord = {
   check_in: string | null;
   check_out: string | null;
   hours: { hrs: number; mins: number; secs: number };
+  check_in_photo?: string | null;
+  check_out_photo?: string | null;
 };
 
 type ApiAttendanceResponse = {
@@ -22,6 +25,8 @@ type ApiAttendanceResponse = {
     date: string;
     check_in: string | null;
     check_out: string | null;
+    check_in_photo?: string | null;
+    check_out_photo?: string | null;
   }[];
 };
 
@@ -45,6 +50,15 @@ type ShiftData = {
   shift: string;
 };
 
+type OTData = {
+  id: number;
+  email: string;
+  manager_email: string;
+  ot_start: string;
+  ot_end: string;
+  emp_name: string;
+};
+
 export default function HrAttendencePage() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +66,11 @@ export default function HrAttendencePage() {
   const [shifts, setShifts] = useState<ShiftData[]>([]);
   const [shiftsLoading, setShiftsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+
+  // Add OT states
+  const [otRecords, setOtRecords] = useState<OTData[]>([]);
+
 
   // ---------------- Utility Functions ----------------
   // Convert 24-hour time to 12-hour format
@@ -101,6 +120,8 @@ export default function HrAttendencePage() {
             check_in: a.check_in,
             check_out: a.check_out,
             hours,
+            check_in_photo: a.check_in_photo || null,
+            check_out_photo: a.check_out_photo || null,
           };
         });
 
@@ -151,6 +172,22 @@ export default function HrAttendencePage() {
     fetchShifts();
   }, []);
 
+  // ---------------- Fetch OT Records ----------------
+  useEffect(() => {
+    const fetchOtRecords = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_ot/`);
+        if (!response.ok) throw new Error("Failed to fetch OT records");
+        const data = await response.json();
+        setOtRecords(data.ot_records || []);
+      } catch (err) {
+        console.error("Error fetching OT records:", err);
+      }
+    };
+
+    fetchOtRecords();
+  }, []);
+
   // ---------------- Date Navigation Functions ----------------
   const goToPreviousDay = () => {
     const currentDate = new Date(selectedDate);
@@ -198,6 +235,16 @@ export default function HrAttendencePage() {
   // Get employee shifts for selected date
   const getEmployeeShifts = (empEmail: string) => {
     return filteredShifts.filter(shift => shift.emp_email === empEmail);
+  };
+
+  // Get employee OT records for selected date
+  const getEmployeeOT = (empEmail: string) => {
+    return otRecords.filter(ot => {
+      const otDate = new Date(ot.ot_start);
+      const selectedDateObj = new Date(selectedDate);
+      return ot.email === empEmail &&
+             otDate.toDateString() === selectedDateObj.toDateString();
+    });
   };
 
   // Format date for display
@@ -475,6 +522,36 @@ export default function HrAttendencePage() {
                           {rec.check_out ? convertTo12HourFormat(rec.check_out) : "Pending"}
                         </span>
                       </div>
+                      <div className="flex gap-2 mt-2">
+                        {rec.check_in_photo && (
+                          <div className="text-center">
+                            <p className="text-xs text-gray-500 mb-1">Check-in</p>
+                            <Image
+                              src={rec.check_in_photo || ''}
+                              alt="Check-in photo"
+                              width={48}
+                              height={48}
+                              className="object-cover rounded border cursor-pointer hover:opacity-80"
+                              onClick={() => setSelectedPhoto(rec.check_in_photo || null)}
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          </div>
+                        )}
+                        {rec.check_out_photo && (
+                          <div className="text-center">
+                            <p className="text-xs text-gray-500 mb-1">Check-out</p>
+                            <Image
+                              src={rec.check_out_photo || ''}
+                              alt="Check-out photo"
+                              width={48}
+                              height={48}
+                              className="object-cover rounded border cursor-pointer hover:opacity-80"
+                              onClick={() => setSelectedPhoto(rec.check_out_photo || null)}
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Worked Hours */}
@@ -501,18 +578,18 @@ export default function HrAttendencePage() {
                     </div>
                     
                     {/* Shifts Info */}
-                    <div>
-                      <p className="text-xs text-gray-400">Today&#39;s Shifts</p>
+                    <div className="mb-3">
+                      <p className="text-xs text-gray-400">Today&apos;s Shifts</p>
                       {empShifts.length > 0 ? (
                         <div className="flex gap-2 mt-1 flex-wrap">
                           {empShifts.map((shift) => (
                             <span
                               key={shift.shift_id}
                               className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                                shift.shift === "Morning" 
-                                  ? "bg-blue-100 text-blue-700" 
-                                  : shift.shift === "Evening" 
-                                  ? "bg-yellow-100 text-yellow-700" 
+                                shift.shift === "Morning"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : shift.shift === "Evening"
+                                  ? "bg-yellow-100 text-yellow-700"
                                   : "bg-purple-100 text-purple-700"
                               }`}
                             >
@@ -524,6 +601,52 @@ export default function HrAttendencePage() {
                         <p className="text-sm text-gray-600 mt-1">No shifts assigned</p>
                       )}
                     </div>
+
+                    {/* OT Info */}
+                    <div>
+                      <p className="text-xs text-gray-400">Today&apos;s Overtime</p>
+                      {(() => {
+                        const empOT = getEmployeeOT(rec.email);
+                        return empOT.length > 0 ? (
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            {empOT.map((ot) => {
+                              const startTime = new Date(ot.ot_start).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              });
+                              const endTime = new Date(ot.ot_end).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              });
+
+                              // Calculate duration in hours and minutes
+                              const start = new Date(ot.ot_start);
+                              const end = new Date(ot.ot_end);
+                              const diffMs = end.getTime() - start.getTime();
+                              const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                              const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                              const duration = diffHours > 0
+                                ? `${diffHours}h ${diffMinutes}m`
+                                : `${diffMinutes}m`;
+
+                              return (
+                                <span
+                                  key={ot.id}
+                                  className="px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full bg-green-100 text-green-800"
+                                >
+                                  OT ({startTime} - {endTime}) - {duration}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-600 mt-1">No overtime</p>
+                        );
+                      })()}
+                    </div>
                   </motion.div>
                 );
               })}
@@ -532,6 +655,27 @@ export default function HrAttendencePage() {
             <p className="text-gray-500 col-span-full text-center">No attendance records for this date.</p>
           )}
         </motion.div>
+
+        {/* Photo Modal */}
+        {selectedPhoto && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-4xl max-h-full overflow-auto relative">
+              <button
+                onClick={() => setSelectedPhoto(null)}
+                className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                ×
+              </button>
+              <Image
+                src={selectedPhoto || ''}
+                alt="Attendance photo"
+                width={600}
+                height={400}
+                className="max-w-full max-h-screen object-contain"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

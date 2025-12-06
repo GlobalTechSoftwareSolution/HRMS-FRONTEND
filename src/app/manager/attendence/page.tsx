@@ -5,6 +5,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import Image from "next/image";
 
 type AttendanceRecord = {
   email: string;
@@ -14,6 +15,8 @@ type AttendanceRecord = {
   check_in: string | null;
   check_out: string | null;
   hours: { hrs: number; mins: number; secs: number };
+  check_in_photo?: string | null;
+  check_out_photo?: string | null;
 };
 
 type ApiAttendanceResponse = {
@@ -24,6 +27,8 @@ type ApiAttendanceResponse = {
     date: string;
     check_in: string | null;
     check_out: string | null;
+    check_in_photo?: string | null;
+    check_out_photo?: string | null;
   }[];
 };
 
@@ -71,6 +76,27 @@ type AttendanceRequest = {
   updated_at: string;
 };
 
+type ShiftData = {
+  shift_id: number;
+  date: string;
+  start_time: string;
+  end_time: string;
+  emp_email: string;
+  emp_name: string;
+  manager_email: string;
+  manager_name: string;
+  shift: string;
+};
+
+type OTData = {
+  id: number;
+  email: string;
+  manager_email: string;
+  ot_start: string;
+  ot_end: string;
+  emp_name: string;
+};
+
 export default function ManagerAttendenceDashboard() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +108,11 @@ export default function ManagerAttendenceDashboard() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [attendanceRequests, setAttendanceRequests] = useState<AttendanceRequest[]>([]);
   const [managerRemarks, setManagerRemarks] = useState<Record<number, string>>({});
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+
+  // Add shifts and OT states
+  const [shifts, setShifts] = useState<ShiftData[]>([]);
+  const [otRecords, setOtRecords] = useState<OTData[]>([]);
 
   // ---------------- Fetch Attendance ----------------
   useEffect(() => {
@@ -114,6 +145,8 @@ export default function ManagerAttendenceDashboard() {
             check_in: a.check_in,
             check_out: a.check_out,
             hours,
+            check_in_photo: a.check_in_photo || null,
+            check_out_photo: a.check_out_photo || null,
           };
         });
 
@@ -212,6 +245,39 @@ export default function ManagerAttendenceDashboard() {
     fetchAttendanceRequests();
   }, []);
 
+  // ---------------- Fetch Shifts ----------------
+  useEffect(() => {
+    const fetchShifts = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_shifts/`
+        );
+        if (!res.ok) throw new Error("Failed to fetch shifts");
+        const data: ShiftData[] = await res.json();
+        setShifts(data);
+      } catch (err) {
+        console.error("Error fetching shifts:", err);
+      }
+    };
+    fetchShifts();
+  }, []);
+
+  // ---------------- Fetch OT Records ----------------
+  useEffect(() => {
+    const fetchOtRecords = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_ot/`);
+        if (!response.ok) throw new Error("Failed to fetch OT records");
+        const data = await response.json();
+        setOtRecords(data.ot_records || []);
+      } catch (err) {
+        console.error("Error fetching OT records:", err);
+      }
+    };
+
+    fetchOtRecords();
+  }, []);
+
   // Get today's date in local timezone (YYYY-MM-DD)
   const today = (() => {
     const now = new Date();
@@ -288,6 +354,21 @@ export default function ManagerAttendenceDashboard() {
   const selectedDateRequests = selectedDate
     ? attendanceRequests.filter((r) => r.date === selectedDate)
     : [];
+
+  // Get employee shifts for selected date
+  const getEmployeeShifts = (empEmail: string) => {
+    return shifts.filter(shift => shift.emp_email === empEmail && shift.date === today);
+  };
+
+  // Get employee OT records for selected date
+  const getEmployeeOT = (empEmail: string) => {
+    return otRecords.filter(ot => {
+      const otDate = new Date(ot.ot_start);
+      const selectedDateObj = new Date(today);
+      return ot.email === empEmail &&
+             otDate.toDateString() === selectedDateObj.toDateString();
+    });
+  };
 
   // Handle calendar date click
   const handleDateClick = (value: Date) => {
@@ -805,6 +886,108 @@ export default function ManagerAttendenceDashboard() {
                         >
                           <h4 className="font-semibold text-gray-800 text-sm">{rec.fullname}</h4>
                           <p className="text-xs text-gray-500 mb-2">{rec.email}</p>
+
+                          {/* Shifts Info */}
+                          <div className="mb-2">
+                            <p className="text-xs text-gray-400">Shifts</p>
+                            {(() => {
+                              const empShifts = shifts.filter(shift => shift.emp_email === rec.email && shift.date === selectedDate);
+                              return empShifts.length > 0 ? (
+                                <div className="flex gap-1 mt-1 flex-wrap">
+                                  {empShifts.map((shift) => {
+                                    const startTime = (() => {
+                                      if (!shift.start_time) return "Pending";
+                                      const timeParts = shift.start_time.split(":");
+                                      let hours = parseInt(timeParts[0]);
+                                      const minutes = timeParts[1];
+                                      const ampm = hours >= 12 ? "PM" : "AM";
+                                      hours = hours % 12;
+                                      hours = hours ? hours : 12;
+                                      return `${hours}:${minutes} ${ampm}`;
+                                    })();
+                                    const endTime = (() => {
+                                      if (!shift.end_time) return "Pending";
+                                      const timeParts = shift.end_time.split(":");
+                                      let hours = parseInt(timeParts[0]);
+                                      const minutes = timeParts[1];
+                                      const ampm = hours >= 12 ? "PM" : "AM";
+                                      hours = hours % 12;
+                                      hours = hours ? hours : 12;
+                                      return `${hours}:${minutes} ${ampm}`;
+                                    })();
+                                    return (
+                                      <span
+                                        key={shift.shift_id}
+                                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                          shift.shift === "Morning"
+                                            ? "bg-blue-100 text-blue-700"
+                                            : shift.shift === "Evening"
+                                            ? "bg-yellow-100 text-yellow-700"
+                                            : "bg-purple-100 text-purple-700"
+                                        }`}
+                                      >
+                                        {shift.shift} ({startTime} - {endTime})
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-600 mt-1">No shifts</p>
+                              );
+                            })()}
+                          </div>
+
+                          {/* OT Info */}
+                          <div className="mb-2">
+                            <p className="text-xs text-gray-400">Overtime</p>
+                            {(() => {
+                              const empOT = otRecords.filter(ot => {
+                                const otDate = new Date(ot.ot_start);
+                                const selectedDateObj = new Date(selectedDate!);
+                                return ot.email === rec.email &&
+                                       otDate.toDateString() === selectedDateObj.toDateString();
+                              });
+                              return empOT.length > 0 ? (
+                                <div className="flex gap-1 mt-1 flex-wrap">
+                                  {empOT.map((ot) => {
+                                    const startTime = new Date(ot.ot_start).toLocaleTimeString('en-US', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    });
+                                    const endTime = new Date(ot.ot_end).toLocaleTimeString('en-US', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    });
+
+                                    // Calculate duration in hours and minutes
+                                    const start = new Date(ot.ot_start);
+                                    const end = new Date(ot.ot_end);
+                                    const diffMs = end.getTime() - start.getTime();
+                                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                                    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                                    const duration = diffHours > 0
+                                      ? `${diffHours}h ${diffMinutes}m`
+                                      : `${diffMinutes}m`;
+
+                                    return (
+                                      <span
+                                        key={ot.id}
+                                        className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800"
+                                      >
+                                        OT ({startTime} - {endTime}) - {duration}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-gray-600 mt-1">No overtime</p>
+                              );
+                            })()}
+                          </div>
+
                           <div className="flex gap-2 mb-2">
                             <span className={`px-2 py-1 text-xs rounded-full ${rec.check_in ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                               In: {rec.check_in ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString() : 'N/A'}
@@ -812,6 +995,36 @@ export default function ManagerAttendenceDashboard() {
                             <span className={`px-2 py-1 text-xs rounded-full ${rec.check_out ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
                               Out: {rec.check_out ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString() : 'N/A'}
                             </span>
+                          </div>
+                          <div className="flex gap-2 mt-2 mb-2">
+                            {rec.check_in_photo && (
+                              <div className="text-center">
+                                <p className="text-xs text-gray-500 mb-1">Check-in</p>
+                                <Image
+                                  src={rec.check_in_photo || ''}
+                                  alt="Check-in photo"
+                                  width={48}
+                                  height={48}
+                                  className="object-cover rounded border cursor-pointer hover:opacity-80"
+                                  onClick={() => setSelectedPhoto(rec.check_in_photo || null)}
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              </div>
+                            )}
+                            {rec.check_out_photo && (
+                              <div className="text-center">
+                                <p className="text-xs text-gray-500 mb-1">Check-out</p>
+                                <Image
+                                  src={rec.check_out_photo || ''}
+                                  alt="Check-out photo"
+                                  width={48}
+                                  height={48}
+                                  className="object-cover rounded border cursor-pointer hover:opacity-80"
+                                  onClick={() => setSelectedPhoto(rec.check_out_photo || null)}
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              </div>
+                            )}
                           </div>
                           <p className="text-xs text-gray-600">
                             Hours: {rec.hours.hrs}h {rec.hours.mins}m
@@ -899,7 +1112,133 @@ export default function ManagerAttendenceDashboard() {
                         {rec.check_out ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString() : "Pending"}
                       </span>
                     </div>
+                    <div className="flex gap-2 mt-2">
+                      {rec.check_in_photo && (
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 mb-1">Check-in</p>
+                          <Image
+                            src={rec.check_in_photo || ''}
+                            alt="Check-in photo"
+                            width={48}
+                            height={48}
+                            className="object-cover rounded border cursor-pointer hover:opacity-80"
+                            onClick={() => setSelectedPhoto(rec.check_in_photo || null)}
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        </div>
+                      )}
+                      {rec.check_out_photo && (
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 mb-1">Check-out</p>
+                          <Image
+                            src={rec.check_out_photo || ''}
+                            alt="Check-out photo"
+                            width={48}
+                            height={48}
+                            className="object-cover rounded border cursor-pointer hover:opacity-80"
+                            onClick={() => setSelectedPhoto(rec.check_out_photo || null)}
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  {/* Shifts Info */}
+                  <div className="mb-2 sm:mb-3">
+                    <p className="text-xs text-gray-400">Today&apos;s Shifts</p>
+                    {(() => {
+                      const empShifts = getEmployeeShifts(rec.email);
+                      return empShifts.length > 0 ? (
+                        <div className="flex gap-1 mt-1 flex-wrap">
+                          {empShifts.map((shift) => {
+                            const startTime = (() => {
+                              if (!shift.start_time) return "Pending";
+                              const timeParts = shift.start_time.split(":");
+                              let hours = parseInt(timeParts[0]);
+                              const minutes = timeParts[1];
+                              const ampm = hours >= 12 ? "PM" : "AM";
+                              hours = hours % 12;
+                              hours = hours ? hours : 12;
+                              return `${hours}:${minutes} ${ampm}`;
+                            })();
+                            const endTime = (() => {
+                              if (!shift.end_time) return "Pending";
+                              const timeParts = shift.end_time.split(":");
+                              let hours = parseInt(timeParts[0]);
+                              const minutes = timeParts[1];
+                              const ampm = hours >= 12 ? "PM" : "AM";
+                              hours = hours % 12;
+                              hours = hours ? hours : 12;
+                              return `${hours}:${minutes} ${ampm}`;
+                            })();
+                            return (
+                              <span
+                                key={shift.shift_id}
+                                className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                  shift.shift === "Morning"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : shift.shift === "Evening"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : "bg-purple-100 text-purple-700"
+                                }`}
+                              >
+                                {shift.shift} ({startTime} - {endTime})
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] sm:text-xs text-gray-600 mt-1">No shifts assigned</p>
+                      );
+                    })()}
+                  </div>
+
+                  {/* OT Info */}
+                  <div className="mb-2 sm:mb-3">
+                    <p className="text-xs text-gray-400">Today&apos;s Overtime</p>
+                    {(() => {
+                      const empOT = getEmployeeOT(rec.email);
+                      return empOT.length > 0 ? (
+                        <div className="flex gap-1 mt-1 flex-wrap">
+                          {empOT.map((ot) => {
+                            const startTime = new Date(ot.ot_start).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true
+                            });
+                            const endTime = new Date(ot.ot_end).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true
+                            });
+
+                            // Calculate duration in hours and minutes
+                            const start = new Date(ot.ot_start);
+                            const end = new Date(ot.ot_end);
+                            const diffMs = end.getTime() - start.getTime();
+                            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                            const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                            const duration = diffHours > 0
+                              ? `${diffHours}h ${diffMinutes}m`
+                              : `${diffMinutes}m`;
+
+                            return (
+                              <span
+                                key={ot.id}
+                                className="px-1 sm:px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded-full bg-green-100 text-green-800"
+                              >
+                                OT ({startTime} - {endTime}) - {duration}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] sm:text-xs text-gray-600 mt-1">No overtime</p>
+                      );
+                    })()}
+                  </div>
+
                   <div>
                     <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -991,6 +1330,77 @@ export default function ManagerAttendenceDashboard() {
                         >
                           <h4 className="font-semibold text-gray-800 text-sm truncate">{rec.fullname}</h4>
                           <p className="text-xs text-gray-500 mb-2 truncate">{rec.department}</p>
+
+                          {/* Shifts Info */}
+                          <div className="mb-2">
+                            <p className="text-xs text-gray-400">Shifts</p>
+                            {(() => {
+                              const empShifts = shifts.filter(shift => shift.emp_email === rec.email && shift.date === date);
+                              return empShifts.length > 0 ? (
+                                <div className="flex gap-1 mt-1 flex-wrap">
+                                  {empShifts.map((shift) => {
+                                    return (
+                                      <span
+                                        key={shift.shift_id}
+                                        className={`px-1 py-0.5 text-[10px] font-medium rounded ${
+                                          shift.shift === "Morning"
+                                            ? "bg-blue-100 text-blue-700"
+                                            : shift.shift === "Evening"
+                                            ? "bg-yellow-100 text-yellow-700"
+                                            : "bg-purple-100 text-purple-700"
+                                        }`}
+                                      >
+                                        {shift.shift}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-[10px] text-gray-600 mt-1">No shifts</p>
+                              );
+                            })()}
+                          </div>
+
+                          {/* OT Info */}
+                          <div className="mb-2">
+                            <p className="text-xs text-gray-400">Overtime</p>
+                            {(() => {
+                              const empOT = otRecords.filter(ot => {
+                                const otDate = new Date(ot.ot_start);
+                                const selectedDateObj = new Date(date);
+                                return ot.email === rec.email &&
+                                       otDate.toDateString() === selectedDateObj.toDateString();
+                              });
+                              return empOT.length > 0 ? (
+                                <div className="flex gap-1 mt-1 flex-wrap">
+                                  {empOT.map((ot) => {
+                                    // Calculate duration in hours and minutes
+                                    const start = new Date(ot.ot_start);
+                                    const end = new Date(ot.ot_end);
+                                    const diffMs = end.getTime() - start.getTime();
+                                    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                                    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                                    const duration = diffHours > 0
+                                      ? `${diffHours}h ${diffMinutes}m`
+                                      : `${diffMinutes}m`;
+
+                                    return (
+                                      <span
+                                        key={ot.id}
+                                        className="px-1 py-0.5 text-[10px] font-medium rounded bg-green-100 text-green-800"
+                                      >
+                                        {duration}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-[10px] text-gray-600 mt-1">No OT</p>
+                              );
+                            })()}
+                          </div>
+
                           <div className="flex flex-wrap gap-1 mb-2">
                             <span className={`px-2 py-0.5 text-xs rounded-full ${rec.check_in ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                               {rec.check_in ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'No In'}
@@ -1031,6 +1441,27 @@ export default function ManagerAttendenceDashboard() {
 
       </div>
     </DashboardLayout>
+
+    {/* Photo Modal */}
+    {selectedPhoto && (
+      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-4xl max-h-full overflow-auto relative">
+          <button
+            onClick={() => setSelectedPhoto(null)}
+            className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl font-bold"
+          >
+            ×
+          </button>
+          <Image
+            src={selectedPhoto || ''}
+            alt="Attendance photo"
+            width={600}
+            height={400}
+            className="max-w-full max-h-screen object-contain"
+          />
+        </div>
+      </div>
+    )}
     </>
   );
 }

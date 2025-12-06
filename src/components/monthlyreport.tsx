@@ -86,6 +86,15 @@ interface Leave {
   [key: string]: unknown;
 }
 
+interface OTData {
+  id: number;
+  email: string;
+  manager_email: string;
+  ot_start: string;
+  ot_end: string;
+  emp_name: string;
+}
+
 interface MonthlyReportData {
   employees: Employee[];
   attendance: Attendance[];
@@ -93,6 +102,7 @@ interface MonthlyReportData {
   reports: Report[];
   tasks: Task[];
   absent: AbsentRecord[];
+  ot: OTData[];
   holidays?: {
     year: number;
     month: number;
@@ -118,6 +128,7 @@ const MonthlyReportDashboard = () => {
     reports: [],
     tasks: [],
     absent: [],
+    ot: [],
   });
   const [loading, setLoading] = useState(true);
   const [employeeAttendanceData, setEmployeeAttendanceData] = useState<{[key: string]: Attendance[]}>({});
@@ -133,6 +144,7 @@ const MonthlyReportDashboard = () => {
           'list_reports/',
           'list_tasks/',
           'holidays/',
+          'list_ot/',
         ];
 
         const baseURL = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/`;
@@ -282,14 +294,22 @@ const holidays = Array.isArray(holidaysRaw)
         }
 
         setEmployeeAttendanceData(attendanceMap);
-        setData({ 
-          employees: employees || [], 
+        const otResponse = responsesData[5];
+
+        // Handle OT API response structure: { ot_records: [...] }
+        const otRecords = Array.isArray(otResponse)
+          ? otResponse
+          : (otResponse?.ot_records || []);
+
+        setData({
+          employees: employees || [],
           attendance: [], // We're using individual attendance endpoints now
-          leaves: leaves || [], 
-          reports: reports || [], 
-          tasks: tasks || [], 
+          leaves: leaves || [],
+          reports: reports || [],
+          tasks: tasks || [],
           absent: absent || [],
-        holidays: holidays || [],
+          ot: otRecords,
+          holidays: holidays || [],
         });
 
       } catch (error) {
@@ -1016,6 +1036,78 @@ const holidays = Array.isArray(holidaysRaw)
                           <div className="text-right mt-2 md:mt-0">
                             <span className="text-lg font-bold text-sky-700">LEAVE</span>
                             <div className="text-xs text-sky-600">Approved</div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
+              {/* Overtime Records */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">⏰ Overtime Records</h3>
+                <div className="space-y-3">
+                  {(() => {
+                    const employeeEmail = selectedEmployee.email || '';
+                    const month = selectedMonth;
+                    const year = selectedYear;
+
+                    const employeeOT = data.ot.filter((ot: OTData) => {
+                      const otDate = new Date(ot.ot_start);
+                      return ot.email === employeeEmail &&
+                             otDate.getMonth() === month &&
+                             otDate.getFullYear() === year;
+                    });
+
+                    if (employeeOT.length === 0) {
+                      return (
+                        <p className="text-gray-500 text-center py-4">No overtime records found for this month</p>
+                      );
+                    }
+
+                    return employeeOT.map((ot: OTData, index: number) => {
+                      const startTime = new Date(ot.ot_start).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      });
+                      const endTime = new Date(ot.ot_end).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      });
+                      const otDate = new Date(ot.ot_start).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      });
+
+                      // Calculate duration in hours and minutes
+                      const start = new Date(ot.ot_start);
+                      const end = new Date(ot.ot_end);
+                      const diffMs = end.getTime() - start.getTime();
+                      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                      const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                      const duration = diffHours > 0
+                        ? `${diffHours}h ${diffMinutes}m`
+                        : `${diffMinutes}m`;
+
+                      return (
+                        <div key={index} className="flex justify-between items-center p-3 bg-white rounded-lg">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium text-gray-700">
+                                {startTime} - {endTime}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-600">{otDate}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-bold text-green-600">{duration}</span>
                           </div>
                         </div>
                       );

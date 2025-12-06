@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 
 // Types
 type Employee = {
@@ -15,6 +15,15 @@ type ShiftAllocation = {
   [date: string]: {
     [shiftType in ShiftType]: string[]; // Array of employee emails
   };
+};
+
+type OTData = {
+  id: number;
+  email: string;
+  manager_email: string;
+  ot_start: string;
+  ot_end: string;
+  emp_name: string;
 };
 
 const ShiftMaker = () => {
@@ -55,6 +64,9 @@ const ShiftMaker = () => {
   const [today] = useState<string>(new Date().toISOString().split("T")[0]);
   const [isTodayLocked, setIsTodayLocked] = useState<boolean>(false);
   const [editMode, setEditMode] = useState(false);
+  const [otRecords, setOtRecords] = useState<OTData[]>([]);
+  const [otLoading, setOtLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; otId: number | null; employeeName: string }>({ show: false, otId: null, employeeName: '' });
 
   // Fetch employees and existing shifts
   useEffect(() => {
@@ -366,6 +378,113 @@ const ShiftMaker = () => {
     return employees.filter(emp => !isEmployeeAssigned(emp.email));
   };
 
+  // Fetch OT records
+  const fetchOtRecords = useCallback(async () => {
+    try {
+      setOtLoading(true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_ot/`);
+      if (!response.ok) throw new Error("Failed to fetch OT records");
+      const data = await response.json();
+      setOtRecords(data.ot_records || []);
+    } catch (err) {
+      console.error("Error fetching OT records:", err);
+      showNotification("error", "Failed to load OT records");
+    } finally {
+      setOtLoading(false);
+    }
+  }, []);
+
+  // Create OT record
+  const createOtRecord = async (employeeEmail: string, otStart: string, otEnd: string) => {
+    try {
+      setOtLoading(true);
+
+      // Format datetime strings to match API expectation (ISO 8601 with Z suffix)
+      const formatDateTime = (dateTimeStr: string) => {
+        // Convert local datetime to ISO string with Z suffix
+        const date = new Date(dateTimeStr);
+        return date.toISOString();
+      };
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/create_ot/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: employeeEmail,
+          manager_email: managerEmail,
+          ot_start: formatDateTime(otStart),
+          ot_end: formatDateTime(otEnd),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create OT record');
+      }
+
+      showNotification("success", "OT record created successfully!");
+      await fetchOtRecords(); // Refresh OT records
+    } catch (err) {
+      console.error("Error creating OT record:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to create OT record";
+      showNotification("error", errorMessage);
+    } finally {
+      setOtLoading(false);
+    }
+  };
+
+  // Delete OT record
+  const deleteOtRecord = async (otId: number) => {
+    try {
+      console.log('Attempting to delete OT record with ID:', otId);
+      console.log('OT record details:', otRecords.find(ot => ot.id === otId));
+
+      const token = localStorage.getItem('authToken');
+      console.log('Auth token:', token ? 'Present' : 'Not found');
+      console.log('Auth token value:', token);
+
+      const deleteUrl = `https://hrms.globaltechsoftwaresolutions.cloud/api/accounts/delete_ot/${otId}/`;
+      console.log('Delete URL:', deleteUrl);
+      console.log('All OT records:', otRecords);
+
+      const response = await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Error response:', errorData);
+        throw new Error(`Failed to delete OT record: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.text();
+      console.log('Delete result:', result);
+
+      showNotification("success", "OT record deleted successfully!");
+      await fetchOtRecords(); // Refresh OT records
+    } catch (err) {
+      console.error("Error deleting OT record:", err);
+      const errorMessage = err instanceof Error ? err.message : "Failed to delete OT record";
+      showNotification("error", errorMessage);
+    } finally {
+      setDeleteConfirm({ show: false, otId: null, employeeName: '' });
+    }
+  };
+
+  // Fetch OT records on component mount
+  useEffect(() => {
+    fetchOtRecords();
+  }, [fetchOtRecords]);
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
@@ -391,6 +510,96 @@ const ShiftMaker = () => {
               />
             </div>
           </div>
+        </div>
+
+        {/* OT Records for Selected Date */}
+        <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-800 mb-6">Overtime Records for {new Date(selectedDate).toLocaleDateString()}</h2>
+
+          {otLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading OT records...</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {(() => {
+                // Filter OT records for the selected date
+                const selectedDateOT = otRecords.filter((ot) => {
+                  const otDate = new Date(ot.ot_start);
+                  const selected = new Date(selectedDate);
+                  return otDate.toDateString() === selected.toDateString();
+                });
+
+                if (selectedDateOT.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No overtime records found for this date.</p>
+                    </div>
+                  );
+                }
+
+                return selectedDateOT.map((ot, index) => {
+                  const startTime = new Date(ot.ot_start).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  });
+                  const endTime = new Date(ot.ot_end).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  });
+
+                  // Calculate duration in hours and minutes
+                  const start = new Date(ot.ot_start);
+                  const end = new Date(ot.ot_end);
+                  const diffMs = end.getTime() - start.getTime();
+                  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                  const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                  const duration = diffHours > 0
+                    ? `${diffHours}h ${diffMinutes}m`
+                    : `${diffMinutes}m`;
+
+                  return (
+                    <div key={index} className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <h4 className="font-semibold text-green-800 text-sm">
+                          {ot.emp_name || getEmployeeName(ot.email)}
+                        </h4>
+                        <button
+                          onClick={() => setDeleteConfirm({
+                            show: true,
+                            otId: ot.id,
+                            employeeName: ot.emp_name || getEmployeeName(ot.email)
+                          })}
+                          className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 text-xs rounded font-medium transition-colors"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">🕐 Start:</span>
+                          <span className="text-sm font-medium text-gray-700">{startTime}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">🕐 End:</span>
+                          <span className="text-sm font-medium text-gray-700">{endTime}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500">⏱️ Duration:</span>
+                          <span className="text-sm font-bold text-green-600">{duration}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
         </div>
         
         {loading ? (
@@ -465,7 +674,7 @@ const ShiftMaker = () => {
                               </p>
                               <ul className="space-y-1">
                                 {morningShifts.map((shift) => (
-                                  <li key={shift.shift_id} className="text-sm flex justify-between">
+                                  <li key={`morning-${shift.shift_id}`} className="text-sm flex justify-between">
                                     <span>{shift.emp_name}</span>
                                   </li>
                                 ))}
@@ -482,7 +691,7 @@ const ShiftMaker = () => {
                               </p>
                               <ul className="space-y-1">
                                 {eveningShifts.map((shift) => (
-                                  <li key={shift.shift_id} className="text-sm flex justify-between">
+                                  <li key={`evening-${shift.shift_id}`} className="text-sm flex justify-between">
                                     <span>{shift.emp_name}</span>
                                   </li>
                                 ))}
@@ -499,7 +708,7 @@ const ShiftMaker = () => {
                               </p>
                               <ul className="space-y-1">
                                 {nightShifts.map((shift) => (
-                                  <li key={shift.shift_id} className="text-sm flex justify-between">
+                                  <li key={`night-${shift.shift_id}`} className="text-sm flex justify-between">
                                     <span>{shift.emp_name}</span>
                                   </li>
                                 ))}
@@ -834,6 +1043,327 @@ const ShiftMaker = () => {
                 </div>
               )}
             </div>
+
+            {/* OT Records for Selected Date */}
+            <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-6">Overtime Records for {new Date(selectedDate).toLocaleDateString()}</h2>
+
+              {otLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading OT records...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {(() => {
+                    // Filter OT records for the selected date
+                    const selectedDateOT = otRecords.filter((ot) => {
+                      const otDate = new Date(ot.ot_start);
+                      const selected = new Date(selectedDate);
+                      return otDate.toDateString() === selected.toDateString();
+                    });
+
+                    if (selectedDateOT.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No overtime records found for this date.</p>
+                        </div>
+                      );
+                    }
+
+                    return selectedDateOT.map((ot, index) => {
+                      const startTime = new Date(ot.ot_start).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      });
+                      const endTime = new Date(ot.ot_end).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      });
+
+                      // Calculate duration in hours and minutes
+                      const start = new Date(ot.ot_start);
+                      const end = new Date(ot.ot_end);
+                      const diffMs = end.getTime() - start.getTime();
+                      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                      const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                      const duration = diffHours > 0
+                        ? `${diffHours}h ${diffMinutes}m`
+                        : `${diffMinutes}m`;
+
+                      return (
+                        <div key={index} className="bg-green-50 border border-green-200 rounded-lg p-4">
+                          <div className="flex justify-between items-start mb-3">
+                            <h4 className="font-semibold text-green-800 text-sm">
+                              {ot.emp_name || getEmployeeName(ot.email)}
+                            </h4>
+                            <button
+                              onClick={() => setDeleteConfirm({
+                                show: true,
+                                otId: ot.id,
+                                employeeName: ot.emp_name || getEmployeeName(ot.email)
+                              })}
+                              className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 text-xs rounded font-medium transition-colors"
+                            >
+                              🗑️ Delete
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500">🕐 Start:</span>
+                              <span className="text-sm font-medium text-gray-700">{startTime}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500">🕐 End:</span>
+                              <span className="text-sm font-medium text-gray-700">{endTime}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500">⏱️ Duration:</span>
+                              <span className="text-sm font-bold text-green-600">{duration}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* OT (Overtime) Section */}
+            <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-6">Overtime (OT) Management</h2>
+
+              {/* OT Creation Form */}
+              <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-xl p-6 mb-6 border border-blue-100">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-800">Create Overtime Session</h3>
+                </div>
+
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target as HTMLFormElement);
+                    const employeeEmail = formData.get('employee') as string;
+                    const otDate = formData.get('otDate') as string;
+                    const startTime = formData.get('startTime') as string;
+                    const endTime = formData.get('endTime') as string;
+
+                    if (!employeeEmail || !otDate || !startTime || !endTime) {
+                      showNotification("error", "Please fill in all fields");
+                      return;
+                    }
+
+                    // Combine date and time
+                    const otStart = `${otDate}T${startTime}:00`;
+                    const otEnd = `${otDate}T${endTime}:00`;
+
+                    await createOtRecord(employeeEmail, otStart, otEnd);
+                    (e.target as HTMLFormElement).reset();
+                  }}
+                  className="space-y-6"
+                >
+                  {/* Employee Selection */}
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      👤 Select Employee
+                    </label>
+                    <select
+                      name="employee"
+                      required
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-700 bg-gray-50 hover:bg-white transition-colors"
+                    >
+                      <option value="">Choose an employee...</option>
+                      {employees.map(employee => (
+                        <option key={employee.email} value={employee.email}>
+                          {employee.fullname}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Date Selection */}
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      📅 Overtime Date
+                    </label>
+                    <input
+                      type="date"
+                      name="otDate"
+                      required
+                      defaultValue={new Date().toISOString().split('T')[0]}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-700 bg-gray-50 hover:bg-white transition-colors"
+                    />
+                  </div>
+
+                  {/* Time Selection */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        🕐 Start Time
+                      </label>
+                      <input
+                        type="time"
+                        name="startTime"
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-700 bg-gray-50 hover:bg-white transition-colors"
+                      />
+                    </div>
+
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        🕐 End Time
+                      </label>
+                      <input
+                        type="time"
+                        name="endTime"
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-700 bg-gray-50 hover:bg-white transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="flex justify-center pt-4">
+                    <button
+                      type="submit"
+                      disabled={otLoading}
+                      className={`px-8 py-3 font-semibold rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center gap-2 min-w-[200px] transition-all duration-200 ${
+                        otLoading
+                          ? "bg-gray-300 cursor-not-allowed text-gray-500"
+                          : "bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      }`}
+                    >
+                      {otLoading ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Creating OT Session...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                          </svg>
+                          Create Overtime Session
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* OT Records Display */}
+              <div>
+                <h3 className="text-lg font-medium text-gray-800 mb-4">Existing OT Records</h3>
+
+                {otLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading OT records...</p>
+                  </div>
+                ) : otRecords.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {otRecords.map((ot, index) => (
+                      <div
+                        key={`ot-${index}`}
+                        className="bg-green-50 border border-green-200 rounded-lg p-4"
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <h4 className="font-semibold text-green-800 text-sm">
+                            {ot.emp_name || getEmployeeName(ot.email)}
+                          </h4>
+                          <button
+                            onClick={() => setDeleteConfirm({
+                              show: true,
+                              otId: ot.id,
+                              employeeName: ot.emp_name || getEmployeeName(ot.email)
+                            })}
+                            className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 text-xs rounded font-medium transition-colors"
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+
+                        <div className="space-y-2">
+                          {/* Start Time */}
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500">🕐 Start:</span>
+                            <span className="text-sm font-medium text-gray-700">
+                              {new Date(ot.ot_start).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </span>
+                          </div>
+
+                          {/* End Time */}
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500">🕐 End:</span>
+                            <span className="text-sm font-medium text-gray-700">
+                              {new Date(ot.ot_end).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </span>
+                          </div>
+
+                          {/* Date */}
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500">📅 Date:</span>
+                            <span className="text-xs text-gray-600">
+                              {new Date(ot.ot_start).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </span>
+                          </div>
+
+                          {/* Total Hours */}
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500">⏱️ Duration:</span>
+                            <span className="text-xs font-medium text-green-600">
+                              {(() => {
+                                const start = new Date(ot.ot_start);
+                                const end = new Date(ot.ot_end);
+                                const diffMs = end.getTime() - start.getTime();
+                                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                                const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                                if (diffHours > 0) {
+                                  return diffMinutes > 0 ? `${diffHours} hr ${diffMinutes} min` : `${diffHours} hr`;
+                                } else {
+                                  return `${diffMinutes} min`;
+                                }
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No OT records found.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         )
       }
@@ -920,6 +1450,39 @@ const ShiftMaker = () => {
         </div>
       )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Delete OT Record</h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Are you sure you want to delete the OT record for <strong>{deleteConfirm.employeeName}</strong>? This action cannot be undone.
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={() => setDeleteConfirm({ show: false, otId: null, employeeName: '' })}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deleteOtRecord(deleteConfirm.otId!)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

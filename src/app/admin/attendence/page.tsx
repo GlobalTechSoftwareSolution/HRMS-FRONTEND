@@ -18,6 +18,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+import Image from "next/image";
 
 type AttendanceRecord = {
   email: string;
@@ -27,6 +28,8 @@ type AttendanceRecord = {
   check_in: string | null;
   check_out: string | null;
   hours: { hrs: number; mins: number; secs: number };
+  check_in_photo?: string | null;
+  check_out_photo?: string | null;
 };
 
 type ApiAttendanceResponse = {
@@ -37,6 +40,8 @@ type ApiAttendanceResponse = {
     date: string;
     check_in: string | null;
     check_out: string | null;
+    check_in_photo?: string | null;
+    check_out_photo?: string | null;
   }[];
 };
 
@@ -45,6 +50,27 @@ type Employee = {
   email: string;
   fullname: string;
   department: string;
+};
+
+type ShiftData = {
+  shift_id: number;
+  date: string;
+  start_time: string;
+  end_time: string;
+  emp_email: string;
+  emp_name: string;
+  manager_email: string;
+  manager_name: string;
+  shift: string;
+};
+
+type OTData = {
+  id: number;
+  email: string;
+  manager_email: string;
+  ot_start: string;
+  ot_end: string;
+  emp_name: string;
 };
 
 export default function AdminAttendanceDashboard() {
@@ -56,12 +82,33 @@ export default function AdminAttendanceDashboard() {
     return `${day}/${month}/${year}`;
   };
   
+  // Convert 24-hour time to 12-hour format
+  const convertTo12HourFormat = (timeString: string) => {
+    if (!timeString) return "Pending";
+    
+    // Handle case where timeString might include seconds
+    const timeParts = timeString.split(":");
+    let hours = parseInt(timeParts[0]);
+    const minutes = timeParts[1];
+    
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12; // Convert 0 to 12
+    
+    return `${hours}:${minutes} ${ampm}`;
+  };
+  
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [, setEmployees] = useState<Employee[]>([]);
   const [, setLoadingEmployees] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+
+  // Add shifts and OT states
+  const [shifts, setShifts] = useState<ShiftData[]>([]);
+  const [otRecords, setOtRecords] = useState<OTData[]>([]);
 
   // Fetch Attendance
   useEffect(() => {
@@ -94,6 +141,8 @@ export default function AdminAttendanceDashboard() {
             check_in: a.check_in,
             check_out: a.check_out,
             hours,
+            check_in_photo: a.check_in_photo || null,
+            check_out_photo: a.check_out_photo || null,
           };
         });
 
@@ -127,6 +176,39 @@ export default function AdminAttendanceDashboard() {
       }
     };
     fetchEmployees();
+  }, []);
+
+  // ---------------- Fetch Shifts ----------------
+  useEffect(() => {
+    const fetchShifts = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_shifts/`
+        );
+        if (!res.ok) throw new Error("Failed to fetch shifts");
+        const data: ShiftData[] = await res.json();
+        setShifts(data);
+      } catch (err) {
+        console.error("Error fetching shifts:", err);
+      }
+    };
+    fetchShifts();
+  }, []);
+
+  // ---------------- Fetch OT Records ----------------
+  useEffect(() => {
+    const fetchOtRecords = async () => {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_ot/`);
+        if (!response.ok) throw new Error("Failed to fetch OT records");
+        const data = await response.json();
+        setOtRecords(data.ot_records || []);
+      } catch (err) {
+        console.error("Error fetching OT records:", err);
+      }
+    };
+
+    fetchOtRecords();
   }, []);
 
   const today = new Date().toISOString().split("T")[0];
@@ -385,7 +467,7 @@ export default function AdminAttendanceDashboard() {
             transition={{ duration: 0.5 }}
             className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-4 sm:mb-6 text-gray-800 text-center sm:text-left"
           >
-            Admin Dashboard 📋
+              Admin Dashboard 📋
           </motion.h1>
 
           {/* KPI Cards - Responsive Grid */}
@@ -574,7 +656,117 @@ export default function AdminAttendanceDashboard() {
                             }) : "Pending"}
                         </span>
                       </div>
+                      <div className="flex gap-2 mt-2">
+                        {rec.check_in_photo && (
+                          <div className="text-center">
+                            <p className="text-xs text-gray-500 mb-1">Check-in</p>
+                            <Image
+                              src={rec.check_in_photo || ''}
+                              alt="Check-in photo"
+                              width={48}
+                              height={48}
+                              className="object-cover rounded border cursor-pointer hover:opacity-80"
+                              onClick={() => setSelectedPhoto(rec.check_in_photo || null)}
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          </div>
+                        )}
+                        {rec.check_out_photo && (
+                          <div className="text-center">
+                            <p className="text-xs text-gray-500 mb-1">Check-out</p>
+                            <Image
+                              src={rec.check_out_photo || ''}
+                              alt="Check-out photo"
+                              width={48}
+                              height={48}
+                              className="object-cover rounded border cursor-pointer hover:opacity-80"
+                              onClick={() => setSelectedPhoto(rec.check_out_photo || null)}
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Shifts Info */}
+                    <div className="mb-2">
+                      <p className="text-xs text-gray-400">Today&apos;s Shifts</p>
+                      {(() => {
+                        const empShifts = shifts.filter(shift => shift.emp_email === rec.email && shift.date === today);
+                        return empShifts.length > 0 ? (
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {empShifts.map((shift) => (
+                              <span
+                                key={shift.shift_id}
+                                className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  shift.shift === "Morning"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : shift.shift === "Evening"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : "bg-purple-100 text-purple-700"
+                                }`}
+                              >
+                                {shift.shift} ({convertTo12HourFormat(shift.start_time)} - {convertTo12HourFormat(shift.end_time)})
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-600 mt-1">No shifts assigned</p>
+                        );
+                      })()}
+                    </div>
+
+                    {/* OT Info */}
+                    <div className="mb-2">
+                      <p className="text-xs text-gray-400">Today&apos;s Overtime</p>
+                      {(() => {
+                        const empOT = otRecords.filter(ot => {
+                          const otDate = new Date(ot.ot_start);
+                          const selectedDateObj = new Date(today);
+                          return ot.email === rec.email &&
+                                 otDate.toDateString() === selectedDateObj.toDateString();
+                        });
+                        return empOT.length > 0 ? (
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {empOT.map((ot) => {
+                              const startTime = new Date(ot.ot_start).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              });
+                              const endTime = new Date(ot.ot_end).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              });
+
+                              // Calculate duration in hours and minutes
+                              const start = new Date(ot.ot_start);
+                              const end = new Date(ot.ot_end);
+                              const diffMs = end.getTime() - start.getTime();
+                              const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                              const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                              const duration = diffHours > 0
+                                ? `${diffHours}h ${diffMinutes}m`
+                                : `${diffMinutes}m`;
+
+                              return (
+                                <span
+                                  key={ot.id}
+                                  className="px-1 sm:px-2 py-0.5 text-[10px] sm:text-xs font-medium rounded-full bg-green-100 text-green-800"
+                                >
+                                  OT ({startTime} - {endTime}) - {duration}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] sm:text-xs text-gray-600 mt-1">No overtime</p>
+                        );
+                      })()}
+                    </div>
+
                     <div>
                       <p className="text-xs text-gray-400 mb-1">Worked Hours</p>
                       <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -714,7 +906,108 @@ export default function AdminAttendanceDashboard() {
                               }) : "Pending"}
                           </span>
                         </div>
+                        <div className="flex gap-2 mt-2">
+                          {rec.check_in_photo && (
+                            <div className="text-center">
+                              <p className="text-xs text-gray-500 mb-1">Check-in</p>
+                              <Image
+                                src={rec.check_in_photo || ''}
+                                alt="Check-in photo"
+                                width={48}
+                                height={48}
+                                className="object-cover rounded border cursor-pointer hover:opacity-80"
+                                onClick={() => setSelectedPhoto(rec.check_in_photo || null)}
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            </div>
+                          )}
+                          {rec.check_out_photo && (
+                            <div className="text-center">
+                              <p className="text-xs text-gray-500 mb-1">Check-out</p>
+                              <Image
+                                src={rec.check_out_photo || ''}
+                                alt="Check-out photo"
+                                width={48}
+                                height={48}
+                                className="object-cover rounded border cursor-pointer hover:opacity-80"
+                                onClick={() => setSelectedPhoto(rec.check_out_photo || null)}
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Shifts Info */}
+                      <div className="mb-2">
+                        <p className="text-xs text-gray-400">Shifts</p>
+                        {(() => {
+                          const empShifts = shifts.filter(shift => shift.emp_email === rec.email && shift.date === rec.date);
+                          return empShifts.length > 0 ? (
+                            <div className="flex gap-1 mt-1 flex-wrap">
+                              {empShifts.map((shift) => {
+                                return (
+                                  <span
+                                    key={shift.shift_id}
+                                    className={`px-1 py-0.5 text-[10px] font-medium rounded ${
+                                      shift.shift === "Morning"
+                                        ? "bg-blue-100 text-blue-700"
+                                        : shift.shift === "Evening"
+                                        ? "bg-yellow-100 text-yellow-700"
+                                        : "bg-purple-100 text-purple-700"
+                                    }`}
+                                  >
+                                    {shift.shift}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-[10px] text-gray-600 mt-1">No shifts</p>
+                          );
+                        })()}
+                      </div>
+
+                      {/* OT Info */}
+                      <div className="mb-2">
+                        <p className="text-xs text-gray-400">Overtime</p>
+                        {(() => {
+                          const empOT = otRecords.filter(ot => {
+                            const otDate = new Date(ot.ot_start);
+                            const selectedDateObj = new Date(rec.date);
+                            return ot.email === rec.email &&
+                                   otDate.toDateString() === selectedDateObj.toDateString();
+                          });
+                          return empOT.length > 0 ? (
+                            <div className="flex gap-1 mt-1 flex-wrap">
+                              {empOT.map((ot) => {
+                                // Calculate duration in hours and minutes
+                                const start = new Date(ot.ot_start);
+                                const end = new Date(ot.ot_end);
+                                const diffMs = end.getTime() - start.getTime();
+                                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                                const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                                const duration = diffHours > 0
+                                  ? `${diffHours}h ${diffMinutes}m`
+                                  : `${diffMinutes}m`;
+
+                                return (
+                                  <span
+                                    key={ot.id}
+                                    className="px-1 py-0.5 text-[10px] font-medium rounded bg-green-100 text-green-800"
+                                  >
+                                    {duration}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-[10px] text-gray-600 mt-1">No OT</p>
+                          );
+                        })()}
+                      </div>
+
                       <div>
                         <p className="text-xs text-gray-400 mb-1">Worked Hours</p>
                         <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -757,6 +1050,27 @@ export default function AdminAttendanceDashboard() {
           </motion.div>
         </div>
       </DashboardLayout>
+
+      {/* Photo Modal */}
+      {selectedPhoto && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl max-h-full overflow-auto relative">
+            <button
+              onClick={() => setSelectedPhoto(null)}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl font-bold"
+            >
+              ×
+            </button>
+            <Image
+              src={selectedPhoto || ''}
+              alt="Attendance photo"
+              width={800}
+              height={600}
+              className="max-w-full max-h-screen object-contain"
+            />
+          </div>
+        </div>
+      )}
     </>
   );
 }
