@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
-import { useSearchParams } from 'next/navigation';
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/footer";
 
@@ -12,8 +11,6 @@ interface FormData {
 }
 
 export default function ContactPage() {
-  const searchParams = useSearchParams();
-  
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
@@ -24,22 +21,41 @@ export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [popupMessage, setPopupMessage] = useState<string | null>(null);
 
-  // Auto-fill form from query parameters
+  // Auto-fill form from query parameters on client side
   useEffect(() => {
-    const name = searchParams.get('name') || "";
-    const email = searchParams.get('email') || "";
-    const phone = searchParams.get('phone') || "";
-    const message = searchParams.get('message') || "";
-    
-    if (name || email || phone || message) {
-      setFormData({
-        name,
-        email,
-        phone,
-        message
-      });
-    }
-  }, [searchParams]);
+    // Only run on client side
+    if (typeof window === 'undefined') return;
+
+    const handleSearchParams = async () => {
+      try {
+        // Dynamically import the hook to avoid SSR issues
+        const { useSearchParams } = await import('next/navigation');
+        
+        // Since we can't use the hook directly in this async context,
+        // we'll access the URL directly through window.location
+        if (typeof window !== 'undefined' && window.location.search) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const name = urlParams.get('name') || "";
+          const email = urlParams.get('email') || "";
+          const phone = urlParams.get('phone') || "";
+          const message = urlParams.get('message') || "";
+          
+          if (name || email || phone || message) {
+            setFormData({
+              name,
+              email,
+              phone,
+              message
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('Could not initialize search params:', error);
+      }
+    };
+
+    handleSearchParams();
+  }, []);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -96,7 +112,7 @@ export default function ContactPage() {
         try {
           const errorData = await response.json();
           errorMessage += errorData.error || `Server responded with status ${response.status}`;
-        } catch (parseError) {
+        } catch {
           errorMessage += `Server responded with status ${response.status}`;
         }
         
@@ -106,7 +122,7 @@ export default function ContactPage() {
       // Success
       setPopupMessage("Thank you for your message! We'll get back to you soon.");
       setFormData({ name: "", email: "", phone: "", message: "" });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Contact form error:", error);
       
       // Handle different types of errors
@@ -115,7 +131,7 @@ export default function ContactPage() {
       if (error instanceof TypeError) {
         // Network error (e.g., CORS, offline)
         errorMessage = "Network error. Please check your internet connection and try again.";
-      } else if (error.message) {
+      } else if (error instanceof Error) {
         errorMessage = error.message;
       }
       
