@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image"; // Import Next.js Image
+import Image from "next/image"; 
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/footer";
 
@@ -133,7 +133,6 @@ export default function AboutPage() {
         </section>
       </main>
 
-      {/* Footer */}
       <Footer />
     </>
   );
