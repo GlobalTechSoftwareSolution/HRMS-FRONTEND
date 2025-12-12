@@ -52,7 +52,8 @@ const HolidayCalendar: React.FC = () => {
         );
         if (!res.ok) throw new Error("Failed to fetch holidays");
         const data = await res.json();
-        setHolidays(data);
+        const holidaysData = Array.isArray(data) ? data : (data?.data || data?.holidays || []);
+        setHolidays(holidaysData);
       } catch (err) {
         console.error("Error fetching holidays:", err);
         setError(

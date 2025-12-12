@@ -48,7 +48,8 @@ const Docs = () => {
     if (!empRes.ok || !docRes.ok) throw new Error("Failed to fetch data");
 
     const employeeData: Employee = await empRes.json();
-    const documentsData: unknown[] = await docRes.json();
+    const documentsData: unknown = await docRes.json();
+    const docsArray: unknown[] = Array.isArray(documentsData) ? documentsData : ((documentsData as any)?.data || (documentsData as any)?.documents || []);
 
     // Merge all documents for current user
     const normalizedDocs: DocumentItem[] = [];
@@ -77,7 +78,7 @@ const Docs = () => {
       bonafide_crt: "Bonafide Certificate",
     };
 
-    documentsData.forEach((doc) => {
+    docsArray.forEach((doc) => {
       if (typeof doc !== "object" || doc === null) return;
       const recordDoc = doc as Record<string, string | number | null>;
       if (typeof recordDoc.email !== "string" && typeof recordDoc.email !== "number") return;

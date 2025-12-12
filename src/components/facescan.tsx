@@ -9,6 +9,7 @@ export default function AttendancePage() {
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" | "warning" } | null>(null);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+  const [locationAddress, setLocationAddress] = useState<string>("Getting location...");
   const [mapUrl, setMapUrl] = useState<string>("https://www.google.com/maps?q=0,0&z=15&output=embed");
   const [mounted, setMounted] = useState(false);
   const [canvasVisible, setCanvasVisible] = useState(false);
@@ -60,10 +61,23 @@ export default function AttendancePage() {
         return;
       }
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
+        async (pos) => {
           setLatitude(pos.coords.latitude);
           setLongitude(pos.coords.longitude);
           setMapUrl(`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}&z=17&output=embed`);
+
+          // Fetch address from geocoding API
+          try {
+            const geoRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/geocoding?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}`);
+            if (geoRes.ok) {
+              const geoData = await geoRes.json();
+              setLocationAddress(geoData.display_name || `📍 Latitude: ${pos.coords.latitude.toFixed(5)}, Longitude: ${pos.coords.longitude.toFixed(5)}`);
+            } else {
+              setLocationAddress(`📍 Latitude: ${pos.coords.latitude.toFixed(5)}, Longitude: ${pos.coords.longitude.toFixed(5)}`);
+            }
+          } catch {
+            setLocationAddress(`📍 Latitude: ${pos.coords.latitude.toFixed(5)}, Longitude: ${pos.coords.longitude.toFixed(5)}`);
+          }
         },
         () => showMessage("Unable to access location. Allow permission.", "error"),
         { enableHighAccuracy: true }
@@ -478,9 +492,7 @@ export default function AttendancePage() {
                 <div className="mb-4">
                   <p className="text-gray-600 mb-2 font-medium">Current Location:</p>
                   <p className="text-gray-800 p-3 bg-gray-50 rounded-lg">
-                    {latitude && longitude ?
-                      `📍 Latitude: ${latitude.toFixed(5)}, Longitude: ${longitude.toFixed(5)}` :
-                      "Getting location..."}
+                    {locationAddress}
                   </p>
                 </div>
                 <div className="w-full h-64 rounded-lg shadow-md overflow-hidden">

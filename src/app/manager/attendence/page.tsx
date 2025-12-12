@@ -135,10 +135,11 @@ export default function ManagerAttendenceDashboard() {
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`
         );
         if (!res.ok) throw new Error("Failed to fetch employees");
-        const data: Employee[] = await res.json();
-        setEmployees(data);
+        const data = await res.json();
+        setEmployees(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error fetching employees:", err);
+        setEmployees([]);
       }
     };
     fetchEmployees();
@@ -152,10 +153,11 @@ export default function ManagerAttendenceDashboard() {
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/holidays/`
         );
         if (!res.ok) throw new Error("Failed to fetch holidays");
-        const data: Holiday[] = await res.json();
-        setHolidays(data);
+        const data = await res.json();
+        setHolidays(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error fetching holidays:", err);
+        setHolidays([]);
       }
     };
     fetchHolidays();
@@ -234,6 +236,7 @@ export default function ManagerAttendenceDashboard() {
     0
   );
   const totalHoursTodayDisplay = (() => {
+    if (isNaN(totalHoursToday) || totalHoursToday < 0) return "0h 0m 0s";
     const hrs = Math.floor(totalHoursToday / 3600);
     const mins = Math.floor((totalHoursToday % 3600) / 60);
     const secs = Math.round(totalHoursToday % 60);
@@ -326,8 +329,8 @@ export default function ManagerAttendenceDashboard() {
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/attendance_requests/`
       );
       if (refreshRes.ok) {
-        const data: AttendanceRequest[] = await refreshRes.json();
-        setAttendanceRequests(data);
+        const data = await refreshRes.json();
+        setAttendanceRequests(Array.isArray(data) ? data : (data?.attendance_requests || data?.data || []));
       }
 
       // Clear the remark for this request

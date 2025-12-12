@@ -85,9 +85,12 @@ export default function TeamReport() {
           fetch(`${API_BASE}/api/accounts/managers/`),
         ]);
 
-        setEmployees(await empRes.json());
-        setHrs(await hrRes.json());
-        setManagers(await managerRes.json());
+        const empData = await empRes.json();
+        const hrData = await hrRes.json();
+        const managerData = await managerRes.json();
+        setEmployees(Array.isArray(empData) ? empData : (empData?.data || empData?.employees || empData?.results || []));
+        setHrs(Array.isArray(hrData) ? hrData : (hrData?.data || hrData?.hrs || hrData?.results || []));
+        setManagers(Array.isArray(managerData) ? managerData : (managerData?.data || managerData?.managers || managerData?.results || []));
       } catch (err) {
         console.error("Error fetching team data:", err);
       } finally {
