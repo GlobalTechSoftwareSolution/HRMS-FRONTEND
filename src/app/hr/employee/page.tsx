@@ -161,11 +161,12 @@ const [error, setError] = useState<string>("");
       setIsLoading(true);
       const empRes = await fetch(`${API_BASE}/api/accounts/employees/`);
       if (!empRes.ok) throw new Error(`Employee fetch error! status: ${empRes.status}`);
-      const empData: Employee[] = await empRes.json();
+      const empDataRaw = await empRes.json();
+      const empData = Array.isArray(empDataRaw) ? empDataRaw : (empDataRaw?.employees || empDataRaw?.data || []);
       setEmployees(empData || []);
       setError("");
 
-      await Promise.all(empData.map((emp) => fetchPayrollForEmployee(emp)));
+      await Promise.all(empData.map((emp: Employee) => fetchPayrollForEmployee(emp)));
     } catch (err: unknown) {
       if (err instanceof Error) {
         console.error("Failed to fetch data:", err.message);

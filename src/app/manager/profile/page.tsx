@@ -126,8 +126,9 @@ export default function Profile() {
       try {
         const res = await fetch(`${API_BASE}/api/accounts/departments/`);
         if (!res.ok) throw new Error("Failed to fetch departments");
-        const data: { department_name: string }[] = await res.json();
-        setDepartments(data.map(d => d.department_name));
+        const data = await res.json();
+        const departmentsArray = Array.isArray(data) ? data : (data?.departments || data?.data || []);
+        setDepartments(departmentsArray.map((d: any) => d.department_name));
       } catch (error) {
         console.error(error);
       }

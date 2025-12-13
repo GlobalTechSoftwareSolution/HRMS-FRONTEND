@@ -79,6 +79,7 @@ export default function HRLeavePage() {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`);
         const data = await res.json();
+        const employeesArray = Array.isArray(data) ? data : (data?.employees || data?.data || []);
         const map: Record<
           string,
           {
@@ -99,7 +100,7 @@ export default function HRLeavePage() {
             emergency_contact_phone?: string;
           }
         > = {};
-        (data || []).forEach((emp: {
+        employeesArray.forEach((emp: {
           email?: string;
           fullname?: string;
           profile_picture?: string;

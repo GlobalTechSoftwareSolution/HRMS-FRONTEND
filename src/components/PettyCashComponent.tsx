@@ -80,7 +80,7 @@ export default function PettyCashComponent() {
     setLoading(true);
     try {
       const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_pettycashs/`);
-      const apiTransactions = response.data || [];
+      const apiTransactions = Array.isArray(response.data) ? response.data : (response.data?.pettycash_records || response.data?.pettycash || response.data?.transactions || response.data?.data || []);
       setTransactions(apiTransactions);
       
       // Calculate monthly funds from transactions

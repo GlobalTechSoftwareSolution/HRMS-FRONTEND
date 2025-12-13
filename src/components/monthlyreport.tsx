@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 // TypeScript interfaces for data structures
 interface Task {
@@ -161,7 +162,7 @@ const holidays = Array.isArray(holidaysRaw)
   : holidaysRaw.results || holidaysRaw.data || [];
 
         // Employees mapping: strictly use emp_id for id and designation for position, remove status
-        const employees: Employee[] = (Array.isArray(employeesRaw) ? employeesRaw : employeesRaw.results || employeesRaw.data || [])
+        const employees: Employee[] = (Array.isArray(employeesRaw) ? employeesRaw : employeesRaw.employees || employeesRaw.results || employeesRaw.data || [])
           .map((emp: Record<string, unknown>) => {
             // Remove status from the mapped employee object
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -620,14 +621,16 @@ const holidays = Array.isArray(holidaysRaw)
             >
               <div className="flex items-center space-x-4 mb-4">
                 <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img 
-                    src={employee.profile_picture as string} 
-                    alt={employee.name} 
+                  <Image
+                    src={employee.profile_picture as string}
+                    alt={employee.name}
+                    width={48}
+                    height={48}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=User';
                     }}
+                    unoptimized
                   />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -719,14 +722,16 @@ const holidays = Array.isArray(holidaysRaw)
               <div className="flex justify-between items-start">
                 <div className="flex items-center space-x-4 min-w-0">
                   <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={selectedEmployee.profile_picture as string} 
-                      alt={selectedEmployee.name} 
+                    <Image
+                      src={selectedEmployee.profile_picture || 'https://via.placeholder.com/150?text=User'}
+                      alt={selectedEmployee.name || 'Employee'}
+                      width={64}
+                      height={64}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=User';
                       }}
+                      unoptimized
                     />
                   </div>
                   <div className="min-w-0 flex-1">

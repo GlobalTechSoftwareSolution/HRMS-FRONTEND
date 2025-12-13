@@ -83,7 +83,8 @@ export default function ReportsAndTasksPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`);
       const data = await res.json();
-      setEmployees(data);
+      const employeesArray = Array.isArray(data) ? data : (data?.employees || data?.data || []);
+      setEmployees(employeesArray);
     } catch (err) {
       console.error(err);
     }

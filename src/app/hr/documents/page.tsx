@@ -106,15 +106,16 @@ const DocumentPage = () => {
   const fetchUsers = async () => {
     try {
       const endpoints = [
-        { url: '/api/accounts/employees/', role: 'employee' as const },
-        { url: '/api/accounts/hrs/', role: 'hr' as const },
-        { url: '/api/accounts/managers/', role: 'manager' as const },
-        { url: '/api/accounts/admins/', role: 'admin' as const },
+        { url: '/api/accounts/employees/', role: 'employee' as const, key: 'employees' },
+        { url: '/api/accounts/hrs/', role: 'hr' as const, key: 'hrs' },
+        { url: '/api/accounts/managers/', role: 'manager' as const, key: 'managers' },
+        { url: '/api/accounts/admins/', role: 'admin' as const, key: 'admins' },
       ];
       const results = await Promise.all(
         endpoints.map(async (endpoint) => {
-          const res = await axios.get<User[]>(`${process.env.NEXT_PUBLIC_API_URL}${endpoint.url}`);
-          return res.data.map((item) => ({ ...item, role: endpoint.role }));
+          const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}${endpoint.url}`);
+          const dataArray = Array.isArray(res.data) ? res.data : (res.data?.[endpoint.key] || res.data?.data || []);
+          return dataArray.map((item: any) => ({ ...item, role: endpoint.role }));
         })
       );
       setUsers(results.flat());
@@ -126,8 +127,9 @@ const DocumentPage = () => {
   // Fetch documents
   const fetchDocuments = async () => {
     try {
-      const res = await axios.get<Document[]>(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_documents/`);
-      setDocuments(res.data);
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_documents/`);
+      const documentsArray = Array.isArray(res.data) ? res.data : (res.data?.documents || res.data?.list_documents || res.data?.data || []);
+      setDocuments(documentsArray);
     } catch (error) {
       console.error('Error fetching documents:', error);
     }
@@ -345,6 +347,14 @@ const DocumentPage = () => {
     (user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
   );
 
+  // Calculate documents that need to be issued
+  const documentsToIssue = users.filter(user => {
+    // Check if user has required documents (appointment_letter, offer_letter, etc.)
+    const userDocs = documents.find(doc => doc.email === user.email);
+    const requiredDocs = ['appointment_letter', 'offer_letter'];
+    return requiredDocs.some(docType => !userDocs?.[docType]);
+  }).length;
+
   const getRoleColor = (role: string) => {
     const colors: Record<string, string> = {
       admin: 'bg-purple-100 text-purple-800 border-purple-200',
@@ -419,10 +429,10 @@ const DocumentPage = () => {
               bg: 'bg-blue-50',
               iconColor: 'text-blue-600'
             },
-            { 
-              label: 'Documents', 
-              value: documents.length, 
-              icon: FileText, 
+            {
+              label: 'Documents to Issue',
+              value: documentsToIssue,
+              icon: FileText,
               color: 'green',
               bg: 'bg-green-50',
               iconColor: 'text-green-600'

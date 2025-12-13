@@ -102,6 +102,7 @@ const Ticket: React.FC<TicketProps> = ({
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/tickets/`);
       if (!response.ok) throw new Error('Failed to fetch tickets');
       const data = await response.json();
+      const ticketsArray = Array.isArray(data) ? data : (data?.tickets || data?.data || []);
 
       interface TicketFromAPI {
         id: string;
@@ -120,7 +121,7 @@ const Ticket: React.FC<TicketProps> = ({
       }
 
       const normalizeStatus = (status: string) => status.toLowerCase().replace(' ', '-');
-      const filteredData: Ticket[] = data.map((ticket: TicketFromAPI) => ({
+      const filteredData: Ticket[] = ticketsArray.map((ticket: TicketFromAPI) => ({
         ...ticket,
         status: normalizeStatus(ticket.status),
         priority: ticket.priority.toLowerCase(),

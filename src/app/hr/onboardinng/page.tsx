@@ -83,19 +83,23 @@ export default function Onboarding() {
       const empRes = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`);
       if (!empRes.ok) throw new Error(`Employee fetch error! status: ${empRes.status}`);
-      const empData: Employee[] = await empRes.json();
+      const empDataRaw = await empRes.json();
+      const empData = Array.isArray(empDataRaw) ? empDataRaw : (empDataRaw?.employees || empDataRaw?.data || []);
       
       // Fetch users for pending employees
       const userRes = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/users/`);
       if (!userRes.ok) throw new Error(`User fetch error! status: ${userRes.status}`);
-      const userData: ApiUser[] = await userRes.json();
-      
+      const userData = await userRes.json();
+
+      // Handle different response formats
+      const userArray = Array.isArray(userData) ? userData : (userData?.users || userData?.data || []);
+
       // Filter pending users (employees with is_staff=false)
-      const pending = userData.filter((user: ApiUser) => {
+      const pending = userArray.filter((user: ApiUser) => {
         const role = user.user_type || user.role;
         return role === 'employee' && !user.is_staff;
-      }).map(user => ({
+      }).map((user: ApiUser) => ({
         id: user.id,
         email: user.email,
         fullname: user.fullname,

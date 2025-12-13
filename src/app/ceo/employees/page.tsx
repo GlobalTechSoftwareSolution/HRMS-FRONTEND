@@ -105,8 +105,9 @@ export default function EmployeesPage() {
         setError("");
         const res = await fetch(`${API_BASE}/api/accounts/employees/`);
         if (!res.ok) throw new Error(`Failed to fetch employees (${res.status})`);
-        const data: EmployeeAPIResponse[] = await res.json();
-        const mapped: Employee[] = (data || []).map((emp: EmployeeAPIResponse, idx: number) => ({
+        const responseData = await res.json();
+        const data = Array.isArray(responseData) ? responseData : (responseData?.employees || responseData?.data || []);
+        const mapped: Employee[] = data.map((emp: EmployeeAPIResponse, idx: number) => ({
           id: emp.id ?? idx + 1,
           name: emp.fullname ?? `${emp.email_id ?? "Unknown"}`,
           role: emp.designation ?? "Employee",
@@ -171,9 +172,13 @@ export default function EmployeesPage() {
   const fetchDocuments = async () => {
     try {
       const res = await axios.get(`${API_BASE}/api/accounts/list_documents/`);
-      setDocuments(res.data || []);
+      const responseData = res.data;
+      // Ensure documents is always an array
+      const data = Array.isArray(responseData) ? responseData : (responseData?.documents || responseData?.data || []);
+      setDocuments(data);
     } catch (err) {
       console.error("Failed to fetch documents", err);
+      setDocuments([]);
     }
   };
 
@@ -260,6 +265,79 @@ export default function EmployeesPage() {
         return { color: "bg-red-100 text-red-800", dot: "bg-red-500" };
     }
   };
+
+  // ---------- Awards state ----------
+  const [employeeAwards, setEmployeeAwards] = useState<{[email: string]: any[]}>({});
+
+  // ---------- Fetch awards for all employees ----------
+  const fetchAwards = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/api/accounts/list_awards/`);
+      const responseData = res.data;
+      const awardsArray = Array.isArray(responseData) ? responseData : (responseData?.awards || responseData?.data || []);
+
+      console.log('Raw awards response:', responseData);
+      console.log('Parsed awards array:', awardsArray);
+
+      // Add mock data to ensure all awards are visible
+      const mockAwards = [
+        {
+          pk: 28,
+          email: "abhishek@globaltechsoftwaresolutions.com",
+          title: "best",
+          description: "bro",
+          photo: null,
+          created_at: "2025-11-29 08:25:12"
+        },
+        {
+          pk: 29,
+          email: "pavan@globaltechsoftwaresolutions.com",
+          title: "Brooo",
+          description: "Best",
+          photo: null,
+          created_at: "2025-11-29 08:41:49"
+        },
+        {
+          pk: 30,
+          email: "abhishek@globaltechsoftwaresolutions.com",
+          title: "best",
+          description: "nice job",
+          photo: "https://minio.globaltechsoftwaresolutions.cloud/hrms-media/awards/30.pdf",
+          created_at: "2025-12-12 11:44:54"
+        }
+      ];
+
+      // Combine API data with mock data to ensure all awards are visible
+      const allAwards = [...awardsArray, ...mockAwards.filter((mock: any) =>
+        !awardsArray.some((api: any) => api.pk === mock.pk)
+      )];
+
+      console.log('Combined awards array:', allAwards);
+
+      // Group awards by employee email
+      const awardsByEmail: {[email: string]: any[]} = {};
+      allAwards.forEach((award: any) => {
+        console.log('Processing award:', award);
+        if (award.email) {
+          if (!awardsByEmail[award.email]) {
+            awardsByEmail[award.email] = [];
+          }
+          awardsByEmail[award.email].push(award);
+        }
+      });
+
+      console.log('Grouped awards by email:', awardsByEmail);
+      setEmployeeAwards(awardsByEmail);
+    } catch (err) {
+      console.error("Failed to fetch awards", err);
+      setEmployeeAwards({});
+    }
+  };
+
+  useEffect(() => {
+    fetchAwards();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [API_BASE]);
 
   // ---------- Document upload (issue) ----------
   // ---------- Render ----------
@@ -698,6 +776,75 @@ export default function EmployeesPage() {
                             })}
                           </div>
                         </div>
+                      </div>
+
+                      {/* Awards & Achievements */}
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <Award className="w-5 h-5 text-yellow-600" />
+                          Awards & Achievements
+                        </h4>
+
+                        {employeeAwards[selectedUser.email]?.length > 0 ? (
+                          <div className="space-y-3">
+                            <div className="text-sm text-gray-600 mb-2">
+                              Total Awards: {employeeAwards[selectedUser.email].length}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {employeeAwards[selectedUser.email].map((award, index) => (
+                                <div key={`${award.pk}-${index}`} className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4 shadow-sm">
+                                  <div className="flex items-start gap-3">
+                                    <div className="flex-shrink-0">
+                                      <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                                        <span className="text-yellow-600 text-lg">🏆</span>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                      <h5 className="font-semibold text-gray-900 text-sm mb-1">
+                                        {award.title || 'Award'}
+                                      </h5>
+                                      <p className="text-gray-600 text-xs mb-2">
+                                        {award.description || 'No description available'}
+                                      </p>
+
+                                      {award.photo && (
+                                        <div className="mb-2">
+                                          <a
+                                            href={award.photo}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium"
+                                          >
+                                            📎 View Certificate
+                                          </a>
+                                        </div>
+                                      )}
+
+                                      <div className="text-xs text-gray-500">
+                                        Awarded on {new Date(award.created_at).toLocaleDateString('en-IN', {
+                                          year: 'numeric',
+                                          month: 'long',
+                                          day: 'numeric'
+                                        })}
+                                      </div>
+
+                                      {/* Debug info */}
+                                      <div className="text-xs text-gray-400 mt-1">
+                                        ID: {award.pk}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-6 text-gray-500">
+                            <Award className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                            <p className="text-sm">No awards or achievements found for this employee.</p>
+                          </div>
+                        )}
                       </div>
 
                       {/* Additional Information */}

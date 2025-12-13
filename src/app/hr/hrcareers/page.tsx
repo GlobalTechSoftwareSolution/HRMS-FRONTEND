@@ -100,8 +100,11 @@ export default function AdminDashboard() {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/careers/`
       );
+      console.log("Careers API response:", res.data); // Debug logging
+      const careersData = Array.isArray(res.data) ? res.data : (res.data?.careers || res.data?.data || []);
+      console.log("Extracted careers data:", careersData); // Debug logging
       // Transform string data to arrays
-      const transformedCareers = res.data.map(
+      const transformedCareers = careersData.map(
         (career: Record<string, unknown> & Partial<Career>) => ({
           ...career,
           responsibilities: Array.isArray(career.responsibilities)
@@ -149,7 +152,8 @@ export default function AdminDashboard() {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/applied_jobs/`
       );
-      setAppliedJobs(res.data);
+      const appliedJobsArray = Array.isArray(res.data) ? res.data : (res.data?.applied_jobs || res.data?.applications || res.data?.data || []);
+      setAppliedJobs(appliedJobsArray);
     } catch (err) {
       console.error("Error fetching applied jobs:", err);
     }

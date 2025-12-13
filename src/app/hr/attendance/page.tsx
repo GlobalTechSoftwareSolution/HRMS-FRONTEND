@@ -89,8 +89,9 @@ export default function HrAttendencePage() {
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`
         );
         if (!res.ok) throw new Error("Failed to fetch employees");
-        const data: Employee[] = await res.json();
-        setEmployees(data);
+        const data = await res.json();
+        const employeesArray = Array.isArray(data) ? data : (data?.employees || data?.data || []);
+        setEmployees(employeesArray);
       } catch (err) {
         console.error("Error fetching employees:", err);
       }

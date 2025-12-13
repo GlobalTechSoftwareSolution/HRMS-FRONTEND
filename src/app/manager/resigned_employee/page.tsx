@@ -51,8 +51,11 @@ const ReleavedList = () => {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_releaved/`
       );
+      // Handle different response formats
+      const releavedArray = Array.isArray(res.data) ? res.data : (res.data?.releaved || res.data?.releaved_employees || res.data?.list_releaved || res.data?.data || res.data?.employees || []);
+
       // Add derived approval_status property
-      const formattedData = (res.data || []).map((emp: Employee) => {
+      const formattedData = releavedArray.map((emp: Employee) => {
         let approvalStatus = "Pending";
         if (emp.manager_approved === "Approved") approvalStatus = "Approved";
         else if (emp.manager_approved === "Rejected") approvalStatus = "Rejected";

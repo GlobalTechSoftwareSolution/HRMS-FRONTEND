@@ -72,9 +72,10 @@ export default function AdminAttendanceDashboard() {
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_attendance/`
         );
         if (!res.ok) throw new Error("Failed to fetch attendance");
-        const data: ApiAttendanceResponse = await res.json();
+        const responseData = await res.json();
+        const data = Array.isArray(responseData) ? { attendance: responseData } : responseData;
 
-        const mapped: AttendanceRecord[] = (data.attendance || []).map((a) => {
+        const mapped: AttendanceRecord[] = (data.attendance || []).map((a: any) => {
           let hours = { hrs: 0, mins: 0, secs: 0 };
           if (a.check_in && a.check_out) {
             const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
@@ -117,9 +118,10 @@ export default function AdminAttendanceDashboard() {
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`
         );
         if (!res.ok) throw new Error("Failed to fetch employees");
-        const data: Employee[] = await res.json();
+        const responseData = await res.json();
+        const data = Array.isArray(responseData) ? responseData : (responseData?.employees || responseData?.data || []);
         setEmployees(data);
-        setTotalEmployees(data.length);
+        setTotalEmployees(data.length || 0);
       } catch (err) {
         console.error("Error fetching employees:", err);
       } finally {

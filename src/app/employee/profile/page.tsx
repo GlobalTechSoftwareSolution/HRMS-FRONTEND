@@ -265,17 +265,14 @@ const fetchManagers = async () => {
     });
     if (!response.ok) throw new Error("Failed to fetch managers list");
     const data = await response.json();
-
-    // Handle different response formats
-    const managersArray = Array.isArray(data) ? data : (data?.managers || data?.data || data?.results || []);
-
+    
     // FIX: Map the API response to match frontend expectations
-    const mappedManagers = managersArray.map((manager: any) => ({
-      id: manager.id, // Use the actual ID from backend
+    const mappedManagers = Array.isArray(data) ? data.map(manager => ({
+      id: manager.email, // Use email as ID since that's unique
       fullname: manager.fullname || "Unknown Manager",
       email: manager.email
-    }));
-
+    })) : [];
+    
     setManagers(mappedManagers);
   } catch {
     setManagers([]);
@@ -290,7 +287,7 @@ const fetchManagers = async () => {
         });
         if (!response.ok) throw new Error("Failed to fetch departments list");
         const data = await response.json();
-        setDepartments(Array.isArray(data) ? data : (data?.departments || data?.data || []));
+        setDepartments(Array.isArray(data) ? data : []);
       } catch {
         setDepartments([]);
       }

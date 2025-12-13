@@ -60,8 +60,9 @@ const EmployeeList = () => {
           axios.get(EMPLOYEES_API),
           axios.get(RELEAVED_API),
         ]);
-        setEmployees(activeRes.data || []);
-        const allReleaved = releavedRes.data || [];
+        const employeesArray = Array.isArray(activeRes.data) ? activeRes.data : (activeRes.data?.employees || activeRes.data?.active || activeRes.data?.data || []);
+        setEmployees(employeesArray);
+        const allReleaved = Array.isArray(releavedRes.data) ? releavedRes.data : (releavedRes.data?.releaved || releavedRes.data?.employees || releavedRes.data?.data || []);
         // Releaved Employees - only those actually HR approved (not pending/empty)
         const filteredReleaved = allReleaved.filter(
           (emp: {
@@ -151,8 +152,9 @@ const EmployeeList = () => {
         axios.get(EMPLOYEES_API),
         axios.get(RELEAVED_API),
       ]);
-      setEmployees(activeRes.data || []);
-      const allReleaved = releavedRes.data || [];
+      const employeesArray = Array.isArray(activeRes.data) ? activeRes.data : (activeRes.data?.employees || activeRes.data?.active || activeRes.data?.data || []);
+      setEmployees(employeesArray);
+      const allReleaved = Array.isArray(releavedRes.data) ? releavedRes.data : (releavedRes.data?.releaved || releavedRes.data?.employees || releavedRes.data?.data || []);
       const filteredReleaved = allReleaved.filter(
         (emp: Employee) =>
           emp.manager_approved?.toLowerCase() === "approved" &&
