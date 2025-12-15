@@ -45,6 +45,11 @@ type FetchUserResponse = {
   bio?: string;
 };
 
+type Department = {
+  department_name: string;
+  [key: string]: unknown;
+};
+
 export default function Profile() {
   const [user, setUser] = useState<UserProfile>({
     name: "",
@@ -132,7 +137,7 @@ export default function Profile() {
         if (!res.ok) throw new Error("Failed to fetch departments");
         const responseData = await res.json();
         const data = Array.isArray(responseData) ? responseData : (responseData?.departments || responseData?.data || []);
-        setDepartments(data.map((d: any) => d.department_name));
+        setDepartments(data.map((d: Department) => d.department_name));
       } catch (error) {
         console.error(error);
       }

@@ -67,6 +67,22 @@ export default function Profile() {
   // Managers array: id, fullname, email
   const [managers, setManagers] = useState<{id: string; fullname: string; email: string;}[]>([]);
   const [departments, setDepartments] = useState<{department_name: string}[]>([]);
+  
+  // Types for API responses
+  type ManagerApiResponse = {
+    id?: string | number;
+    email?: string;
+    fullname?: string;
+    name?: string;
+    [key: string]: unknown;
+  };
+  
+  type DepartmentApiResponse = {
+    department_name?: string;
+    name?: string;
+    department?: string;
+    [key: string]: unknown;
+  };
   const [user, setUser] = useState<UserProfile>({
     email: "",
     fullname: "",
@@ -267,7 +283,7 @@ const fetchManagers = async () => {
     const data = await response.json();
     
     // FIX: Enhanced mapping to handle various API response formats
-    let managersArray: any[] = [];
+    let managersArray: ManagerApiResponse[] = [];
     if (Array.isArray(data)) {
       managersArray = data;
     } else if (data.managers && Array.isArray(data.managers)) {
@@ -280,11 +296,11 @@ const fetchManagers = async () => {
       managersArray = [];
     }
     
-    const mappedManagers = managersArray.map((manager: any) => ({
-      id: manager.id || manager.email, // Use id if available, otherwise email
+    const mappedManagers = managersArray.map((manager: ManagerApiResponse) => ({
+      id: String(manager.id || manager.email || ''), // Convert to string to match expected type
       fullname: manager.fullname || manager.name || "Unknown Manager",
       email: manager.email || ""
-    }));
+    })).filter(manager => manager.id !== ''); // Filter out managers without valid IDs
     
     setManagers(mappedManagers);
   } catch (error) {
@@ -303,7 +319,7 @@ const fetchDepartments = async () => {
     const data = await response.json();
     
     // FIX: Enhanced handling of different API response formats for departments
-    let departmentsArray: any[] = [];
+    let departmentsArray: DepartmentApiResponse[] = [];
     if (Array.isArray(data)) {
       departmentsArray = data;
     } else if (data.departments && Array.isArray(data.departments)) {
@@ -317,7 +333,7 @@ const fetchDepartments = async () => {
     }
     
     // Map departments to ensure consistent structure
-    const mappedDepartments = departmentsArray.map((dept: any) => {
+    const mappedDepartments = departmentsArray.map((dept: DepartmentApiResponse) => {
       // Handle different possible department object structures
       if (typeof dept === 'string') {
         return { department_name: dept };

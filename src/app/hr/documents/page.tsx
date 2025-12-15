@@ -42,6 +42,17 @@ type User = {
   [key: string]: string | number | undefined;
 };
 
+type UserApiResponse = {
+  id?: number;
+  fullname?: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  designation?: string;
+  profile_picture?: string;
+  [key: string]: string | number | undefined;
+};
+
 type Document = {
   id?: number;
   title: string;
@@ -115,7 +126,7 @@ const DocumentPage = () => {
         endpoints.map(async (endpoint) => {
           const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}${endpoint.url}`);
           const dataArray = Array.isArray(res.data) ? res.data : (res.data?.[endpoint.key] || res.data?.data || []);
-          return dataArray.map((item: any) => ({ ...item, role: endpoint.role }));
+          return dataArray.map((item: UserApiResponse) => ({ ...item, role: endpoint.role }));
         })
       );
       setUsers(results.flat());

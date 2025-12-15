@@ -15,7 +15,7 @@ type KPA = {
 export default function KPAPage() {
   const [kpas, setKpas] = useState<KPA[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
   
   // Form states for editing/adding
   const [editingKpa, setEditingKpa] = useState<KPA | null>(null);
@@ -129,13 +129,7 @@ export default function KPAPage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-100 p-6 flex items-center justify-center">
-        <div className="text-red-500 bg-red-50 p-4 rounded-lg">{error}</div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">

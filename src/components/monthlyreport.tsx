@@ -622,8 +622,8 @@ const holidays = Array.isArray(holidaysRaw)
               <div className="flex items-center space-x-4 mb-4">
                 <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center">
                   <Image
-                    src={employee.profile_picture as string}
-                    alt={employee.name}
+                    src={employee.profile_picture || 'https://via.placeholder.com/150?text=User'}
+                    alt={employee.name || 'Employee'}
                     width={48}
                     height={48}
                     className="w-full h-full object-cover"
@@ -636,7 +636,7 @@ const holidays = Array.isArray(holidaysRaw)
                 <div className="flex-1 min-w-0">
                   <div className="truncate max-w-full">
                     <p className="text-lg font-semibold text-gray-900 truncate break-words max-w-[200px]">
-                      {employee.name}
+                      {employee.name || 'Unknown Employee'}
                     </p>
                   </div>
                   <div className="truncate max-w-full">
@@ -735,7 +735,7 @@ const holidays = Array.isArray(holidaysRaw)
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-xl font-bold text-white truncate">{selectedEmployee.name}</h2>
+                    <h2 className="text-xl font-bold text-white truncate">{selectedEmployee.name || 'Employee'}</h2>
                     {selectedEmployee.email && (
                       <p className="text-blue-100 text-sm truncate">{selectedEmployee.email}</p>
                     )}
@@ -752,7 +752,7 @@ const holidays = Array.isArray(holidaysRaw)
               <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
                   <p className="text-sm text-blue-200">Employee</p>
-                  <p className="font-semibold truncate max-w-[180px] mx-auto break-words">{selectedEmployee.name}</p>
+                  <p className="font-semibold truncate max-w-[180px] mx-auto break-words">{selectedEmployee.name || 'Employee'}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-blue-200">Department</p>

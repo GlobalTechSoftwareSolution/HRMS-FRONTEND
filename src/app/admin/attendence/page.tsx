@@ -29,17 +29,6 @@ type AttendanceRecord = {
   hours: { hrs: number; mins: number; secs: number };
 };
 
-type ApiAttendanceResponse = {
-  attendance: {
-    email: string;
-    fullname: string;
-    department: string;
-    date: string;
-    check_in: string | null;
-    check_out: string | null;
-  }[];
-};
-
 type Employee = {
   id: number;
   email: string;
@@ -75,7 +64,7 @@ export default function AdminAttendanceDashboard() {
         const responseData = await res.json();
         const data = Array.isArray(responseData) ? { attendance: responseData } : responseData;
 
-        const mapped: AttendanceRecord[] = (data.attendance || []).map((a: any) => {
+        const mapped: AttendanceRecord[] = (data.attendance || []).map((a: AttendanceRecord) => {
           let hours = { hrs: 0, mins: 0, secs: 0 };
           if (a.check_in && a.check_out) {
             const inTime = new Date(`${a.date}T${a.check_in}`).getTime();

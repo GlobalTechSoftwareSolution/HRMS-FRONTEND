@@ -29,7 +29,7 @@ export default function ContactPage() {
     const handleSearchParams = async () => {
       try {
         // Dynamically import the hook to avoid SSR issues
-        const { useSearchParams } = await import('next/navigation');
+        // const { useSearchParams } = await import('next/navigation'); // Not used in this component
         
         // Since we can't use the hook directly in this async context,
         // we'll access the URL directly through window.location

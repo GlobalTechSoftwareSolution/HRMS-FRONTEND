@@ -16,16 +16,7 @@ type AttendanceRecord = {
   hours: { hrs: number; mins: number; secs: number };
 };
 
-type ApiAttendanceResponse = {
-  attendance: {
-    email: string;
-    fullname: string;
-    department: string;
-    date: string;
-    check_in: string | null;
-    check_out: string | null;
-  }[];
-};
+
 
 type Employee = {
   id: number;
@@ -96,7 +87,7 @@ export default function ManagerAttendenceDashboard() {
         console.log("Raw attendance data:", rawData);
 
         // Handle different response formats
-        let attendanceData: any[] = [];
+        let attendanceData: AttendanceRecord[] = [];
         if (rawData.attendance && Array.isArray(rawData.attendance)) {
           attendanceData = rawData.attendance;
         } else if (Array.isArray(rawData)) {
@@ -107,7 +98,7 @@ export default function ManagerAttendenceDashboard() {
           attendanceData = [];
         }
 
-        const mapped: AttendanceRecord[] = attendanceData.map((a: any) => {
+        const mapped: AttendanceRecord[] = attendanceData.map((a) => {
           let hours = { hrs: 0, mins: 0, secs: 0 };
           if (a.check_in && a.check_out) {
             const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
@@ -313,38 +304,13 @@ export default function ManagerAttendenceDashboard() {
     leaveRecords: leaves.length
   });
   
-  const totalHoursToday = todaysAttendance.reduce(
-    (acc, a) => acc + (a.hours.hrs * 3600 + a.hours.mins * 60 + a.hours.secs),
-    0
-  );
-  const totalHoursTodayDisplay = (() => {
-    if (isNaN(totalHoursToday) || totalHoursToday < 0) return "0h 0m 0s";
-    const hrs = Math.floor(totalHoursToday / 3600);
-    const mins = Math.floor((totalHoursToday % 3600) / 60);
-    const secs = Math.round(totalHoursToday % 60);
-    return `${hrs}h ${mins}m ${secs}s`;
-  })();
-
   // Format date for display
   const formatDateForComparison = (date: Date | string): string => {
     const d = typeof date === "string" ? new Date(date) : date;
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
 
-  // Helper to expand leave date range
-  const expandLeaveDates = (leave: Leave): string[] => {
-    const dates: string[] = [];
-    const start = new Date(leave.start_date);
-    const end = new Date(leave.end_date);
-    const current = new Date(start);
-    
-    while (current <= end) {
-      const dateStr = formatDateForComparison(current);
-      dates.push(dateStr);
-      current.setDate(current.getDate() + 1);
-    }
-    return dates;
-  };
+
 
   // Get attendance for selected date
   const selectedDateAttendance = selectedDate

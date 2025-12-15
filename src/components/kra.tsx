@@ -22,7 +22,7 @@ export default function KRA() {
   const [kpaData, setKpaData] = useState<KPA[]>([]);
   const [kraData, setKraData] = useState<KRA[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
 
   // Form states for editing/adding
   const [editingKpa, setEditingKpa] = useState<KPA | null>(null);
@@ -127,13 +127,7 @@ export default function KRA() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-10 px-4 flex items-center justify-center">
-        <div className="text-red-500 bg-red-50 p-4 rounded-lg">{error}</div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6">

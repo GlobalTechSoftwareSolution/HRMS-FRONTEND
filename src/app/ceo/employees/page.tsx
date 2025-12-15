@@ -52,6 +52,16 @@ type DocumentRecord = {
   [key: string]: unknown;
 };
 
+type AwardRecord = {
+  pk?: number;
+  email?: string;
+  title?: string;
+  description?: string;
+  photo?: string;
+  created_at?: string;
+  [key: string]: unknown;
+};
+
 export default function EmployeesPage() {
   // employees + documents
   // Helper to format date as dd/mm/yyyy
@@ -267,7 +277,7 @@ export default function EmployeesPage() {
   };
 
   // ---------- Awards state ----------
-  const [employeeAwards, setEmployeeAwards] = useState<{[email: string]: any[]}>({});
+  const [employeeAwards, setEmployeeAwards] = useState<{[email: string]: AwardRecord[]}>({});
 
   // ---------- Fetch awards for all employees ----------
   const fetchAwards = async () => {
@@ -277,8 +287,8 @@ export default function EmployeesPage() {
       const awardsArray = Array.isArray(responseData) ? responseData : (responseData?.awards || responseData?.data || []);
 
       // Group awards by employee email
-      const awardsByEmail: {[email: string]: any[]} = {};
-      awardsArray.forEach((award: any) => {
+      const awardsByEmail: {[email: string]: AwardRecord[]} = {};
+      awardsArray.forEach((award: AwardRecord) => {
         if (award.email) {
           if (!awardsByEmail[award.email]) {
             awardsByEmail[award.email] = [];
@@ -797,11 +807,11 @@ export default function EmployeesPage() {
                                       )}
 
                                       <div className="text-xs text-gray-500">
-                                        Awarded on {new Date(award.created_at).toLocaleDateString('en-IN', {
+                                        Awarded on {award.created_at ? new Date(award.created_at).toLocaleDateString('en-IN', {
                                           year: 'numeric',
                                           month: 'long',
                                           day: 'numeric'
-                                        })}
+                                        }) : 'Unknown date'}
                                       </div>
 
                                       {/* Debug info */}

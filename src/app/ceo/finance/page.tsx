@@ -76,7 +76,7 @@ const FinanceDashboard: React.FC = () => {
     return `${day}/${month}/${year}`;
   };
 
-  const [payrollEmployees, setPayrollEmployees] = useState<PayrollEmployee[]>([]);
+  // const [payrollEmployees, setPayrollEmployees] = useState<PayrollEmployee[]>([]); // Unused state variable
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [financeData, setFinanceData] = useState({
     totalPayroll: 0,
@@ -113,7 +113,7 @@ const FinanceDashboard: React.FC = () => {
           department: "General" // Default department since it's not in API
         }));
 
-        setPayrollEmployees(mapped);
+// setPayrollEmployees(mapped); // Commented out unused state setter
 
         // --------------------- FINANCE CALCULATIONS ---------------------
         const totalPayroll = mapped.reduce((acc, emp) => acc + emp.salary, 0);
@@ -194,17 +194,17 @@ const FinanceDashboard: React.FC = () => {
         const employeesArray: Employee[] = Array.isArray(data) ? data : (data.employees || data.data || []);
         
         // Map the API response to Employee interface
-        const mapped: Employee[] = employeesArray.map((item: any, idx: number) => ({
+        const mapped: Employee[] = employeesArray.map((item: Employee, idx: number) => ({
           id: item.id || idx + 1,
-          email: item.email || item.email_id || '',
+          email: item.email || '',
           name: item.fullname || item.name || (item.email ? item.email.split("@")[0] : 'Unknown'),
           fullname: item.fullname || item.name || '',
           department: item.department || 'General',
-          role: item.designation || item.role || 'Employee',
+          role: item.role || 'Employee',
           status: item.status || 'active',
-          joinDate: item.join_date || item.date_joined || '',
+          joinDate: item.joinDate || '',
           salary: item.salary || 0,
-          picture: item.profile_picture || ''
+          picture: item.picture || ''
         }));
 
         setEmployees(mapped);
