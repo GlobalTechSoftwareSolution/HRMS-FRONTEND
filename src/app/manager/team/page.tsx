@@ -144,10 +144,27 @@ export default function TeamReport() {
     try {
       const res = await axios.get(`${API_BASE}/api/accounts/list_awards/`);
       if (res.data && Array.isArray(res.data)) {
+        // Filter awards to only show those belonging to the selected employee
         const userAwards = res.data.filter(
           (award: Award) => award.email === email
         );
-        setAwards(userAwards);
+        // Ensure each award has an id
+        const awardsWithIds = userAwards.map((award: Award, index: number) => ({
+          ...award,
+          id: award.id || index + 1
+        }));
+        setAwards(awardsWithIds);
+      } else if (res.data && res.data.awards && Array.isArray(res.data.awards)) {
+        // Handle case where awards are nested in an awards property
+        const userAwards = res.data.awards.filter(
+          (award: Award) => award.email === email
+        );
+        // Ensure each award has an id
+        const awardsWithIds = userAwards.map((award: Award, index: number) => ({
+          ...award,
+          id: award.id || index + 1
+        }));
+        setAwards(awardsWithIds);
       } else {
         setAwards([]);
       }
@@ -728,9 +745,9 @@ export default function TeamReport() {
 
                         {awards.length > 0 ? (
                           <div className="grid gap-3 sm:gap-4">
-                            {awards.map((award) => (
+                            {awards.map((award, index) => (
                               <motion.div
-                                key={award.id}
+                                key={`${award.id || award.email || index}-${index}`}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl p-3 sm:p-4 border border-yellow-200 hover:shadow-md transition-shadow"

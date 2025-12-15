@@ -2,12 +2,12 @@ import DashboardLayout from '@/components/DashboardLayout'
 import React from 'react'
 import ProjectPage from '@/components/projects'
 
-const hr_projectpage = () => {
+const admin_projectpage = () => {
   return (
-    <DashboardLayout role="hr">
-      <ProjectPage role="hr" />
+    <DashboardLayout role="admin">
+      <ProjectPage role="admin" />
     </DashboardLayout>
   )
 }
 
-export default hr_projectpage
+export default admin_projectpage

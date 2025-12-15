@@ -29,7 +29,8 @@ ChartJS.register(
   Legend
 );
 
-interface Employee {
+// Interface for payroll employees (from payroll API)
+interface PayrollEmployee {
   id: number;
   email: string;
   salary: number;
@@ -37,6 +38,20 @@ interface Employee {
   date: string;
   department: string;
   name: string;
+}
+
+// Interface for employees (from employee API)
+interface Employee {
+  id: number;
+  email: string;
+  fullname?: string;
+  name: string;
+  department: string;
+  role?: string;
+  status?: string;
+  joinDate?: string;
+  salary?: number;
+  picture?: string;
 }
 
 interface PayrollItem {
@@ -61,6 +76,7 @@ const FinanceDashboard: React.FC = () => {
     return `${day}/${month}/${year}`;
   };
 
+  const [payrollEmployees, setPayrollEmployees] = useState<PayrollEmployee[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [financeData, setFinanceData] = useState({
     totalPayroll: 0,
@@ -73,8 +89,8 @@ const FinanceDashboard: React.FC = () => {
     formattedSalaryPending: '₹0',
   });
 
-  const [thisMonthPayroll, setThisMonthPayroll] = useState<Employee[]>([]);
-  const [previousMonthPayroll, setPreviousMonthPayroll] = useState<Employee[]>([]);
+  const [thisMonthPayroll, setThisMonthPayroll] = useState<PayrollEmployee[]>([]);
+  const [previousMonthPayroll, setPreviousMonthPayroll] = useState<PayrollEmployee[]>([]);
 
   // --------------------- FETCH PAYROLL ---------------------
   useEffect(() => {
@@ -87,7 +103,7 @@ const FinanceDashboard: React.FC = () => {
         const payrolls: PayrollItem[] = data.payrolls || [];
 
         // Map the API response to Employee interface
-        const mapped: Employee[] = payrolls.map((item, idx) => ({
+        const mapped: PayrollEmployee[] = payrolls.map((item, idx) => ({
           id: idx + 1,
           email: item.email,
           name: item.email.split("@")[0], // Use email prefix as name
@@ -97,7 +113,7 @@ const FinanceDashboard: React.FC = () => {
           department: "General" // Default department since it's not in API
         }));
 
-        setEmployees(mapped);
+        setPayrollEmployees(mapped);
 
         // --------------------- FINANCE CALCULATIONS ---------------------
         const totalPayroll = mapped.reduce((acc, emp) => acc + emp.salary, 0);
@@ -167,8 +183,41 @@ const FinanceDashboard: React.FC = () => {
     fetchPayroll();
   }, []);
 
+  // --------------------- FETCH EMPLOYEES ---------------------
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+        const data = await res.json();
+        const employeesArray: Employee[] = Array.isArray(data) ? data : (data.employees || data.data || []);
+        
+        // Map the API response to Employee interface
+        const mapped: Employee[] = employeesArray.map((item: any, idx: number) => ({
+          id: item.id || idx + 1,
+          email: item.email || item.email_id || '',
+          name: item.fullname || item.name || (item.email ? item.email.split("@")[0] : 'Unknown'),
+          fullname: item.fullname || item.name || '',
+          department: item.department || 'General',
+          role: item.designation || item.role || 'Employee',
+          status: item.status || 'active',
+          joinDate: item.join_date || item.date_joined || '',
+          salary: item.salary || 0,
+          picture: item.profile_picture || ''
+        }));
+
+        setEmployees(mapped);
+      } catch (err) {
+        console.error("❌ Failed to fetch employees:", err);
+      }
+    };
+
+    fetchEmployees();
+  }, []);
+
   // Helper component to render payroll table and cards
-  const PayrollSection: React.FC<{title: string; payrolls: Employee[]}> = ({title, payrolls}) => (
+  const PayrollSection: React.FC<{title: string; payrolls: PayrollEmployee[]}> = ({title, payrolls}) => (
     <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md border border-gray-100 mb-8">
       <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">{title}</h2>
 

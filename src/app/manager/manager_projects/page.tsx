@@ -5,7 +5,7 @@ import ProjectPage from '@/components/projects'
 const manager_projectpage = () => {
   return (
     <DashboardLayout role="manager">
-      <ProjectPage />
+      <ProjectPage role="manager" />
     </DashboardLayout>
   )
 }

@@ -92,9 +92,22 @@ export default function ManagerAttendenceDashboard() {
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_attendance/`
         );
         if (!res.ok) throw new Error("Failed to fetch attendance");
-        const data: ApiAttendanceResponse = await res.json();
+        const rawData = await res.json();
+        console.log("Raw attendance data:", rawData);
 
-        const mapped: AttendanceRecord[] = (data.attendance || []).map((a) => {
+        // Handle different response formats
+        let attendanceData: any[] = [];
+        if (rawData.attendance && Array.isArray(rawData.attendance)) {
+          attendanceData = rawData.attendance;
+        } else if (Array.isArray(rawData)) {
+          attendanceData = rawData;
+        } else if (rawData.data && Array.isArray(rawData.data)) {
+          attendanceData = rawData.data;
+        } else {
+          attendanceData = [];
+        }
+
+        const mapped: AttendanceRecord[] = attendanceData.map((a: any) => {
           let hours = { hrs: 0, mins: 0, secs: 0 };
           if (a.check_in && a.check_out) {
             const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
@@ -117,6 +130,7 @@ export default function ManagerAttendenceDashboard() {
           };
         });
 
+        console.log("Processed attendance records:", mapped.length);
         setAttendance(mapped);
       } catch (err: unknown) {
         console.error("Error fetching data:", err);
@@ -135,8 +149,39 @@ export default function ManagerAttendenceDashboard() {
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`
         );
         if (!res.ok) throw new Error("Failed to fetch employees");
-        const data = await res.json();
-        setEmployees(Array.isArray(data) ? data : []);
+        const rawData = await res.json();
+        console.log("Raw employee data:", rawData);
+        
+        // Handle different response formats based on patterns seen in other components
+        let employeesArray = [];
+        if (Array.isArray(rawData)) {
+          employeesArray = rawData;
+        } else if (rawData.employees && Array.isArray(rawData.employees)) {
+          employeesArray = rawData.employees;
+        } else if (rawData.data && Array.isArray(rawData.data)) {
+          employeesArray = rawData.data;
+        } else if (rawData.results && Array.isArray(rawData.results)) {
+          employeesArray = rawData.results;
+        } else {
+          // Try to extract employees from various possible keys
+          const possibleKeys = ['employees', 'data', 'results', 'users', 'active'];
+          for (const key of possibleKeys) {
+            if (rawData[key] && Array.isArray(rawData[key])) {
+              employeesArray = rawData[key];
+              break;
+            }
+          }
+          // If still no array found, try to use rawData directly if it looks like employee data
+          if (employeesArray.length === 0 && rawData && typeof rawData === 'object' && !Array.isArray(rawData)) {
+            // Check if rawData itself looks like a single employee record
+            if (rawData.email || rawData.email_id || rawData.fullname) {
+              employeesArray = [rawData];
+            }
+          }
+        }
+        
+        console.log("Processed employees:", employeesArray.length, employeesArray);
+        setEmployees(employeesArray);
       } catch (err) {
         console.error("Error fetching employees:", err);
         setEmployees([]);
@@ -171,10 +216,14 @@ export default function ManagerAttendenceDashboard() {
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_absent/`
         );
         if (!res.ok) throw new Error("Failed to fetch absences");
-        const data: AbsenceRecord[] = await res.json();
-        setAbsences(data);
+        const data = await res.json();
+        // Ensure we're setting an array, handling different response formats
+        const absencesArray = Array.isArray(data) ? data : (data.absent || data.data || data.absences || []);
+        console.log("Fetched absences:", absencesArray.length);
+        setAbsences(absencesArray);
       } catch (err) {
         console.error("Error fetching absences:", err);
+        setAbsences([]); // Ensure it's always an array
       }
     };
     fetchAbsences();
@@ -188,10 +237,14 @@ export default function ManagerAttendenceDashboard() {
           `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/`
         );
         if (!res.ok) throw new Error("Failed to fetch leaves");
-        const data: { leaves: Leave[] } = await res.json();
-        setLeaves(data.leaves || []);
+        const data = await res.json();
+        // Ensure we're setting an array, handling different response formats
+        const leavesArray = Array.isArray(data) ? data : (data.leaves || data.data || []);
+        console.log("Fetched leaves:", leavesArray.length);
+        setLeaves(leavesArray);
       } catch (err) {
         console.error("Error fetching leaves:", err);
+        setLeaves([]); // Ensure it's always an array
       }
     };
     fetchLeaves();
@@ -221,16 +274,45 @@ export default function ManagerAttendenceDashboard() {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
-    console.log('Current Date:', now);
-    console.log('Formatted Today:', dateStr);
     return dateStr;
   })();
   
+  // Recalculate metrics when data changes
+  const totalEmployees = employees.length;
   const todaysAttendance = attendance.filter((a) => a.date === today);
   const checkedIn = todaysAttendance.filter((a) => a.check_in).length;
-  const totalEmployees = employees.length;
-  const absent = totalEmployees - checkedIn;
-
+  
+  // Calculate absent employees properly
+  // Absent = Total employees - Checked in employees
+  const absent = Math.max(0, totalEmployees - checkedIn);
+  
+  // Calculate employees on leave for today
+  const leavesToday = leaves.filter(leave => {
+    const startDate = new Date(leave.start_date);
+    const endDate = new Date(leave.end_date);
+    const currentDate = new Date(today);
+    
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    currentDate.setHours(0, 0, 0, 0);
+    
+    return currentDate >= startDate && currentDate <= endDate && leave.status?.toLowerCase() === 'approved';
+  });
+  
+  const onLeave = leavesToday.length;
+  
+  // Log values for debugging
+  console.log("KPI Values:", { 
+    totalEmployees, 
+    checkedIn, 
+    absent, 
+    onLeave, 
+    today,
+    employeesLoaded: employees.length > 0,
+    attendanceRecords: attendance.length,
+    leaveRecords: leaves.length
+  });
+  
   const totalHoursToday = todaysAttendance.reduce(
     (acc, a) => acc + (a.hours.hrs * 3600 + a.hours.mins * 60 + a.hours.secs),
     0
@@ -282,10 +364,48 @@ export default function ManagerAttendenceDashboard() {
   // Get leaves for selected date
   const selectedDateLeaves = selectedDate
     ? leaves.filter((l) => {
-        const leaveDates = expandLeaveDates(l);
-        return leaveDates.includes(selectedDate);
+        // Check if the leave is for the selected date
+        const startDate = new Date(l.start_date);
+        const endDate = new Date(l.end_date);
+        const currentDate = new Date(selectedDate);
+        
+        // Normalize dates for comparison (set time to 00:00:00)
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(0, 0, 0, 0);
+        currentDate.setHours(0, 0, 0, 0);
+        
+        // Check if current date is within the leave period
+        return currentDate >= startDate && currentDate <= endDate;
       })
     : [];
+
+  // Helper function to get leave status color
+  const getLeaveStatusColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+        return 'bg-green-50 border-green-400';
+      case 'rejected':
+        return 'bg-red-50 border-red-400';
+      case 'pending':
+        return 'bg-orange-50 border-orange-400';
+      default:
+        return 'bg-gray-50 border-gray-400';
+    }
+  };
+
+  // Helper function to get leave status text color
+  const getLeaveStatusTextColor = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+        return 'text-green-800';
+      case 'rejected':
+        return 'text-red-800';
+      case 'pending':
+        return 'text-orange-800';
+      default:
+        return 'text-gray-800';
+    }
+  };
 
   // Get attendance requests for selected date
   const selectedDateRequests = selectedDate
@@ -351,9 +471,30 @@ export default function ManagerAttendenceDashboard() {
   const getTileClassName = ({ date }: { date: Date }): string => {
     const dateStr = formatDateForComparison(date);
     
-    // Only highlight holidays
+    // Check for holidays
     const isHoliday = holidays.some((h) => h.date === dateStr);
     if (isHoliday) return "calendar-holiday";
+    
+    // Check for leave days
+    const isLeaveDay = leaves.some(leave => {
+      if (leave.status.toLowerCase() !== 'approved') return false;
+      
+      const startDate = new Date(leave.start_date);
+      const endDate = new Date(leave.end_date);
+      const currentDate = new Date(dateStr);
+      
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+      currentDate.setHours(0, 0, 0, 0);
+      
+      return currentDate >= startDate && currentDate <= endDate;
+    });
+    
+    if (isLeaveDay) return "calendar-leave";
+    
+    // Check for absent days (employees who didn't check in and aren't on approved leave)
+    const isAbsentDay = absences.some((a) => a.date === dateStr);
+    if (isAbsentDay) return "calendar-absent";
     
     return "";
   };
@@ -512,7 +653,7 @@ export default function ManagerAttendenceDashboard() {
             { title: "Total Employees", value: totalEmployees, color: "bg-gradient-to-r from-blue-400 to-blue-600" },
             { title: "Checked In", value: checkedIn, color: "bg-gradient-to-r from-green-400 to-green-600" },
             { title: "Absent", value: absent, color: "bg-gradient-to-r from-red-400 to-red-600" },
-            { title: "Total Hours", value: totalHoursTodayDisplay, color: "bg-gradient-to-r from-purple-400 to-purple-600" },
+            { title: "On Leave", value: onLeave, color: "bg-gradient-to-r from-yellow-400 to-yellow-600" },
           ].map((kpi) => (
             <motion.div
               key={kpi.title}
@@ -545,6 +686,7 @@ export default function ManagerAttendenceDashboard() {
                   tileClassName={getTileClassName}
                   tileDisabled={({ date, view }) => view === 'month' && date.getMonth() !== activeStartDate.getMonth()}
                   className="rounded-lg border-2 border-gray-200"
+                  locale="en-US"
                 />
               </div>
               
@@ -576,23 +718,29 @@ export default function ManagerAttendenceDashboard() {
                   {/* Leaves */}
                   {selectedDateLeaves.length > 0 && (
                     <div className="mb-4">
-                      <h4 className="text-md font-semibold text-green-700 mb-2">📋 Approved Leaves</h4>
+                      <h4 className="text-md font-semibold text-green-700 mb-2">📋 Leaves</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {selectedDateLeaves.map((leave) => (
                           <div
                             key={leave.id}
-                            className="bg-green-50 border-2 border-green-400 rounded-lg p-3"
+                            className={`rounded-lg p-3 border-2 ${getLeaveStatusColor(leave.status)}`}
                           >
-                            <h5 className="font-semibold text-green-800 text-sm mb-1">{leave.email}</h5>
-                            <p className="text-xs text-green-700 mb-1">
-                              <strong>Type:</strong> {leave.leave_type.replace(/_/g, ' ').toUpperCase()}
+                            <div className="flex justify-between items-start mb-2">
+                              <h5 className="font-semibold text-sm mb-1">{leave.email}</h5>
+                            </div>
+                            <p className="text-xs mb-1">
+                              <strong>Type:</strong> {leave.leave_type?.replace(/_/g, ' ')?.toUpperCase() || 'N/A'}
                             </p>
-                            <p className="text-xs text-green-700 mb-1">
-                              <strong>Duration:</strong> {leave.start_date} to {leave.end_date}
+                            <p className="text-xs mb-1">
+                              <strong>Period:</strong> {leave.start_date} to {leave.end_date}
                             </p>
-                            <p className="text-xs text-green-700">
-                              <strong>Reason:</strong> {leave.reason}
+                            <p className="text-xs">
+                              <strong>Reason:</strong> {leave.reason || 'N/A'}
                             </p>
+
+                            <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getLeaveStatusTextColor(leave.status)}`}>
+                                {leave.status}
+                              </span>
                           </div>
                         ))}
                       </div>

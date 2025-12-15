@@ -266,32 +266,78 @@ const fetchManagers = async () => {
     if (!response.ok) throw new Error("Failed to fetch managers list");
     const data = await response.json();
     
-    // FIX: Map the API response to match frontend expectations
-    const mappedManagers = Array.isArray(data) ? data.map(manager => ({
-      id: manager.email, // Use email as ID since that's unique
-      fullname: manager.fullname || "Unknown Manager",
-      email: manager.email
-    })) : [];
+    // FIX: Enhanced mapping to handle various API response formats
+    let managersArray: any[] = [];
+    if (Array.isArray(data)) {
+      managersArray = data;
+    } else if (data.managers && Array.isArray(data.managers)) {
+      managersArray = data.managers;
+    } else if (data.data && Array.isArray(data.data)) {
+      managersArray = data.data;
+    } else if (data.results && Array.isArray(data.results)) {
+      managersArray = data.results;
+    } else {
+      managersArray = [];
+    }
+    
+    const mappedManagers = managersArray.map((manager: any) => ({
+      id: manager.id || manager.email, // Use id if available, otherwise email
+      fullname: manager.fullname || manager.name || "Unknown Manager",
+      email: manager.email || ""
+    }));
     
     setManagers(mappedManagers);
-  } catch {
+  } catch (error) {
+    console.error("Error fetching managers:", error);
     setManagers([]);
   }
 };
 
-    // Fetch departments list
-    const fetchDepartments = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/departments/`, {
-          headers: { "Content-Type": "application/json" }
-        });
-        if (!response.ok) throw new Error("Failed to fetch departments list");
-        const data = await response.json();
-        setDepartments(Array.isArray(data) ? data : []);
-      } catch {
-        setDepartments([]);
+// Fetch departments list
+const fetchDepartments = async () => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/departments/`, {
+      headers: { "Content-Type": "application/json" }
+    });
+    if (!response.ok) throw new Error("Failed to fetch departments list");
+    const data = await response.json();
+    
+    // FIX: Enhanced handling of different API response formats for departments
+    let departmentsArray: any[] = [];
+    if (Array.isArray(data)) {
+      departmentsArray = data;
+    } else if (data.departments && Array.isArray(data.departments)) {
+      departmentsArray = data.departments;
+    } else if (data.data && Array.isArray(data.data)) {
+      departmentsArray = data.data;
+    } else if (data.results && Array.isArray(data.results)) {
+      departmentsArray = data.results;
+    } else {
+      departmentsArray = [];
+    }
+    
+    // Map departments to ensure consistent structure
+    const mappedDepartments = departmentsArray.map((dept: any) => {
+      // Handle different possible department object structures
+      if (typeof dept === 'string') {
+        return { department_name: dept };
+      } else if (dept.department_name) {
+        return { department_name: dept.department_name };
+      } else if (dept.name) {
+        return { department_name: dept.name };
+      } else if (dept.department) {
+        return { department_name: dept.department };
+      } else {
+        return { department_name: String(dept) };
       }
-    };
+    });
+    
+    setDepartments(mappedDepartments);
+  } catch (error) {
+    console.error("Error fetching departments:", error);
+    setDepartments([]);
+  }
+};
 
     const storedUser = localStorage.getItem("userInfo");
     if (storedUser) {
@@ -666,7 +712,10 @@ const handleSave = async () => {
               >
                 <option value="">Select Department</option>
                 {departments.map((dept, index) => (
-                  <option key={index} value={dept.department_name}>
+                  <option 
+                    key={index} 
+                    value={dept.department_name}
+                  >
                     {dept.department_name}
                   </option>
                 ))}

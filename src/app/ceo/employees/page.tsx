@@ -276,48 +276,9 @@ export default function EmployeesPage() {
       const responseData = res.data;
       const awardsArray = Array.isArray(responseData) ? responseData : (responseData?.awards || responseData?.data || []);
 
-      console.log('Raw awards response:', responseData);
-      console.log('Parsed awards array:', awardsArray);
-
-      // Add mock data to ensure all awards are visible
-      const mockAwards = [
-        {
-          pk: 28,
-          email: "abhishek@globaltechsoftwaresolutions.com",
-          title: "best",
-          description: "bro",
-          photo: null,
-          created_at: "2025-11-29 08:25:12"
-        },
-        {
-          pk: 29,
-          email: "pavan@globaltechsoftwaresolutions.com",
-          title: "Brooo",
-          description: "Best",
-          photo: null,
-          created_at: "2025-11-29 08:41:49"
-        },
-        {
-          pk: 30,
-          email: "abhishek@globaltechsoftwaresolutions.com",
-          title: "best",
-          description: "nice job",
-          photo: "https://minio.globaltechsoftwaresolutions.cloud/hrms-media/awards/30.pdf",
-          created_at: "2025-12-12 11:44:54"
-        }
-      ];
-
-      // Combine API data with mock data to ensure all awards are visible
-      const allAwards = [...awardsArray, ...mockAwards.filter((mock: any) =>
-        !awardsArray.some((api: any) => api.pk === mock.pk)
-      )];
-
-      console.log('Combined awards array:', allAwards);
-
       // Group awards by employee email
       const awardsByEmail: {[email: string]: any[]} = {};
-      allAwards.forEach((award: any) => {
-        console.log('Processing award:', award);
+      awardsArray.forEach((award: any) => {
         if (award.email) {
           if (!awardsByEmail[award.email]) {
             awardsByEmail[award.email] = [];
@@ -326,7 +287,6 @@ export default function EmployeesPage() {
         }
       });
 
-      console.log('Grouped awards by email:', awardsByEmail);
       setEmployeeAwards(awardsByEmail);
     } catch (err) {
       console.error("Failed to fetch awards", err);
@@ -778,6 +738,21 @@ export default function EmployeesPage() {
                         </div>
                       </div>
 
+                      {/* Additional Information */}
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {Object.entries(selectedUser)
+                            .filter(([k]) => !["id", "picture", "name", "role", "department", "email", "status", "joinDate", "phone", "salary", "profile_picture"].includes(k))
+                            .map(([k, v]) => (
+                              <div key={k} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded border border-gray-200">
+                                <span className="capitalize text-gray-600 text-sm">{k.replace(/_/g, " ")}:</span>
+                                <span className="text-gray-900 text-sm font-medium">{String(v ?? "—")}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+
                       {/* Awards & Achievements */}
                       <div>
                         <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -845,21 +820,6 @@ export default function EmployeesPage() {
                             <p className="text-sm">No awards or achievements found for this employee.</p>
                           </div>
                         )}
-                      </div>
-
-                      {/* Additional Information */}
-                      <div>
-                        <h4 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {Object.entries(selectedUser)
-                            .filter(([k]) => !["id", "picture", "name", "role", "department", "email", "status", "joinDate", "phone", "salary", "profile_picture"].includes(k))
-                            .map(([k, v]) => (
-                              <div key={k} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded border border-gray-200">
-                                <span className="capitalize text-gray-600 text-sm">{k.replace(/_/g, " ")}:</span>
-                                <span className="text-gray-900 text-sm font-medium">{String(v ?? "—")}</span>
-                              </div>
-                            ))}
-                        </div>
                       </div>
                     </div>
                   </div>
