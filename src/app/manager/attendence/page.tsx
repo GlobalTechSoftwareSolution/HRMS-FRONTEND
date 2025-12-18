@@ -84,8 +84,6 @@ export default function ManagerAttendenceDashboard() {
         );
         if (!res.ok) throw new Error("Failed to fetch attendance");
         const rawData = await res.json();
-        console.log("Raw attendance data:", rawData);
-
         // Handle different response formats
         let attendanceData: AttendanceRecord[] = [];
         if (rawData.attendance && Array.isArray(rawData.attendance)) {
@@ -121,7 +119,6 @@ export default function ManagerAttendenceDashboard() {
           };
         });
 
-        console.log("Processed attendance records:", mapped.length);
         setAttendance(mapped);
       } catch (err: unknown) {
         console.error("Error fetching data:", err);
@@ -141,8 +138,6 @@ export default function ManagerAttendenceDashboard() {
         );
         if (!res.ok) throw new Error("Failed to fetch employees");
         const rawData = await res.json();
-        console.log("Raw employee data:", rawData);
-        
         // Handle different response formats based on patterns seen in other components
         let employeesArray = [];
         if (Array.isArray(rawData)) {
@@ -171,7 +166,6 @@ export default function ManagerAttendenceDashboard() {
           }
         }
         
-        console.log("Processed employees:", employeesArray.length, employeesArray);
         setEmployees(employeesArray);
       } catch (err) {
         console.error("Error fetching employees:", err);
@@ -210,7 +204,6 @@ export default function ManagerAttendenceDashboard() {
         const data = await res.json();
         // Ensure we're setting an array, handling different response formats
         const absencesArray = Array.isArray(data) ? data : (data.absent || data.data || data.absences || []);
-        console.log("Fetched absences:", absencesArray.length);
         setAbsences(absencesArray);
       } catch (err) {
         console.error("Error fetching absences:", err);
@@ -231,7 +224,6 @@ export default function ManagerAttendenceDashboard() {
         const data = await res.json();
         // Ensure we're setting an array, handling different response formats
         const leavesArray = Array.isArray(data) ? data : (data.leaves || data.data || []);
-        console.log("Fetched leaves:", leavesArray.length);
         setLeaves(leavesArray);
       } catch (err) {
         console.error("Error fetching leaves:", err);
@@ -291,18 +283,6 @@ export default function ManagerAttendenceDashboard() {
   });
   
   const onLeave = leavesToday.length;
-  
-  // Log values for debugging
-  console.log("KPI Values:", { 
-    totalEmployees, 
-    checkedIn, 
-    absent, 
-    onLeave, 
-    today,
-    employeesLoaded: employees.length > 0,
-    attendanceRecords: attendance.length,
-    leaveRecords: leaves.length
-  });
   
   // Format date for display
   const formatDateForComparison = (date: Date | string): string => {

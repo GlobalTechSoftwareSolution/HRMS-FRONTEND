@@ -24,7 +24,6 @@ const Approvalpage: React.FC = () => {
 
     try {
       const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/users/`
-      console.log('Fetching from:', apiUrl)
 
       const response = await fetch(apiUrl, {
         method: 'GET',
@@ -34,25 +33,17 @@ const Approvalpage: React.FC = () => {
         }
       })
 
-      console.log('Response status:', response.status)
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()))
-
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
       const responseData = await response.json()
-      console.log('API Response:', responseData) // Debug log as requested
 
       // Extract users array from response
       const data = Array.isArray(responseData) ? responseData : (responseData?.users || responseData?.data || [])
 
-      console.log('Extracted data:', data)
-
       if (!data || data.length === 0) {
-        setError("No users found in API response.")
-        setUsers([])
-      } else {
+        setError("No users found in API response.")      } else {
         setUsers(data)
         setError(null)
       }
@@ -74,11 +65,26 @@ const Approvalpage: React.FC = () => {
     }
   }, [])
 
-  // Approve user (mock implementation)
+  // Approve user (actual API implementation)
   const handleApprove = async (email: string) => {
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300))
+      // Make API call to approve user
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/approve/`,
+        {
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: email }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to approve user: ${response.status}`);
+      }
+
+      const result = await response.json();
 
       // Update local state
       setUsers(prevUsers =>
@@ -90,22 +96,43 @@ const Approvalpage: React.FC = () => {
       )
 
       alert(`User ${email} has been approved successfully!`)
+      
+      // Refresh the user list to ensure consistency
+      await fetchUsers();
     } catch (err: unknown) {
       console.error('Approve error:', err)
       alert('Failed to approve user. Please try again.')
     }
   }
 
-  // Reject user (mock implementation)
+  // Reject user (actual API implementation)
   const handleReject = async (email: string) => {
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300))
+      // Make API call to reject user
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/reject/`,
+        {
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: email }),
+        }
+      );
 
-      // Remove user from the list (simulate rejection)
+      if (!response.ok) {
+        throw new Error(`Failed to reject user: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      // Remove user from the list
       setUsers(prevUsers => prevUsers.filter(user => user.email !== email))
 
-      alert(`User ${email} has been rejected and removed.`)
+      alert(`User ${email} has been rejected.`)
+      
+      // Refresh the user list to ensure consistency
+      await fetchUsers();
     } catch (err: unknown) {
       console.error('Reject error:', err)
       alert('Failed to reject user. Please try again.')

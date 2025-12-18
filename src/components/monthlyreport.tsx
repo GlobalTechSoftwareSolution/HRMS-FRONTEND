@@ -276,7 +276,6 @@ const holidays = Array.isArray(holidaysRaw)
             }
           }
           
-          console.log('Fetched absent records:', absent.length, absent);
         } catch (error) {
           console.warn("Failed to fetch absences:", error);
           absent = [];

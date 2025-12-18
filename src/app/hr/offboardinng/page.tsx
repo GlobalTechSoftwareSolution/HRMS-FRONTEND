@@ -405,7 +405,7 @@ const EmployeeList = () => {
                       <div className="flex flex-col items-center text-center">
                         <div className="relative mb-4">
                           <Image
-                            src={emp.profile_picture || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"}
+                            src={emp.profile_picture || "/images/profile.png"}
                             alt={emp.fullname}
                             width={150}
                             height={150}
