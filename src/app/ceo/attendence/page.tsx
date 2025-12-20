@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -98,7 +97,30 @@ export default function ManagerDashboard() {
     const year = d.getFullYear();
     return `${day}/${month}/${year}`;
   };
-  
+
+  // Helper function to format time
+  const formatTime = (timeStr: string | null | undefined): string => {
+    if (!timeStr || timeStr === "-" || timeStr === "null") return "-";
+    const match = /^(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/.exec(timeStr);
+    if (!match) return timeStr;
+    const [, hour, min, sec] = match;
+    let h = parseInt(hour, 10);
+    let m = parseInt(min, 10);
+    const s = sec !== undefined ? parseInt(sec, 10) : 0;
+    if (s >= 30) {
+      m += 1;
+      if (m >= 60) {
+        m = 0;
+        h = (h + 1) % 24;
+      }
+    }
+    const period = h >= 12 ? "PM" : "AM";
+    let displayHour = h % 12;
+    if (displayHour === 0) displayHour = 12;
+    const mm = m.toString().padStart(2, "0");
+    return `${displayHour}:${mm} ${period}`;
+  };
+
   // Helper to calculate real-time hours for currently working employees
   const calculateRealTimeHours = (checkInTime: string, currentDate: Date) => {
     const inTime = new Date(checkInTime).getTime();
@@ -132,6 +154,15 @@ export default function ManagerDashboard() {
   const [attendanceFilter, setAttendanceFilter] = useState<null | "checked-in" | "absent">(null);
   // Leaves KPI (updates with selected date)
   const [leavesToday, setLeavesToday] = useState(0);
+
+  // Shift, OT, and Break data
+  const [shifts, setShifts] = useState<any[]>([]);
+  const [otRecords, setOtRecords] = useState<any[]>([]);
+  const [breaks, setBreaks] = useState<any[]>([]);
+  const [loadingShifts, setLoadingShifts] = useState(true);
+  const [loadingOT, setLoadingOT] = useState(true);
+  const [loadingBreaks, setLoadingBreaks] = useState(true);
+
   // Fetch leaves for selected date (or today if none selected) - improved for local timezone
   useEffect(() => {
     const fetchLeavesForDate = async () => {
@@ -194,10 +225,10 @@ export default function ManagerDashboard() {
           }
           // Check if employee is currently working (checked in but not checked out)
           const isCurrentlyWorking = a.check_in && !a.check_out;
-          
+
           // Store check-in datetime for real-time calculations
           const checkInDateTime = a.check_in ? `${a.date || ''}T${a.check_in}` : null;
-          
+
           console.log('Processing attendance record:', a);
           console.log('Check-in photo field:', a.check_in_photo);
           console.log('Check-out photo field:', a.check_out_photo);
@@ -206,7 +237,7 @@ export default function ManagerDashboard() {
           const checkOutPhoto = a.check_out_photo || a.checkOutPhoto || a.check_out_img || a.photo_out || null;
           console.log('Mapped check-in photo:', checkInPhoto);
           console.log('Mapped check-out photo:', checkOutPhoto);
-          
+
           return {
             email: a.email || '',
             fullname: a.fullname || '',
@@ -232,13 +263,13 @@ export default function ManagerDashboard() {
     };
     fetchData();
   }, []);
-  
+
   // Update current time every second for real-time calculations
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
-    
+
     return () => clearInterval(timer);
   }, []);
 
@@ -277,6 +308,66 @@ export default function ManagerDashboard() {
       }
     };
     fetchEmployees();
+  }, []);
+
+  // ---------------- Fetch Shifts ----------------
+  useEffect(() => {
+    const fetchShifts = async () => {
+      try {
+        setLoadingShifts(true);
+        const res = await fetch(
+          `https://hrms.globaltechsoftwaresolutions.cloud/api/accounts/list_shifts/`
+        );
+        if (!res.ok) throw new Error("Failed to fetch shifts");
+        const data = await res.json();
+        setShifts(Array.isArray(data) ? data : (data.shifts || []));
+      } catch (err) {
+        console.error("Error fetching shifts:", err);
+      } finally {
+        setLoadingShifts(false);
+      }
+    };
+    fetchShifts();
+  }, []);
+
+  // ---------------- Fetch OT Records ----------------
+  useEffect(() => {
+    const fetchOT = async () => {
+      try {
+        setLoadingOT(true);
+        const res = await fetch(
+          `https://hrms.globaltechsoftwaresolutions.cloud/api/accounts/list_ot/`
+        );
+        if (!res.ok) throw new Error("Failed to fetch OT records");
+        const data = await res.json();
+        setOtRecords(Array.isArray(data) ? data : (data.ot_records || []));
+      } catch (err) {
+        console.error("Error fetching OT records:", err);
+      } finally {
+        setLoadingOT(false);
+      }
+    };
+    fetchOT();
+  }, []);
+
+  // ---------------- Fetch Breaks ----------------
+  useEffect(() => {
+    const fetchBreaks = async () => {
+      try {
+        setLoadingBreaks(true);
+        const res = await fetch(
+          `https://hrms.globaltechsoftwaresolutions.cloud/api/accounts/list_breaks/`
+        );
+        if (!res.ok) throw new Error("Failed to fetch breaks");
+        const data = await res.json();
+        setBreaks(Array.isArray(data) ? data : (data.breaks || data.break_records || []));
+      } catch (err) {
+        console.error("Error fetching breaks:", err);
+      } finally {
+        setLoadingBreaks(false);
+      }
+    };
+    fetchBreaks();
   }, []);
 
   const today = new Date().toISOString().split("T")[0];
@@ -585,7 +676,7 @@ const calendarEvents = [
           border-radius: 8px;
           transition: background-color 0.3s ease;
         }
-        
+
         /* Mobile-responsive calendar styles */
         @media (max-width: 640px) {
           .fc {
@@ -611,7 +702,7 @@ const calendarEvents = [
             font-size: 10px !important;
           }
         }
-        
+
         @media (min-width: 641px) and (max-width: 768px) {
           .fc {
             font-size: 12px !important;
@@ -620,29 +711,29 @@ const calendarEvents = [
             font-size: 16px !important;
           }
         }
-        
+
         /* Pie chart label styles */
         .recharts-pie-label-text {
           font-size: 9px !important;
         }
-        
+
         @media (min-width: 640px) {
           .recharts-pie-label-text {
             font-size: 11px !important;
           }
         }
-        
+
         @media (min-width: 768px) {
           .recharts-pie-label-text {
             font-size: 12px !important;
           }
         }
-        
+
         /* Legend styles */
         .recharts-legend-wrapper {
           font-size: 9px !important;
         }
-        
+
         @media (min-width: 640px) {
           .recharts-legend-wrapper {
             font-size: 11px !important;
@@ -782,8 +873,8 @@ const calendarEvents = [
                     })}
                   </Pie>
                   <RechartsTooltip />
-                  <RechartsLegend 
-                    verticalAlign="bottom" 
+                  <RechartsLegend
+                    verticalAlign="bottom"
                     wrapperStyle={{ fontSize: '10px' }}
                     iconSize={8}
                   />
@@ -909,7 +1000,7 @@ const calendarEvents = [
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="flex flex-col items-center">
                             <span className="text-xs text-gray-500 mb-1">Check-out</span>
                             <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-red-200 shadow-sm">
@@ -965,6 +1056,90 @@ const calendarEvents = [
                             </span>
                           </div>
                         </div>
+
+                        {/* Shifts, OT, and Breaks for this employee on this date */}
+                        <div className="mt-3 space-y-2">
+                          {/* Shifts */}
+                          {shifts.filter(shift => shift.date === rec.date && (shift.emp_email === rec.email || shift.employee_email === rec.email)).length > 0 && (
+                            <div className="bg-blue-50 rounded-lg p-2">
+                              <div className="flex items-center gap-1 mb-1">
+                                <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="text-xs font-medium text-blue-700">Shifts</span>
+                              </div>
+                              {shifts.filter(shift => shift.date === rec.date && (shift.emp_email === rec.email || shift.employee_email === rec.email)).map((shift, idx) => (
+                                <div key={idx} className="text-xs text-blue-600">
+                                  <div className="font-medium truncate">
+                                    {shift.shift || shift.shift_type || 'General'}
+                                  </div>
+                                  <div className="text-xs text-blue-500 truncate">
+                                    {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* OT */}
+                          {otRecords.filter(ot => {
+                            const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
+                            return otDate === rec.date && ot.email === rec.email;
+                          }).length > 0 && (
+                            <div className="bg-orange-50 rounded-lg p-2">
+                              <div className="flex items-center gap-1 mb-1">
+                                <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                </svg>
+                                <span className="text-xs font-medium text-orange-700">Overtime</span>
+                              </div>
+                              {otRecords.filter(ot => {
+                                const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
+                                return otDate === rec.date && ot.email === rec.email;
+                              }).map((ot, idx) => {
+                                const startTime = new Date(ot.ot_start);
+                                const endTime = new Date(ot.ot_end);
+                                const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+                                return (
+                                  <div key={idx} className="text-xs text-orange-600 truncate">
+                                    {startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ({Math.abs(hours).toFixed(1)}h)
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Breaks */}
+                          {breaks.filter(br => {
+                            const breakDate = new Date(br.break_start).toISOString().split('T')[0];
+                            return breakDate === rec.date && br.email === rec.email;
+                          }).length > 0 && (
+                            <div className="bg-green-50 rounded-lg p-2">
+                              <div className="flex items-center gap-1 mb-1">
+                                <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z M9 3v1m6-1v1m-7 5h8m-4 4v.01" />
+                                </svg>
+                                <span className="text-xs font-medium text-green-700">Breaks</span>
+                              </div>
+                              {breaks.filter(br => {
+                                const breakDate = new Date(br.break_start).toISOString().split('T')[0];
+                                return breakDate === rec.date && br.email === rec.email;
+                              }).map((br, idx) => {
+                                const breakStart = new Date(br.break_start);
+                                const breakEnd = br.break_end ? new Date(br.break_end) : null;
+                                const duration = breakEnd ? (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60 * 60) : 0;
+                                return (
+                                  <div key={idx} className="text-xs text-green-600 truncate">
+                                    {formatTime(breakStart.toISOString().split('T')[1].substring(0, 8))}
+                                    {breakEnd && ` - ${formatTime(breakEnd.toISOString().split('T')[1].substring(0, 8))}`}
+                                    {breakEnd && ` (${Math.abs(duration).toFixed(1)}h)`}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
                         <div>                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">Worked Hours</p>
                           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                             <motion.div
@@ -1001,7 +1176,7 @@ const calendarEvents = [
                                 : `${rec?.hours.hrs}h ${rec?.hours.mins}m ${rec?.hours.secs}s`
                               : "Absent"}
                             {rec?.isCurrentlyWorking && (
-                              <motion.span 
+                              <motion.span
                                 className="ml-2 w-2 h-2 rounded-full bg-green-500"
                                 animate={{ opacity: [0, 1, 0] }}
                                 transition={{ repeat: Infinity, duration: 1.5 }}
@@ -1091,7 +1266,7 @@ const calendarEvents = [
                   card.id = "leaveCard";
                   card.style.position = "fixed";
                   card.style.zIndex = "9999";
-                  
+
                   // Mobile-responsive positioning
                   const isMobile = window.innerWidth < 640;
                   if (isMobile) {
@@ -1102,10 +1277,10 @@ const calendarEvents = [
                     card.style.top = `${info.jsEvent.pageY + 10}px`;
                     card.style.left = `${info.jsEvent.pageX + 10}px`;
                   }
-                  
+
                   card.innerHTML = details;
                   document.body.appendChild(card);
-                  
+
                   // Add backdrop for mobile
                   if (isMobile) {
                     const backdrop = document.createElement("div");
@@ -1218,130 +1393,214 @@ const calendarEvents = [
                           transition={{ duration: 0.3, delay: idx * 0.02 }}
                           className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-2 sm:p-3 md:p-4 lg:p-5 hover:shadow-md transition-shadow duration-300 flex flex-col justify-between min-w-0 overflow-hidden"
                         >
-                          <div className="mb-3 sm:mb-4">
-                            <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{rec.fullname}</h3>
-                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-500 break-all truncate">{rec.email}</p>
-                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-500 mt-1">
-                              <span className="inline-block px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs">
-                                {rec.department}
-                              </span>
-                            </p>
-                          </div>
-                          
-                          {/* Check-in/Check-out Images */}
-                          <div className="flex gap-4 mb-3 justify-center">
-                            <div className="flex flex-col items-center">
-                              <span className="text-xs text-gray-500 mb-1">Check-in</span>
-                              <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-green-200 shadow-sm">
-                                {rec?.check_in_photo ? (
-                                  <>
-                                    {console.log('Rendering check-in image:', rec?.check_in_photo)}
-                                    <Image
-                                      src={rec?.check_in_photo.startsWith('http') ? rec?.check_in_photo : `${process.env.NEXT_PUBLIC_API_URL}${rec?.check_in_photo}`}
-                                      alt="Check-in Photo"
-                                      width={48}
-                                      height={48}
-                                      className="w-full h-full object-cover"
-                                      unoptimized
-                                    />
-                                  </>
-                                ) : (
-                                  <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
-                                    No Img
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="flex flex-col items-center">
-                              <span className="text-xs text-gray-500 mb-1">Check-out</span>
-                              <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-red-200 shadow-sm">
-                                {rec?.check_out_photo ? (
-                                  <>
-                                    {console.log('Rendering check-out image:', rec?.check_out_photo)}
-                                    <Image
-                                      src={rec?.check_out_photo.startsWith('http') ? rec?.check_out_photo : `${process.env.NEXT_PUBLIC_API_URL}${rec?.check_out_photo}`}
-                                      alt="Check-out Photo"
-                                      width={48}
-                                      height={48}
-                                      className="w-full h-full object-cover"
-                                      unoptimized
-                                    />
-                                  </>
-                                ) : (
-                                  <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
-                                    No Img
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="mb-2 sm:mb-3">
-                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400">Date</p>
-                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-700 font-medium">{formatDate(rec.date)}</p>
-                          </div>
-                          <div className="mb-2 sm:mb-3">
-                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400">Check-in / Check-out</p>
-                            <div className="flex gap-2 mt-1 flex-wrap">
-                              <span
-                                className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                                  rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                                }`}
-                              >
-                                {rec.check_in
-                                  ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
-                                  : "Absent"}
-                              </span>
-                              <span
-                                className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                                  rec.check_out
-                                    ? "bg-green-100 text-green-700"
-                                    : rec.check_in
-                                    ? "bg-orange-100 text-orange-700"
-                                    : "bg-red-100 text-red-700"
-                                }`}
-                              >
-                                {rec.check_out
-                                  ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
-                                  : rec.check_in
-                                  ? "Pending"
-                                  : "Absent"}
-                              </span>
-                            </div>
-                          </div>
-                          <div>
-                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">
-                            {rec?.isCurrentlyWorking ? '⏳ Currently Working' : '💼 Worked Hours'}
-                            </p>
-                            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                              <motion.div
-                                initial={{ width: 0 }}
-                                animate={{
-                                  width: `${workedPercent}%`
-                                }}
-                                transition={{ duration: 1 }}
-                                className={`h-2 ${rec.isCurrentlyWorking ? "bg-green-500" : rec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
-                              />
-                            </div>
-                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-center text-gray-600 mt-1 flex items-center justify-center">
-                              {rec.check_in
-                                ? rec.isCurrentlyWorking && rec.checkInDateTime
-                                  ? (() => {
-                                      const realTimeHours = calculateRealTimeHours(rec.checkInDateTime, currentTime);
-                                      return `${realTimeHours.hrs}h ${realTimeHours.mins}m ${realTimeHours.secs}s`;
-                                    })()
-                                  : `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`
-                                : "Absent"}
-                              {rec.isCurrentlyWorking && (
-                                <motion.span 
-                                  className="ml-2 w-2 h-2 rounded-full bg-green-500"
-                                  animate={{ opacity: [0, 1, 0] }}
-                                  transition={{ repeat: Infinity, duration: 1.5 }}
-                                />
+                        <div className="mb-3 sm:mb-4">
+                          <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{rec.fullname}</h3>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-500 break-all truncate">{rec.email}</p>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-500 mt-1">
+                            <span className="inline-block px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs">
+                              {rec.department}
+                            </span>
+                          </p>
+                        </div>
+
+                        {/* Check-in/Check-out Images */}
+                        <div className="flex gap-4 mb-3 justify-center">
+                          <div className="flex flex-col items-center">
+                            <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                            <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-green-200 shadow-sm">
+                              {rec?.check_in_photo ? (
+                                <>
+                                  {console.log('Rendering check-in image:', rec?.check_in_photo)}
+                                  <Image
+                                    src={rec?.check_in_photo.startsWith('http') ? rec?.check_in_photo : `${process.env.NEXT_PUBLIC_API_URL}${rec?.check_in_photo}`}
+                                    alt="Check-in Photo"
+                                    width={48}
+                                    height={48}
+                                    className="w-full h-full object-cover"
+                                    unoptimized
+                                  />
+                                </>
+                              ) : (
+                                <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                                  No Img
+                                </div>
                               )}
-                            </p>
+                            </div>
                           </div>
+
+                          <div className="flex flex-col items-center">
+                            <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                            <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-red-200 shadow-sm">
+                              {rec?.check_out_photo ? (
+                                <>
+                                  {console.log('Rendering check-out image:', rec?.check_out_photo)}
+                                  <Image
+                                    src={rec?.check_out_photo.startsWith('http') ? rec?.check_out_photo : `${process.env.NEXT_PUBLIC_API_URL}${rec?.check_out_photo}`}
+                                    alt="Check-out Photo"
+                                    width={48}
+                                    height={48}
+                                    className="w-full h-full object-cover"
+                                    unoptimized
+                                  />
+                                </>
+                              ) : (
+                                <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                                  No Img
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mb-2 sm:mb-3">
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400">Date</p>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-700 font-medium">{formatDate(rec.date)}</p>
+                        </div>
+                        <div className="mb-2 sm:mb-3">
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400">Check-in / Check-out</p>
+                          <div className="flex gap-2 mt-1 flex-wrap">
+                            <span
+                              className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {rec.check_in
+                                ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
+                                : "Absent"}
+                            </span>
+                            <span
+                              className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
+                                rec.check_out
+                                  ? "bg-green-100 text-green-700"
+                                  : rec.check_in
+                                  ? "bg-orange-100 text-orange-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {rec.check_out
+                                ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
+                                : rec.check_in
+                                ? "Pending"
+                                : "Absent"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Shifts, OT, and Breaks for this employee on this date */}
+                        <div className="mt-3 space-y-2 mb-3">
+                          {/* Shifts */}
+                          {shifts.filter(shift => shift.date === rec.date && (shift.emp_email === rec.email || shift.employee_email === rec.email)).length > 0 && (
+                            <div className="bg-blue-50 rounded-lg p-2">
+                              <div className="flex items-center gap-1 mb-1">
+                                <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="text-xs font-medium text-blue-700">Shifts</span>
+                              </div>
+                              {shifts.filter(shift => shift.date === rec.date && (shift.emp_email === rec.email || shift.employee_email === rec.email)).map((shift, idx) => (
+                                <div key={idx} className="text-xs text-blue-600">
+                                  <div className="font-medium truncate">
+                                    {shift.shift || shift.shift_type || 'General'}
+                                  </div>
+                                  <div className="text-xs text-blue-500 truncate">
+                                    {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* OT */}
+                          {otRecords.filter(ot => {
+                            const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
+                            return otDate === rec.date && ot.email === rec.email;
+                          }).length > 0 && (
+                            <div className="bg-orange-50 rounded-lg p-2">
+                              <div className="flex items-center gap-1 mb-1">
+                                <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                </svg>
+                                <span className="text-xs font-medium text-orange-700">Overtime</span>
+                              </div>
+                              {otRecords.filter(ot => {
+                                const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
+                                return otDate === rec.date && ot.email === rec.email;
+                              }).map((ot, idx) => {
+                                const startTime = new Date(ot.ot_start);
+                                const endTime = new Date(ot.ot_end);
+                                const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+                                return (
+                                  <div key={idx} className="text-xs text-orange-600 truncate">
+                                    {startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ({Math.abs(hours).toFixed(1)}h)
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Breaks */}
+                          {breaks.filter(br => {
+                            const breakDate = new Date(br.break_start).toISOString().split('T')[0];
+                            return breakDate === rec.date && br.email === rec.email;
+                          }).length > 0 && (
+                            <div className="bg-green-50 rounded-lg p-2">
+                              <div className="flex items-center gap-1 mb-1">
+                                <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z M9 3v1m6-1v1m-7 5h8m-4 4v.01" />
+                                </svg>
+                                <span className="text-xs font-medium text-green-700">Breaks</span>
+                              </div>
+                              {breaks.filter(br => {
+                                const breakDate = new Date(br.break_start).toISOString().split('T')[0];
+                                return breakDate === rec.date && br.email === rec.email;
+                              }).map((br, idx) => {
+                                const breakStart = new Date(br.break_start);
+                                const breakEnd = br.break_end ? new Date(br.break_end) : null;
+                                const duration = breakEnd ? (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60 * 60) : 0;
+                                return (
+                                  <div key={idx} className="text-xs text-green-600 truncate">
+                                    {formatTime(breakStart.toISOString().split('T')[1].substring(0, 8))}
+                                    {breakEnd && ` - ${formatTime(breakEnd.toISOString().split('T')[1].substring(0, 8))}`}
+                                    {breakEnd && ` (${Math.abs(duration).toFixed(1)}h)`}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">
+                          {rec?.isCurrentlyWorking ? '⏳ Currently Working' : '💼 Worked Hours'}
+                          </p>
+                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{
+                                width: `${workedPercent}%`
+                              }}
+                              transition={{ duration: 1 }}
+                              className={`h-2 ${rec.isCurrentlyWorking ? "bg-green-500" : rec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
+                            />
+                          </div>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-center text-gray-600 mt-1 flex items-center justify-center">
+                            {rec.check_in
+                              ? rec.isCurrentlyWorking && rec.checkInDateTime
+                                ? (() => {
+                                    const realTimeHours = calculateRealTimeHours(rec.checkInDateTime, currentTime);
+                                    return `${realTimeHours.hrs}h ${realTimeHours.mins}m ${realTimeHours.secs}s`;
+                                  })()
+                                : `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`
+                              : "Absent"}
+                            {rec.isCurrentlyWorking && (
+                              <motion.span
+                                className="ml-2 w-2 h-2 rounded-full bg-green-500"
+                                animate={{ opacity: [0, 1, 0] }}
+                                transition={{ repeat: Infinity, duration: 1.5 }}
+                              />
+                            )}
+                          </p>
+                        </div>
                         </motion.div>
                       );
                     });
@@ -1458,6 +1717,90 @@ const calendarEvents = [
                             </span>
                           </div>
                         </div>
+
+                        {/* Shifts, OT, and Breaks for this employee on this date */}
+                        <div className="mt-3 space-y-2 mb-3">
+                          {/* Shifts */}
+                          {shifts.filter(shift => shift.date === displayRec.date && (shift.emp_email === displayRec.email || shift.employee_email === displayRec.email)).length > 0 && (
+                            <div className="bg-blue-50 rounded-lg p-2">
+                              <div className="flex items-center gap-1 mb-1">
+                                <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="text-xs font-medium text-blue-700">Shifts</span>
+                              </div>
+                              {shifts.filter(shift => shift.date === displayRec.date && (shift.emp_email === displayRec.email || shift.employee_email === displayRec.email)).map((shift, idx) => (
+                                <div key={idx} className="text-xs text-blue-600">
+                                  <div className="font-medium truncate">
+                                    {shift.shift || shift.shift_type || 'General'}
+                                  </div>
+                                  <div className="text-xs text-blue-500 truncate">
+                                    {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* OT */}
+                          {otRecords.filter(ot => {
+                            const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
+                            return otDate === displayRec.date && ot.email === displayRec.email;
+                          }).length > 0 && (
+                            <div className="bg-orange-50 rounded-lg p-2">
+                              <div className="flex items-center gap-1 mb-1">
+                                <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                </svg>
+                                <span className="text-xs font-medium text-orange-700">Overtime</span>
+                              </div>
+                              {otRecords.filter(ot => {
+                                const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
+                                return otDate === displayRec.date && ot.email === displayRec.email;
+                              }).map((ot, idx) => {
+                                const startTime = new Date(ot.ot_start);
+                                const endTime = new Date(ot.ot_end);
+                                const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+                                return (
+                                  <div key={idx} className="text-xs text-orange-600 truncate">
+                                    {startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ({Math.abs(hours).toFixed(1)}h)
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* Breaks */}
+                          {breaks.filter(br => {
+                            const breakDate = new Date(br.break_start).toISOString().split('T')[0];
+                            return breakDate === displayRec.date && br.email === displayRec.email;
+                          }).length > 0 && (
+                            <div className="bg-green-50 rounded-lg p-2">
+                              <div className="flex items-center gap-1 mb-1">
+                                <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z M9 3v1m6-1v1m-7 5h8m-4 4v.01" />
+                                </svg>
+                                <span className="text-xs font-medium text-green-700">Breaks</span>
+                              </div>
+                              {breaks.filter(br => {
+                                const breakDate = new Date(br.break_start).toISOString().split('T')[0];
+                                return breakDate === displayRec.date && br.email === displayRec.email;
+                              }).map((br, idx) => {
+                                const breakStart = new Date(br.break_start);
+                                const breakEnd = br.break_end ? new Date(br.break_end) : null;
+                                const duration = breakEnd ? (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60 * 60) : 0;
+                                return (
+                                  <div key={idx} className="text-xs text-green-600 truncate">
+                                    {formatTime(breakStart.toISOString().split('T')[1].substring(0, 8))}
+                                    {breakEnd && ` - ${formatTime(breakEnd.toISOString().split('T')[1].substring(0, 8))}`}
+                                    {breakEnd && ` (${Math.abs(duration).toFixed(1)}h)`}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
                         <div>
                           <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">
                             {displayRec?.isCurrentlyWorking ? '⏳ Currently Working' : '💼 Worked Hours'}

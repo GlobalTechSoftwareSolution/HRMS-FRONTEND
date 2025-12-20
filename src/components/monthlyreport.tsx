@@ -87,6 +87,44 @@ interface Leave {
   [key: string]: unknown;
 }
 
+interface ShiftRecord {
+  id?: number;
+  employee_email: string;
+  shift_type: string;
+  start_time: string;
+  end_time: string;
+  date: string;
+  status: 'active' | 'inactive';
+}
+
+interface OvertimeRecord {
+  id?: number;
+  employee_email: string;
+  date: string;
+  hours: number;
+  approved: boolean;
+  approved_by?: string;
+  approved_at?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  ot_start?: string;
+  ot_end?: string;
+  emp_name?: string;
+}
+
+interface BreakRecord {
+  start: string;
+  end: string;
+  duration: number; // in minutes
+}
+
+interface DailyRecord {
+  date: string;
+  shifts: ShiftRecord[];
+  overtime: OvertimeRecord[];
+  breaks: BreakRecord[];
+  attendance?: Attendance;
+}
+
 interface MonthlyReportData {
   employees: Employee[];
   attendance: Attendance[];
@@ -94,6 +132,8 @@ interface MonthlyReportData {
   reports: Report[];
   tasks: Task[];
   absent: AbsentRecord[];
+  shifts: ShiftRecord[];
+  overtime: OvertimeRecord[];
   holidays?: {
     year: number;
     month: number;
@@ -119,6 +159,8 @@ const MonthlyReportDashboard = () => {
     reports: [],
     tasks: [],
     absent: [],
+    shifts: [],
+    overtime: [],
   });
   const [loading, setLoading] = useState(true);
   const [employeeAttendanceData, setEmployeeAttendanceData] = useState<{[key: string]: Attendance[]}>({});
@@ -134,6 +176,8 @@ const MonthlyReportDashboard = () => {
           'list_reports/',
           'list_tasks/',
           'holidays/',
+          'list_shifts/',
+          'list_ot/',
         ];
 
         const baseURL = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/`;
@@ -157,9 +201,70 @@ const MonthlyReportDashboard = () => {
         const reportsRaw = responsesData[2];
         const tasksRaw = responsesData[3];
         const holidaysRaw = responsesData[4];
+        const shiftsRaw = responsesData[5];
+        const overtimeRaw = responsesData[6];
+
 const holidays = Array.isArray(holidaysRaw)
   ? holidaysRaw
   : holidaysRaw.results || holidaysRaw.data || [];
+
+        // Process shifts data
+        let shifts: ShiftRecord[] = [];
+        if (Array.isArray(shiftsRaw)) {
+          shifts = shiftsRaw;
+        } else if (shiftsRaw.shifts && Array.isArray(shiftsRaw.shifts)) {
+          shifts = shiftsRaw.shifts.map((shift: any) => ({
+            id: shift.shift_id || shift.id,
+            employee_email: shift.emp_email || shift.employee_email,
+            shift_type: shift.shift ? shift.shift.charAt(0).toUpperCase() + shift.shift.slice(1).toLowerCase() : 'Morning',
+            start_time: shift.start_time,
+            end_time: shift.end_time,
+            date: shift.date,
+            status: shift.status || 'active',
+          }));
+        } else if (shiftsRaw.results && Array.isArray(shiftsRaw.results)) {
+          shifts = shiftsRaw.results;
+        } else if (shiftsRaw.data && Array.isArray(shiftsRaw.data)) {
+          shifts = shiftsRaw.data;
+        }
+
+        // Filter shifts for selected month and year
+        shifts = shifts.filter(shift => {
+          if (!shift.date) return false;
+          const shiftDate = new Date(shift.date);
+          return shiftDate.getMonth() === selectedMonth && shiftDate.getFullYear() === selectedYear;
+        });
+
+        // Process overtime data
+        let overtime: OvertimeRecord[] = [];
+        if (Array.isArray(overtimeRaw)) {
+          overtime = overtimeRaw;
+        } else if (overtimeRaw.ot_records && Array.isArray(overtimeRaw.ot_records)) {
+          overtime = overtimeRaw.ot_records.map((ot: any) => ({
+            id: ot.id,
+            employee_email: ot.email || '',
+            date: ot.ot_start ? new Date(ot.ot_start).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            hours: ot.ot_start && ot.ot_end ? (new Date(ot.ot_end).getTime() - new Date(ot.ot_start).getTime()) / (1000 * 60 * 60) : 0,
+            approved: ot.approved || false,
+            approved_by: ot.approved_by,
+            approved_at: ot.approved_at,
+            status: ot.status || 'pending',
+            ot_start: ot.ot_start,
+            ot_end: ot.ot_end,
+            emp_name: ot.emp_name,
+          }));
+        } else if (overtimeRaw.results && Array.isArray(overtimeRaw.results)) {
+          overtime = overtimeRaw.results;
+        } else if (overtimeRaw.data && Array.isArray(overtimeRaw.data)) {
+          overtime = overtimeRaw.data;
+        }
+
+        // Filter overtime for selected month and year
+        overtime = overtime.filter(ot => {
+          if (!ot.ot_start) return false;
+          const otDate = new Date(ot.ot_start);
+          return otDate.getMonth() === selectedMonth && otDate.getFullYear() === selectedYear;
+        });
 
         // Employees mapping: strictly use emp_id for id and designation for position, remove status
         const employees: Employee[] = (Array.isArray(employeesRaw) ? employeesRaw : employeesRaw.employees || employeesRaw.results || employeesRaw.data || [])
@@ -282,14 +387,16 @@ const holidays = Array.isArray(holidaysRaw)
         }
 
         setEmployeeAttendanceData(attendanceMap);
-        setData({ 
-          employees: employees || [], 
+        setData({
+          employees: employees || [],
           attendance: [], // We're using individual attendance endpoints now
-          leaves: leaves || [], 
-          reports: reports || [], 
-          tasks: tasks || [], 
+          leaves: leaves || [],
+          reports: reports || [],
+          tasks: tasks || [],
           absent: absent || [],
-        holidays: holidays || [],
+          shifts: shifts || [],
+          overtime: overtime || [],
+          holidays: holidays || [],
         });
 
       } catch (error) {
@@ -866,10 +973,12 @@ const holidays = Array.isArray(holidaysRaw)
     leave_type?: string;
     reason?: string;
   }[]}
+  shifts={data.shifts}
+  overtime={data.overtime}
 />
-                {/* Attendance Cards */}
+                {/* Daily Calendar View */}
                 <div className="mt-6">
-                  <h4 className="text-base font-semibold text-gray-800 mb-2">Daily Attendance</h4>
+                  <h4 className="text-base font-semibold text-gray-800 mb-2">Daily Calendar</h4>
                   {/* --- Helper function to format time in 12-hour format with AM/PM --- */}
                   {(() => {
                     const formatTime12Hour = (timeStr: string | null | undefined): string => {
@@ -881,52 +990,236 @@ const holidays = Array.isArray(holidaysRaw)
                       hour = hour % 12 || 12;
                       return `${hour}:${minute.toString().padStart(2, "0")} ${ampm}`;
                     };
+
+                    // Get all data for the employee
+                    const employeeAttendance = getEmployeeAttendance(selectedEmployee);
+                    const employeeShifts = data.shifts.filter(shift =>
+                      shift.employee_email === selectedEmployee.email &&
+                      shift.status === 'active'
+                    );
+                    const employeeOT = data.overtime.filter(ot =>
+                      ot.employee_email === selectedEmployee.email
+                    );
+
+                    // Create a map of daily activities
+                    const dailyActivities: Record<string, {
+                      attendance?: Attendance;
+                      shifts: ShiftRecord[];
+                      overtime: OvertimeRecord[];
+                      breaks: Array<{start: string, end: string, duration: number}>;
+                    }> = {};
+
+                    // Initialize with attendance dates
+                    employeeAttendance.forEach(attendance => {
+                      if (attendance.date) {
+                        const dateKey = attendance.date;
+                        if (!dailyActivities[dateKey]) {
+                          dailyActivities[dateKey] = { shifts: [], overtime: [], breaks: [] };
+                        }
+                        dailyActivities[dateKey].attendance = attendance;
+                      }
+                    });
+
+                    // Add shifts
+                    employeeShifts.forEach(shift => {
+                      if (shift.date) {
+                        const dateKey = shift.date;
+                        if (!dailyActivities[dateKey]) {
+                          dailyActivities[dateKey] = { shifts: [], overtime: [], breaks: [] };
+                        }
+                        dailyActivities[dateKey].shifts.push(shift);
+                      }
+                    });
+
+                    // Add overtime
+                    employeeOT.forEach(ot => {
+                      if (ot.date) {
+                        const dateKey = ot.date;
+                        if (!dailyActivities[dateKey]) {
+                          dailyActivities[dateKey] = { shifts: [], overtime: [], breaks: [] };
+                        }
+                        dailyActivities[dateKey].overtime.push(ot);
+                      }
+                    });
+
+                    // Calculate and add breaks
+                    employeeAttendance.forEach(attendance => {
+                      if (attendance.check_in && attendance.check_out && attendance.date) {
+                        try {
+                          const checkIn = new Date(`${attendance.date}T${attendance.check_in.split('.')[0]}`);
+                          const checkOut = new Date(`${attendance.date}T${attendance.check_out.split('.')[0]}`);
+
+                          const lunchStart = new Date(`${attendance.date}T12:00:00`);
+                          const lunchEnd = new Date(`${attendance.date}T13:00:00`);
+
+                          if (checkIn <= lunchStart && checkOut >= lunchEnd) {
+                            const dateKey = attendance.date;
+                            if (!dailyActivities[dateKey]) {
+                              dailyActivities[dateKey] = { shifts: [], overtime: [], breaks: [] };
+                            }
+                            dailyActivities[dateKey].breaks.push({
+                              start: '12:00',
+                              end: '13:00',
+                              duration: 60
+                            });
+                          }
+                        } catch (error) {
+                          console.warn('Error calculating break for attendance:', attendance);
+                        }
+                      }
+                    });
+
+                    const sortedDates = Object.keys(dailyActivities).sort();
+
+                    if (sortedDates.length === 0) {
+                      return (
+                        <p className="text-gray-500 text-center py-4">No daily records found</p>
+                      );
+                    }
+
                     return (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {getEmployeeAttendance(selectedEmployee).length === 0 && (
-                          <p className="text-gray-500 text-center py-4 col-span-2">No attendance records found</p>
-                        )}
-                        {getEmployeeAttendance(selectedEmployee)
-                          .sort((a, b) => new Date(a.date as string).getTime() - new Date(b.date as string).getTime())
-                          .map((record: Attendance, idx: number) => {
-                            let hours = 0;
-                            const checkIn = record.check_in;
-                            const checkOut = record.check_out;
+                      <div className="grid grid-cols-1 gap-4">
+                        {sortedDates.map((dateKey, idx) => {
+                          const dayData = dailyActivities[dateKey];
+                          const attendance = dayData.attendance;
+
+                          // Calculate total worked hours
+                          let workedHours = 0;
+                          if (attendance?.check_in && attendance?.check_out) {
                             try {
-                              if (checkIn && checkOut) {
-                                const [checkInTime] = checkIn.split('.');
-                                const [checkOutTime] = checkOut.split('.');
-                                const [inHours, inMinutes, inSeconds] = checkInTime.split(':').map(Number);
-                                const [outHours, outMinutes, outSeconds] = checkOutTime.split(':').map(Number);
-                                const checkInTotalMinutes = inHours * 60 + inMinutes + inSeconds / 60;
-                                const checkOutTotalMinutes = outHours * 60 + outMinutes + outSeconds / 60;
-                                let diffMinutes = checkOutTotalMinutes - checkInTotalMinutes;
-                                if (diffMinutes < 0) diffMinutes += 24 * 60;
-                                hours = diffMinutes / 60;
-                              }
-                            } catch { hours = 0; }
-                            return (
-                              <div key={idx} className="flex flex-col md:flex-row items-center justify-between bg-white rounded-lg shadow-sm p-3">
-                                <div className="flex-1 flex flex-col gap-1">
-                                  <span className="font-medium text-gray-900">
-                                    {record.date ? new Date(record.date).toLocaleDateString("en-GB") : 'N/A'}
-                                  </span>
-                                  <span className="text-xs text-gray-500">
-                                    Check-in: <span className="font-mono">{formatTime12Hour(checkIn)}</span>
-                                  </span>
-                                  <span className="text-xs text-gray-500">
-                                    Check-out: <span className="font-mono">{formatTime12Hour(checkOut)}</span>
-                                  </span>
-                                </div>
-                                <div className="text-right mt-2 md:mt-0">
-                                  <span className="text-lg font-bold text-blue-700">
-                                    {`${Math.floor(hours)}h ${Math.round((hours % 1) * 60)}m`}
-                                  </span>
-                                  <div className="text-xs text-gray-400">Worked</div>
-                                </div>
+                              const [checkInTime] = attendance.check_in.split('.');
+                              const [checkOutTime] = attendance.check_out.split('.');
+                              const [inHours, inMinutes] = checkInTime.split(':').map(Number);
+                              const [outHours, outMinutes] = checkOutTime.split(':').map(Number);
+                              const checkInTotalMinutes = inHours * 60 + inMinutes;
+                              const checkOutTotalMinutes = outHours * 60 + outMinutes;
+                              let diffMinutes = checkOutTotalMinutes - checkInTotalMinutes;
+                              if (diffMinutes < 0) diffMinutes += 24 * 60;
+                              workedHours = diffMinutes / 60;
+                            } catch { workedHours = 0; }
+                          }
+
+                          return (
+                            <div key={idx} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                              {/* Date Header */}
+                              <div className="flex justify-between items-center mb-3">
+                                <h5 className="text-lg font-semibold text-gray-900">
+                                  {new Date(dateKey).toLocaleDateString("en-GB", {
+                                    weekday: 'long',
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </h5>
+                                {workedHours > 0 && (
+                                  <div className="text-right">
+                                    <span className="text-lg font-bold text-blue-700">
+                                      {`${Math.floor(workedHours)}h ${Math.round((workedHours % 1) * 60)}m`}
+                                    </span>
+                                    <div className="text-xs text-gray-500">Total Worked</div>
+                                  </div>
+                                )}
                               </div>
-                            );
-                          })}
+
+                              {/* Daily Activities Grid */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {/* Attendance */}
+                                {attendance && (
+                                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                      <span className="text-sm font-medium text-blue-900">Attendance</span>
+                                    </div>
+                                    <div className="space-y-1 text-xs text-blue-800">
+                                      <div>Check-in: <span className="font-mono">{formatTime12Hour(attendance.check_in)}</span></div>
+                                      <div>Check-out: <span className="font-mono">{formatTime12Hour(attendance.check_out)}</span></div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Shifts */}
+                                {dayData.shifts.map((shift, shiftIdx) => (
+                                  <div key={shiftIdx} className="bg-green-50 rounded-lg p-3 border border-green-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                      <span className="text-sm font-medium text-green-900">Shift: {shift.shift_type}</span>
+                                    </div>
+                                    <div className="space-y-1 text-xs text-green-800">
+                                      <div>Time: <span className="font-mono">{shift.start_time} - {shift.end_time}</span></div>
+                                      <div className="text-green-700 font-medium">Active</div>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {/* Overtime */}
+                                {dayData.overtime.map((ot, otIdx) => (
+                                  <div key={otIdx} className={`rounded-lg p-3 border ${
+                                    ot.status === 'approved'
+                                      ? 'bg-purple-50 border-purple-200'
+                                      : ot.status === 'rejected'
+                                      ? 'bg-red-50 border-red-200'
+                                      : 'bg-yellow-50 border-yellow-200'
+                                  }`}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className={`w-3 h-3 rounded-full ${
+                                        ot.status === 'approved'
+                                          ? 'bg-purple-500'
+                                          : ot.status === 'rejected'
+                                          ? 'bg-red-500'
+                                          : 'bg-yellow-500'
+                                      }`}></div>
+                                      <span className={`text-sm font-medium ${
+                                        ot.status === 'approved'
+                                          ? 'text-purple-900'
+                                          : ot.status === 'rejected'
+                                          ? 'text-red-900'
+                                          : 'text-yellow-900'
+                                      }`}>Overtime</span>
+                                    </div>
+                                    <div className={`space-y-1 text-xs ${
+                                      ot.status === 'approved'
+                                        ? 'text-purple-800'
+                                        : ot.status === 'rejected'
+                                        ? 'text-red-800'
+                                        : 'text-yellow-800'
+                                    }`}>
+                                      <div>Hours: <span className="font-mono">{ot.hours.toFixed(2)}h</span></div>
+                                      {ot.ot_start && ot.ot_end && (
+                                        <div>Time: <span className="font-mono">
+                                          {new Date(ot.ot_start).toLocaleTimeString()} - {new Date(ot.ot_end).toLocaleTimeString()}
+                                        </span></div>
+                                      )}
+                                      <div className={`font-medium ${
+                                        ot.status === 'approved'
+                                          ? 'text-purple-700'
+                                          : ot.status === 'rejected'
+                                          ? 'text-red-700'
+                                          : 'text-yellow-700'
+                                      }`}>
+                                        {ot.status.toUpperCase()}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {/* Breaks */}
+                                {dayData.breaks.map((breakRecord, breakIdx) => (
+                                  <div key={breakIdx} className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                                      <span className="text-sm font-medium text-orange-900">Break</span>
+                                    </div>
+                                    <div className="space-y-1 text-xs text-orange-800">
+                                      <div>Time: <span className="font-mono">{breakRecord.start} - {breakRecord.end}</span></div>
+                                      <div>Duration: <span className="font-mono">{breakRecord.duration} minutes</span></div>
+                                      <div className="text-orange-700 font-medium">Lunch</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })()}
@@ -1028,9 +1321,11 @@ const holidays = Array.isArray(holidaysRaw)
                 </div>
               </div>
 
+
+
               {/* Recent Tasks */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">📈 Recent Tasks</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">� Recent Tasks</h3>
                 <div className="space-y-3">
                   {getEmployeeTasks(selectedEmployee)
                     .slice(0, 5)
@@ -1103,6 +1398,8 @@ const AttendanceChart = ({
   absences,
   employeeEmail,
   leaves = [],
+  shifts = [],
+  overtime = [],
 }: {
   attendance: Attendance[];
   selectedMonth: number;
@@ -1118,6 +1415,8 @@ const AttendanceChart = ({
     leave_type?: string;
     reason?: string;
   }[];
+  shifts?: ShiftRecord[];
+  overtime?: OvertimeRecord[];
 }) => {
   const [chartData, setChartData] = React.useState<ChartData[]>([]);
   const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
@@ -1171,6 +1470,36 @@ const AttendanceChart = ({
         }
       });
 
+    // --- SHIFT MAP LOGIC ---
+    const shiftMap: Record<string, ShiftRecord[]> = {};
+    shifts
+      .filter((s) => s.employee_email?.toLowerCase() === employeeEmail.toLowerCase() && s.status === 'active')
+      .forEach((shift) => {
+        if (shift.date) {
+          const d = new Date(shift.date);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+            d.getDate()
+          ).padStart(2, "0")}`;
+          if (!shiftMap[key]) shiftMap[key] = [];
+          shiftMap[key].push(shift);
+        }
+      });
+
+    // --- OVERTIME MAP LOGIC ---
+    const overtimeMap: Record<string, OvertimeRecord[]> = {};
+    overtime
+      .filter((ot) => ot.employee_email?.toLowerCase() === employeeEmail.toLowerCase())
+      .forEach((ot) => {
+        if (ot.date) {
+          const d = new Date(ot.date);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+            d.getDate()
+          ).padStart(2, "0")}`;
+          if (!overtimeMap[key]) overtimeMap[key] = [];
+          overtimeMap[key].push(ot);
+        }
+      });
+
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
     const newChartData = [];
 
@@ -1217,11 +1546,15 @@ const AttendanceChart = ({
       });
     }
 
-    // Attach leaveMap to chartData for use in render
-    // @ts-expect-error: Attaching dynamic leaveMap metadata not part of ChartData type
+    // Attach maps to chartData for use in render
+    // @ts-expect-error: Attaching dynamic metadata not part of ChartData type
     newChartData._leaveMap = leaveMap;
+    // @ts-expect-error: Attaching dynamic metadata not part of ChartData type
+    newChartData._shiftMap = shiftMap;
+    // @ts-expect-error: Attaching dynamic metadata not part of ChartData type
+    newChartData._overtimeMap = overtimeMap;
     setChartData(newChartData);
-  }, [attendance, absences, employeeEmail, selectedMonth, selectedYear, leaves]);
+  }, [attendance, absences, employeeEmail, selectedMonth, selectedYear, leaves, shifts, overtime]);
 
   const maxHours = Math.max(...chartData.map((d) => d.hours), 8, 1);
 
@@ -1289,7 +1622,7 @@ const AttendanceChart = ({
                       style={{ top: `${(window?.scrollY || 0) + 120}px` }}
                     >
                       <div
-                        className={`font-semibold mb-1 ${
+                        className={`font-semibold mb-2 ${
                           d.absent
                             ? "text-red-700"
                             : isLeaveDay
@@ -1301,40 +1634,72 @@ const AttendanceChart = ({
                       >
                         {d.dateStr}
                       </div>
+
                       {d.absent ? (
                         <div className="text-red-600 font-bold text-center py-1 break-words">Absent</div>
                       ) : isLeaveDay ? (
                         <div className="text-green-700 font-semibold text-center py-1 break-words">On Approved Leave</div>
-                      ) : d.isSunday ? (
-                        <>
-                          <div className="text-orange-700 font-semibold text-center py-1 break-words">Working Sunday</div>
-                          <div className="flex justify-between mt-1">
-                            <span className="text-gray-500 break-words">Worked:</span>
-                            <span className="font-bold text-blue-800 break-words">
-                              {`${Math.floor(d.hours)}h ${Math.round((d.hours % 1) * 60)}m`}
-                            </span>
-                          </div>
-                        </>
                       ) : (
                         <>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500 break-words">Check-in:</span>
-                            <span className="font-mono text-blue-900 break-words">
-                              {formatTime12Hour(d.checkIn)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-500 break-words">Check-out:</span>
-                            <span className="font-mono text-blue-900 break-words">
-                              {formatTime12Hour(d.checkOut)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between mt-1">
-                            <span className="text-gray-500 break-words">Worked:</span>
-                            <span className="font-bold text-blue-800 break-words">
-                              {`${Math.floor(d.hours)}h ${Math.round((d.hours % 1) * 60)}m`}
-                            </span>
-                          </div>
+                          {/* Attendance Times */}
+                          {d.checkIn && d.checkOut && (
+                            <div className="mb-2 pb-2 border-b border-gray-200">
+                              <div className="text-blue-800 font-medium mb-1">Attendance</div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500 break-words">Check-in:</span>
+                                <span className="font-mono text-blue-900 break-words">
+                                  {formatTime12Hour(d.checkIn)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500 break-words">Check-out:</span>
+                                <span className="font-mono text-blue-900 break-words">
+                                  {formatTime12Hour(d.checkOut)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between mt-1">
+                                <span className="text-gray-500 break-words">Worked:</span>
+                                <span className="font-bold text-blue-800 break-words">
+                                  {`${Math.floor(d.hours)}h ${Math.round((d.hours % 1) * 60)}m`}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Shift Information */}
+                          {/* @ts-expect-error: Accessing attached shiftMap property */}
+                          {chartData._shiftMap && chartData._shiftMap[d.dateStr?.split("/").reverse().join("-")] && (
+                            <div className="mb-2 pb-2 border-b border-gray-200">
+                              <div className="text-green-800 font-medium mb-1">Shifts</div>
+                              {/* @ts-expect-error: Accessing attached shiftMap property */}
+                              {chartData._shiftMap[d.dateStr?.split("/").reverse().join("-")].map((shift: ShiftRecord, sIdx: number) => (
+                                <div key={sIdx} className="text-xs text-green-700 mb-1">
+                                  <div>{shift.shift_type}: {shift.start_time} - {shift.end_time}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Overtime Information */}
+                          {/* @ts-expect-error: Accessing attached overtimeMap property */}
+                          {chartData._overtimeMap && chartData._overtimeMap[d.dateStr?.split("/").reverse().join("-")] && (
+                            <div className="mb-2 pb-2 border-b border-gray-200">
+                              <div className="text-purple-800 font-medium mb-1">Overtime</div>
+                              {/* @ts-expect-error: Accessing attached overtimeMap property */}
+                              {chartData._overtimeMap[d.dateStr?.split("/").reverse().join("-")].map((ot: OvertimeRecord, oIdx: number) => (
+                                <div key={oIdx} className="text-xs text-purple-700 mb-1">
+                                  <div>{ot.hours.toFixed(2)}h - {ot.status}</div>
+                                  {ot.ot_start && ot.ot_end && (
+                                    <div className="text-xs opacity-75">
+                                      {new Date(ot.ot_start).toLocaleTimeString()} - {new Date(ot.ot_end).toLocaleTimeString()}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+
                         </>
                       )}
                     </div>

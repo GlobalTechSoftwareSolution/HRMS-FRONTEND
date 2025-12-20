@@ -36,8 +36,8 @@ const HolidayCalendar: React.FC = () => {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
-  
-  // Auto dismiss notifications after 3 seconds
+  const [loading, setLoading] = useState<boolean>(false);
+
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => {
@@ -46,6 +46,7 @@ const HolidayCalendar: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [notification]);
+  
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );

@@ -65,6 +65,14 @@ export default function AdminAttendanceDashboard() {
   const [loading, setLoading] = useState(true);
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  
+  // Shift, OT, and Break data
+  const [shifts, setShifts] = useState<any[]>([]);
+  const [otRecords, setOtRecords] = useState<any[]>([]);
+  const [breaks, setBreaks] = useState<any[]>([]);
+  const [loadingShifts, setLoadingShifts] = useState(true);
+  const [loadingOT, setLoadingOT] = useState(true);
+  const [loadingBreaks, setLoadingBreaks] = useState(true);
 
   // Update real-time working hours for currently working employees
   useEffect(() => {
@@ -183,12 +191,96 @@ export default function AdminAttendanceDashboard() {
     fetchEmployees();
   }, []);
 
+  // Fetch Shifts
+  useEffect(() => {
+    const fetchShifts = async () => {
+      try {
+        setLoadingShifts(true);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_shifts/`
+        );
+        if (!res.ok) throw new Error("Failed to fetch shifts");
+        const data = await res.json();
+        setShifts(Array.isArray(data) ? data : (data.shifts || []));
+      } catch (err) {
+        console.error("Error fetching shifts:", err);
+      } finally {
+        setLoadingShifts(false);
+      }
+    };
+    fetchShifts();
+  }, []);
+
+  // Fetch OT Records
+  useEffect(() => {
+    const fetchOT = async () => {
+      try {
+        setLoadingOT(true);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_ot/`
+        );
+        if (!res.ok) throw new Error("Failed to fetch OT records");
+        const data = await res.json();
+        setOtRecords(Array.isArray(data) ? data : (data.ot_records || []));
+      } catch (err) {
+        console.error("Error fetching OT records:", err);
+      } finally {
+        setLoadingOT(false);
+      }
+    };
+    fetchOT();
+  }, []);
+
+  // Fetch Breaks
+  useEffect(() => {
+    const fetchBreaks = async () => {
+      try {
+        setLoadingBreaks(true);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_breaks/`
+        );
+        if (!res.ok) throw new Error("Failed to fetch breaks");
+        const data = await res.json();
+        setBreaks(Array.isArray(data) ? data : (data.breaks || data.break_records || []));
+      } catch (err) {
+        console.error("Error fetching breaks:", err);
+      } finally {
+        setLoadingBreaks(false);
+      }
+    };
+    fetchBreaks();
+  }, []);
+
   const today = new Date().toISOString().split("T")[0];
   const yesterday = (() => {
     const d = new Date();
     d.setDate(d.getDate() - 1);
     return d.toISOString().split("T")[0];
   })();
+  
+  // Helper function to format time
+  const formatTime = (timeStr: string | null | undefined): string => {
+    if (!timeStr || timeStr === "-" || timeStr === "null") return "-";
+    const match = /^(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/.exec(timeStr);
+    if (!match) return timeStr;
+    const [, hour, min, sec] = match;
+    let h = parseInt(hour, 10);
+    let m = parseInt(min, 10);
+    const s = sec !== undefined ? parseInt(sec, 10) : 0;
+    if (s >= 30) {
+      m += 1;
+      if (m >= 60) {
+        m = 0;
+        h = (h + 1) % 24;
+      }
+    }
+    const period = h >= 12 ? "PM" : "AM";
+    let displayHour = h % 12;
+    if (displayHour === 0) displayHour = 12;
+    const mm = m.toString().padStart(2, "0");
+    return `${displayHour}:${mm} ${period}`;
+  };
+
   const selectedAttendance = selectedDate 
     ? attendance.filter((a) => a.date === selectedDate)
     : attendance.filter((a) => a.date === today);
@@ -298,7 +390,7 @@ export default function AdminAttendanceDashboard() {
 
     doc.setFontSize(20);
     doc.text(
-      "Today's Attendance Report",
+      "TodayToday's#39;s Attendance Report",
       doc.internal.pageSize.getWidth() / 2,
       y,
       { align: "center" }
@@ -561,7 +653,9 @@ export default function AdminAttendanceDashboard() {
             </div>
           </div>
 
-          {/* Today's Attendance + Download PDF */}
+
+
+          {/* TodayToday's#39;s Attendance + Download PDF */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
             <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-700 text-center sm:text-left w-full sm:w-auto">
               Today&apos;s Attendance
@@ -607,7 +701,7 @@ export default function AdminAttendanceDashboard() {
                       <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-800 line-clamp-1">
                         {rec.fullname}
                       </h3>
-                      <p className="text-xs text-gray-500 break-words mt-1 line-clamp-1">
+                      <p className="text-xs text-gray-500 truncate mt-1 max-w-full overflow-hidden" title={rec.email}>
                         {rec.email}
                       </p>
                     </div>
@@ -720,6 +814,89 @@ export default function AdminAttendanceDashboard() {
                       )}
                     </div>
                     
+                    {/* Shifts, OT, and Breaks for this employee on this date */}
+                    <div className="mt-3 space-y-2">
+                      {/* Shifts */}
+                      {shifts.filter(shift => shift.date === rec.date && (shift.emp_email === rec.email || shift.employee_email === rec.email)).length > 0 && (
+                        <div className="bg-blue-50 rounded-lg p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-xs font-medium text-blue-700">Shifts</span>
+                          </div>
+                          {shifts.filter(shift => shift.date === rec.date && (shift.emp_email === rec.email || shift.employee_email === rec.email)).map((shift, idx) => (
+                            <div key={idx} className="text-xs text-blue-600">
+                              <div className="font-medium truncate">
+                                {shift.shift || shift.shift_type || 'General'}
+                              </div>
+                              <div className="text-xs text-blue-500 truncate">
+                                {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* OT */}
+                      {otRecords.filter(ot => {
+                        const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
+                        return otDate === rec.date && ot.email === rec.email;
+                      }).length > 0 && (
+                        <div className="bg-orange-50 rounded-lg p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                            </svg>
+                            <span className="text-xs font-medium text-orange-700">Overtime</span>
+                          </div>
+                          {otRecords.filter(ot => {
+                            const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
+                            return otDate === rec.date && ot.email === rec.email;
+                          }).map((ot, idx) => {
+                            const startTime = new Date(ot.ot_start);
+                            const endTime = new Date(ot.ot_end);
+                            const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+                            return (
+                              <div key={idx} className="text-xs text-orange-600 truncate">
+                                {startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ({Math.abs(hours).toFixed(1)}h)
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Breaks */}
+                      {breaks.filter(br => {
+                        const breakDate = new Date(br.break_start).toISOString().split('T')[0];
+                        return breakDate === rec.date && br.email === rec.email;
+                      }).length > 0 && (
+                        <div className="bg-green-50 rounded-lg p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z M9 3v1m6-1v1m-7 5h8m-4 4v.01" />
+                            </svg>
+                            <span className="text-xs font-medium text-green-700">Breaks</span>
+                          </div>
+                          {breaks.filter(br => {
+                            const breakDate = new Date(br.break_start).toISOString().split('T')[0];
+                            return breakDate === rec.date && br.email === rec.email;
+                          }).map((br, idx) => {
+                            const breakStart = new Date(br.break_start);
+                            const breakEnd = br.break_end ? new Date(br.break_end) : null;
+                            const duration = breakEnd ? (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60 * 60) : 0;
+                            return (
+                              <div key={idx} className="text-xs text-green-600 truncate">
+                                {formatTime(breakStart.toISOString().split('T')[1].substring(0, 8))}
+                                {breakEnd && ` - ${formatTime(breakEnd.toISOString().split('T')[1].substring(0, 8))}`}
+                                {breakEnd && ` (${Math.abs(duration).toFixed(1)}h)`}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
                     <div>
                       <p className="text-xs text-gray-400 mb-1">
                         {rec.isCurrentlyWorking ? 'Working Hours' : 'Worked Hours'}
@@ -740,11 +917,11 @@ export default function AdminAttendanceDashboard() {
                         />
                       </div>
                       <p className="text-xs text-center text-gray-600 mt-1 flex items-center justify-center">
-                        {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.hrs || 0}h 
-                        {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.mins || 0}m 
+                        {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.hrs || 0}h
+                        {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.mins || 0}m
                         {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.secs || 0}s
                         {rec.isCurrentlyWorking && (
-                          <motion.span 
+                          <motion.span
                             className="ml-1 w-2 h-2 rounded-full bg-green-500"
                             animate={{ opacity: [0, 1, 0] }}
                             transition={{ repeat: Infinity, duration: 1.5 }}
@@ -834,7 +1011,7 @@ export default function AdminAttendanceDashboard() {
                         <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-800 line-clamp-1">
                           {rec.fullname}
                         </h3>
-                        <p className="text-xs text-gray-500 break-words mt-1 line-clamp-1">
+                        <p className="text-xs text-gray-500 truncate mt-1 max-w-full overflow-hidden" title={rec.email}>
                           {rec.email}
                         </p>
                       </div>
@@ -953,6 +1130,89 @@ export default function AdminAttendanceDashboard() {
                         )}
                       </div>
                       
+                      {/* Shifts, OT, and Breaks for this employee on this date */}
+                      <div className="mt-3 space-y-2">
+                        {/* Shifts */}
+                        {shifts.filter(shift => shift.date === rec.date && (shift.emp_email === rec.email || shift.employee_email === rec.email)).length > 0 && (
+                          <div className="bg-blue-50 rounded-lg p-2">
+                            <div className="flex items-center gap-1 mb-1">
+                              <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-xs font-medium text-blue-700">Shifts</span>
+                            </div>
+                            {shifts.filter(shift => shift.date === rec.date && (shift.emp_email === rec.email || shift.employee_email === rec.email)).map((shift, idx) => (
+                              <div key={idx} className="text-xs text-blue-600">
+                                <div className="font-medium truncate">
+                                  {shift.shift || shift.shift_type || 'General'}
+                                </div>
+                                <div className="text-xs text-blue-500 truncate">
+                                  {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* OT */}
+                        {otRecords.filter(ot => {
+                          const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
+                          return otDate === rec.date && ot.email === rec.email;
+                        }).length > 0 && (
+                          <div className="bg-orange-50 rounded-lg p-2">
+                            <div className="flex items-center gap-1 mb-1">
+                              <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                              </svg>
+                              <span className="text-xs font-medium text-orange-700">Overtime</span>
+                            </div>
+                            {otRecords.filter(ot => {
+                              const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
+                              return otDate === rec.date && ot.email === rec.email;
+                            }).map((ot, idx) => {
+                              const startTime = new Date(ot.ot_start);
+                              const endTime = new Date(ot.ot_end);
+                              const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+                            return (
+                              <div key={idx} className="text-xs text-orange-600 truncate">
+                                {startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ({Math.abs(hours).toFixed(1)}h)
+                              </div>
+                            );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Breaks */}
+                        {breaks.filter(br => {
+                          const breakDate = new Date(br.break_start).toISOString().split('T')[0];
+                          return breakDate === rec.date && br.email === rec.email;
+                        }).length > 0 && (
+                          <div className="bg-green-50 rounded-lg p-2">
+                            <div className="flex items-center gap-1 mb-1">
+                              <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z M9 3v1m6-1v1m-7 5h8m-4 4v.01" />
+                              </svg>
+                              <span className="text-xs font-medium text-green-700">Breaks</span>
+                            </div>
+                            {breaks.filter(br => {
+                              const breakDate = new Date(br.break_start).toISOString().split('T')[0];
+                              return breakDate === rec.date && br.email === rec.email;
+                            }).map((br, idx) => {
+                              const breakStart = new Date(br.break_start);
+                              const breakEnd = br.break_end ? new Date(br.break_end) : null;
+                              const duration = breakEnd ? (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60 * 60) : 0;
+                            return (
+                              <div key={idx} className="text-xs text-green-600 truncate">
+                                {formatTime(breakStart.toISOString().split('T')[1].substring(0, 8))}
+                                {breakEnd && ` - ${formatTime(breakEnd.toISOString().split('T')[1].substring(0, 8))}`}
+                                {breakEnd && ` (${Math.abs(duration).toFixed(1)}h)`}
+                              </div>
+                            );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
                       <div>
                         <p className="text-xs text-gray-400 mb-1">Worked Hours</p>
                         <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">

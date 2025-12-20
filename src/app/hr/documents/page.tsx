@@ -206,56 +206,15 @@ const DocumentPage = () => {
         setAwards([]);
       }
     } catch (_) {
-      // If specific user endpoint fails, try general endpoint and filter
-      try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_awards/`);
-        
-        if (res.data) {
-          // Handle different response structures
-          let awardsData: Award[] = [];
-          
-          if (Array.isArray(res.data)) {
-            awardsData = res.data;
-          } else if (res.data.awards && Array.isArray(res.data.awards)) {
-            awardsData = res.data.awards;
-          } else if (res.data.data && Array.isArray(res.data.data)) {
-            awardsData = res.data.data;
-          } else {
-            // If response is a single object with award properties
-            awardsData = [res.data];
-          }
-          
-          // Filter awards by selected email
-          const userAwards = awardsData.filter((a: Award) => a.email === email);
-          
-          // Map awards to ensure they have proper IDs
-          const mappedAwards = userAwards.map((award: Award, index: number) => {
-            // Use pk as id if id is not available
-            if (award.pk && !award.id) {
-              return { ...award, id: award.pk };
-            }
-            // If no id or pk, use index as id
-            if (!award.id) {
-              return { ...award, id: index };
-            }
-            return award;
-          });
-          
-          setAwards(mappedAwards);
-        } else {
-          setAwards([]);
-        }
-      } catch (fallbackErr) {
-        // Show error message to user
-        if (axios.isAxiosError(fallbackErr)) {
-          const errorMsg = fallbackErr.response?.data?.message || 'Failed to load awards';
-          setIssueMessage({ open: true, type: 'error', message: errorMsg });
-        }
-        setAwards([]);
+      // Show error message to user
+      if (axios.isAxiosError(_)) {
+        const errorMsg = _.response?.data?.message || 'Failed to load awards';
+        setIssueMessage({ open: true, type: 'error', message: errorMsg });
       }
+      setAwards([]);
     }
   };
-
+  
   useEffect(() => {
     if (selectedUser?.email) {
       fetchAwards(selectedUser.email);
@@ -264,7 +223,7 @@ const DocumentPage = () => {
     } else {
       setAwards([]);
     }
-  }, [selectedUser]);
+  }, [selectedUser?.email, selectedUser?.email_id]);
 
   useEffect(() => {
     Promise.all([fetchUsers(), fetchDocuments()]).finally(() => setLoading(false));
@@ -1179,4 +1138,4 @@ const DocumentPage = () => {
   );
 };
 
-export default DocumentPage;
+export default DocumentPage ;

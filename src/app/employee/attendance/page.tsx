@@ -464,9 +464,7 @@ export default function AttendancePortal() {
             }
         };
         fetchAbsences();
-    }, [loggedInEmail]);
-
-    useEffect(() => {
+    }, [loggedInEmail, fetchedAttendance]);    useEffect(() => {
         const fetchLeaves = async () => {
             try {
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/`);
@@ -676,8 +674,7 @@ export default function AttendancePortal() {
     // Merge shifts, OT, and break data into attendance records
     useEffect(() => {
         if (fetchedAttendance.length > 0 && shifts.length >= 0) { // Allow merging even if no shifts
-            const mergedAttendance = fetchedAttendance.map(record => {
-                // Find shift for this date
+            const mergedAttendance = fetchedAttendance.map(record => {                // Find shift for this date
                 const shiftForDate = shifts.find(shift => shift.date === record.date);
                 const shiftInfo = shiftForDate ? {
                     shift: shiftForDate.shift,

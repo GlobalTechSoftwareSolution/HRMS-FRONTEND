@@ -521,11 +521,11 @@ const OTMakerComponent = () => {
                             }
                           })()}
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold text-gray-900 truncate">
                             {record.emp_name || record.employee_email}
                           </h3>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-gray-500 truncate" title={record.employee_email}>
                             {record.employee_email}
                           </p>
                         </div>
