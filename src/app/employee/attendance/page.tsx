@@ -12,17 +12,28 @@ type AttendanceRecord = {
     status: "Present" | "Absent" | "Working In" | "Late" | "Half Day" | string;
     checkIn: string;
     checkOut: string | null;
+    checkInPhoto?: string | null;
+    checkOutPhoto?: string | null;
     hoursWorked: string | null;
     email: string;
     fullname?: string;
     department?: string;
 };
 
+interface PhotoDisplayProps {
+    src: string | null | undefined;
+    alt: string;
+    className?: string;
+    size?: 'sm' | 'md' | 'lg';
+}
+
 type APIResponseRecord = {
     date: string;
     status?: string;
     check_in?: string | null;
     check_out?: string | null;
+    check_in_photo?: string | null;
+    check_out_photo?: string | null;
     email: string;
 };
 
@@ -48,34 +59,89 @@ type AbsenceRecord = {
 };
 
 type ProfileData = {
-  email: string;
-  fullname: string;
-  phone?: string;
-  department?: string | null;
-  designation?: string | null;
-  date_of_birth?: string | null;
-  date_joined?: string | null;
-  skills?: string | null;
-  profile_picture?: string | null;
-  gender?: string | null;
-  marital_status?: string | null;
-  nationality?: string | null;
-  residential_address?: string | null;
-  permanent_address?: string | null;
-  emergency_contact_name?: string | null;
+    email: string;
+    fullname: string;
+    phone?: string;
+    department?: string | null;
+    designation?: string | null;
+    date_of_birth?: string | null;
+    date_joined?: string | null;
+    skills?: string | null;
+    profile_picture?: string | null;
+    gender?: string | null;
+    marital_status?: string | null;
+    nationality?: string | null;
+    residential_address?: string | null;
+    permanent_address?: string | null;
+    emergency_contact_name?: string | null;
 };
 const deriveStatus = (record: AttendanceRecord): string => {
-  if (!record) return "-";
-  if (record.status === "Sunday") return "Sunday";
-  if (record.status === "Absent") return "Absent";
+    if (!record) return "-";
+    if (record.status === "Sunday") return "Sunday";
+    if (record.status === "Absent") return "Absent";
 
-  const hasIn = !!(record.checkIn && record.checkIn !== "-" && record.checkIn !== "null");
-  const hasOut = !!(record.checkOut && record.checkOut !== "-" && record.checkOut !== "null");
+    const hasIn = !!(record.checkIn && record.checkIn !== "-" && record.checkIn !== "null");
+    const hasOut = !!(record.checkOut && record.checkOut !== "-" && record.checkOut !== "null");
 
-  if (hasIn && hasOut) return "Present";
-  if (hasIn && !hasOut) return "Working In";
+    if (hasIn && hasOut) return "Present";
+    if (hasIn && !hasOut) return "Working In";
 
-  return record.status && record.status !== "-" ? record.status : "-";
+    return record.status && record.status !== "-" ? record.status : "-";
+};
+
+// Photo Display Component
+const PhotoDisplay: React.FC<PhotoDisplayProps> = ({
+    src,
+    alt,
+    className = '',
+    size = 'md'
+}) => {
+    const sizeClasses = {
+        sm: 'w-12 h-12',
+        md: 'w-20 h-20',
+        lg: 'w-32 h-32'
+    };
+
+    // Handle cases where src is null or undefined
+    if (!src) {
+        return (
+            <div className={`photo-display-container relative ${sizeClasses[size]} ${className} rounded-full border-2 border-gray-200 bg-gray-100 flex items-center justify-center`}>
+                <span className="text-gray-400 text-xs text-center">No Photo</span>
+            </div>
+        );
+    }
+
+    // Simple approach - just show the image directly
+    return (
+        <div
+            className={`photo-display-container relative ${sizeClasses[size]} ${className} group rounded-full border-2 border-white shadow-md transition-all duration-300`}
+        >
+            <Image
+                src={src}
+                alt={alt}
+                width={80}
+                height={80}
+                loading="lazy"
+                className="w-full h-full object-cover rounded-full"
+                onError={(e) => {
+                    // If image fails to load, show placeholder
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                        let placeholder = parent.querySelector('.image-placeholder') as HTMLElement;
+                        if (!placeholder) {
+                            placeholder = document.createElement('div') as HTMLElement;
+                            placeholder.className = 'image-placeholder w-full h-full bg-gray-100 rounded-full flex items-center justify-center text-gray-400 text-xs';
+                            placeholder.innerHTML = 'No Img';
+                            parent.appendChild(placeholder);
+                        }
+                        placeholder.style.display = 'flex';
+                    }
+                }}
+            />
+        </div>
+    );
 };
 
 export default function AttendancePortal() {
@@ -88,6 +154,10 @@ export default function AttendancePortal() {
     const [approvedLeavesCount, setApprovedLeavesCount] = useState<number>(0);
     const [selectedDateRecord, setSelectedDateRecord] = useState<AttendanceRecord | null>(null);
     const [isClient, setIsClient] = useState(false);
+    // Modal state for photo viewing
+    const [modalOpen, setModalOpen] = useState(false);
+    const [modalPhotoSrc, setModalPhotoSrc] = useState('');
+    const [modalPhotoAlt, setModalPhotoAlt] = useState('');
     // Tooltip state for calendar hover
     const [hoveredRecord, setHoveredRecord] = useState<AttendanceRecord | null>(null);
     const [hoveredPosition, setHoveredPosition] = useState<{ x: number; y: number } | null>(null);
@@ -129,20 +199,39 @@ export default function AttendancePortal() {
     };
 
     useEffect(() => {
-      const userEmail = localStorage.getItem("user_email");
-      if (userEmail && !profileData) {
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(userEmail)}`)
-          .then(res => res.ok ? res.json() : null)
-          .then(data => setProfileData(data))
-          .catch(() => {});
-      }
+        const userEmail = localStorage.getItem("user_email");
+        if (userEmail && !profileData) {
+            fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(userEmail)}`)
+                .then(res => res.ok ? res.json() : null)
+                .then(data => setProfileData(data))
+                .catch(() => { });
+        }
     }, [profileData]);
+
+    // Handle photo modal events
+    useEffect(() => {
+        const attendancePortal = document.getElementById('attendance-portal');
+        if (!attendancePortal) return;
+
+        const handleOpenPhotoModal = (event: Event) => {
+            const customEvent = event as CustomEvent;
+            setModalPhotoSrc(customEvent.detail.src);
+            setModalPhotoAlt(customEvent.detail.alt);
+            setModalOpen(true);
+        };
+
+        attendancePortal.addEventListener('openPhotoModal', handleOpenPhotoModal);
+
+        return () => {
+            attendancePortal.removeEventListener('openPhotoModal', handleOpenPhotoModal);
+        };
+    }, []);
 
     useEffect(() => {
         setIsClient(true);
         const storedEmail = localStorage.getItem("user_email") || localStorage.getItem("loggedInUser");
         if (storedEmail) setLoggedInEmail(storedEmail);
-        
+
         // Load submitted requests from localStorage
         const stored = localStorage.getItem("attendance_requests");
         if (stored) {
@@ -163,6 +252,24 @@ export default function AttendancePortal() {
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_attendance/`);
                 if (!res.ok) throw new Error(`Error fetching attendance: ${res.statusText}`);
                 const data: { attendance: APIResponseRecord[] } = await res.json();
+
+                // Helper to ensure absolute URLs
+                const getAbsoluteImageUrl = (url: string | null | undefined): string | null => {
+                    if (!url || url === "-" || url === "null" || url === "None") return null;
+                    
+                    // If it's already an absolute URL, return as is
+                    if (url.startsWith("http") || url.startsWith("data:")) return url;
+                    
+                    // Handle relative URLs that might be missing the leading slash
+                    let cleanUrl = url.trim();
+                    if (!cleanUrl.startsWith('/')) {
+                        cleanUrl = '/' + cleanUrl;
+                    }
+                    
+                    // Construct full URL
+                    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+                    return `${baseUrl}${cleanUrl}`;
+                };
 
                 // Calculate hoursWorked for present records
                 const transformed: AttendanceRecord[] = (data.attendance || []).map((rec, idx) => {
@@ -193,6 +300,8 @@ export default function AttendancePortal() {
                         status: rec.status || "-",
                         checkIn: rec.check_in || "-",
                         checkOut: rec.check_out || "-",
+                        checkInPhoto: getAbsoluteImageUrl(rec.check_in_photo),
+                        checkOutPhoto: getAbsoluteImageUrl(rec.check_out_photo),
                         hoursWorked,
                         email: rec.email,
                     };
@@ -212,15 +321,15 @@ export default function AttendancePortal() {
     const handleRaiseAttendance = async (forDate: string) => {
         const email = (loggedInEmail || profileData?.email || localStorage.getItem("user_email") || "").trim();
         if (!email || !forDate || !raiseReason.trim()) return;
-        
+
         const requestKey = `${email}|${forDate}`;
-        
+
         // Check if already submitted
         if (submittedRequests[requestKey]) {
             setRaiseMessage("You have already submitted a request for this date.");
             return;
         }
-        
+
         try {
             setRaiseSubmitting(true);
             setRaiseMessage(null);
@@ -235,13 +344,13 @@ export default function AttendancePortal() {
             }
             const data = await res.json();
             const status = data.status || "Pending";
-            
+
             // Save to state and localStorage
             const newRequest = { reason: raiseReason.trim(), status, timestamp: Date.now() };
             const updated = { ...submittedRequests, [requestKey]: newRequest };
             setSubmittedRequests(updated);
             localStorage.setItem("attendance_requests", JSON.stringify(updated));
-            
+
             setRaiseMessage(`Request sent to your manager. Status: ${status}`);
             setRaiseReason("");
         } catch (e) {
@@ -329,7 +438,7 @@ export default function AttendancePortal() {
     useEffect(() => {
         const fetchAbsences = async () => {
             if (!loggedInEmail) return;
-            
+
             setLoadingAbsences(true);
             try {
                 const res = await fetch(
@@ -338,7 +447,7 @@ export default function AttendancePortal() {
                 if (!res.ok) throw new Error("Failed to fetch absences");
                 const data: AbsenceRecord[] = await res.json();
                 setAbsences(data || []);
-                
+
                 // Transform absences into attendance records
                 const absenceRecords: AttendanceRecord[] = (data || []).map((absence, idx) => ({
                     id: `absence-${idx}`,
@@ -355,13 +464,13 @@ export default function AttendancePortal() {
                 // Merge with existing attendance records
                 setFetchedAttendance(prev => {
                     const merged = [...prev];
-                    
+
                     absenceRecords.forEach(absenceRec => {
-                        const existingIndex = merged.findIndex(rec => 
-                            rec.date === absenceRec.date && 
+                        const existingIndex = merged.findIndex(rec =>
+                            rec.date === absenceRec.date &&
                             rec.email.toLowerCase() === absenceRec.email.toLowerCase()
                         );
-                        
+
                         if (existingIndex === -1) {
                             // Add absence record if no record exists for that date
                             merged.push(absenceRec);
@@ -379,7 +488,7 @@ export default function AttendancePortal() {
                             }
                         }
                     });
-                    
+
                     return merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 });
             } catch (err) {
@@ -449,72 +558,72 @@ export default function AttendancePortal() {
 
     // ✅ Define handleMarkAttendance for check-in / check-out
     const handleMarkAttendance = async () => {
-      try {
-        const userEmail = localStorage.getItem("user_email");
-        if (!userEmail) {
-          alert("⚠️ No user email found. Please log in again.");
-          return;
-        }
-
-        // Fetch employee info
-        const empRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(userEmail)}/`
-        );
-
-        if (!empRes.ok) {
-          alert("❌ Could not fetch employee info.");
-          return;
-        }
-
-        const empData = await empRes.json();
-
-        // Get GPS coordinates
-        if (!navigator.geolocation) {
-          alert("❌ GPS not supported in this browser.");
-          return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            const { latitude, longitude } = pos.coords;
-
-            const formData = new FormData();
-            formData.append("email", userEmail);
-            formData.append("latitude", latitude.toString());
-            formData.append("longitude", longitude.toString());
-
-            // Attach profile image if available
-            if (empData?.profile_picture) {
-              const imgResponse = await fetch(empData.profile_picture);
-              const imgBlob = await imgResponse.blob();
-              formData.append("image", imgBlob, "mani2.jpeg");
+        try {
+            const userEmail = localStorage.getItem("user_email");
+            if (!userEmail) {
+                alert("⚠️ No user email found. Please log in again.");
+                return;
             }
 
-            const response = await fetch(
-              `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/office_attendance/`,
-              {
-                method: "POST",
-                body: formData,
-              }
+            // Fetch employee info
+            const empRes = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/${encodeURIComponent(userEmail)}/`
             );
 
-            if (response.ok) {
-              alert("✅ Attendance marked successfully!");
-            } else {
-              const error = await response.text();
-              alert("❌ Failed to mark attendance: " + error);
+            if (!empRes.ok) {
+                alert("❌ Could not fetch employee info.");
+                return;
             }
-          },
-          (err) => {
-            console.error("GPS Error:", err);
-            alert("⚠️ Please enable GPS and allow location access in your browser settings!");
-          },
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      } catch (error) {
-        console.error("Error marking attendance:", error);
-        alert("❌ Something went wrong. Try again.");
-      }
+
+            const empData = await empRes.json();
+
+            // Get GPS coordinates
+            if (!navigator.geolocation) {
+                alert("❌ GPS not supported in this browser.");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                    const { latitude, longitude } = pos.coords;
+
+                    const formData = new FormData();
+                    formData.append("email", userEmail);
+                    formData.append("latitude", latitude.toString());
+                    formData.append("longitude", longitude.toString());
+
+                    // Attach profile image if available
+                    if (empData?.profile_picture) {
+                        const imgResponse = await fetch(empData.profile_picture);
+                        const imgBlob = await imgResponse.blob();
+                        formData.append("image", imgBlob, "mani2.jpeg");
+                    }
+
+                    const response = await fetch(
+                        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/office_attendance/`,
+                        {
+                            method: "POST",
+                            body: formData,
+                        }
+                    );
+
+                    if (response.ok) {
+                        alert("✅ Attendance marked successfully!");
+                    } else {
+                        const error = await response.text();
+                        alert("❌ Failed to mark attendance: " + error);
+                    }
+                },
+                (err) => {
+                    console.error("GPS Error:", err);
+                    alert("⚠️ Please enable GPS and allow location access in your browser settings!");
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        } catch (error) {
+            console.error("Error marking attendance:", error);
+            alert("❌ Something went wrong. Try again.");
+        }
     };
 
     const formatDateForDisplay = (dateStr: string) => {
@@ -602,7 +711,7 @@ export default function AttendancePortal() {
         });
 
         let present = 0, absent = 0, workingIn = 0, late = 0, halfDay = 0, sunday = 0, leave = 0;
-        
+
         // Count Sundays in the current month
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth();
@@ -620,7 +729,7 @@ export default function AttendancePortal() {
                 // Sunday records are handled separately
                 return;
             }
-            
+
             if (rec.status === "Absent") {
                 absent++;
             } else if (rec.status === "Late") {
@@ -713,7 +822,7 @@ export default function AttendancePortal() {
             recordDate.getFullYear() === currentDate.getFullYear();
     }).length;
 
-    const totalAbsences = absences.filter(absence => 
+    const totalAbsences = absences.filter(absence =>
         absence.email.toLowerCase() === (loggedInEmail || "").toLowerCase()
     ).length;
 
@@ -766,7 +875,7 @@ export default function AttendancePortal() {
         // Then check attendance
         const record = fetchedAttendance.find(
             rec => formatDateForComparison(rec.date) === dateStr &&
-                   rec.email?.trim().toLowerCase() === normalizedEmail
+                rec.email?.trim().toLowerCase() === normalizedEmail
         );
 
         if (record) {
@@ -779,7 +888,7 @@ export default function AttendancePortal() {
                 default:
                     // Fallback based on check-in/out
                     if (record.checkIn && record.checkIn !== "-" && record.checkIn !== "null") {
-                        if (record.checkOut && record.checkOut !== "-" && record.checkOut !== "null") 
+                        if (record.checkOut && record.checkOut !== "-" && record.checkOut !== "null")
                             return "calendar-present";
                         return "calendar-workingin";
                     }
@@ -808,7 +917,7 @@ export default function AttendancePortal() {
 
     return (
         <DashboardLayout role="employee">
-            <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
+            <div id="attendance-portal" className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
                 {/* Header Section */}
                 <div className="mb-6 sm:mb-8">
                     <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-2">
@@ -834,7 +943,7 @@ export default function AttendancePortal() {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200 shadow-sm">
                         <div className="flex items-center justify-between">
                             <div>
@@ -848,7 +957,7 @@ export default function AttendancePortal() {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200 shadow-sm">
                         <div className="flex items-center justify-between">
                             <div>
@@ -862,7 +971,7 @@ export default function AttendancePortal() {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200 shadow-sm">
                         <div className="flex items-center justify-between">
                             <div>
@@ -903,7 +1012,7 @@ export default function AttendancePortal() {
                                             if (view !== "month") return null;
                                             const dateStr = formatDateForComparison(date);
                                             const normalizedEmail = (loggedInEmail || "").trim().toLowerCase();
-                                            
+
                                             // Check if it's Sunday
                                             if (date.getDay() === 0) {
                                                 const sundayRecord = createSundayRecord(date);
@@ -940,8 +1049,8 @@ export default function AttendancePortal() {
                                             });
 
                                             // Check for absence
-                                            const absence = absences.find(abs => 
-                                                abs.date === dateStr && 
+                                            const absence = absences.find(abs =>
+                                                abs.date === dateStr &&
                                                 abs.email?.trim().toLowerCase() === normalizedEmail
                                             );
 
@@ -1024,20 +1133,44 @@ export default function AttendancePortal() {
                                                 </div>
                                             )}
                                             {hoveredRecord.status !== "Sunday" && (
-                                                <>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-gray-600">Check-in:</span>
-                                                        <span className="text-green-700 font-medium">{formatTime(hoveredRecord.checkIn)}</span>
+                                                <div className="pt-1">
+                                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                                        <div className="flex-1">
+                                                            <div className="text-xs text-gray-600 mb-1">Check-in</div>
+                                                            <div className="font-medium text-green-700">{formatTime(hoveredRecord.checkIn)}</div>
+                                                        </div>
+
+                                                        {hoveredRecord.checkInPhoto && (
+                                                            <div className="flex flex-col items-center">
+                                                                <PhotoDisplay
+                                                                    src={hoveredRecord.checkInPhoto}
+                                                                    alt="Check-in"
+                                                                    size="sm"
+                                                                />
+                                                            </div>
+                                                        )}
+
+                                                        <div className="flex-1 text-center">
+                                                            <div className="text-xs text-gray-500 mb-1">→</div>
+                                                            <div className="text-xs font-medium text-blue-600">{calculateHoursWorked(hoveredRecord)}</div>
+                                                        </div>
+
+                                                        {hoveredRecord.checkOutPhoto && (
+                                                            <div className="flex flex-col items-center">
+                                                                <PhotoDisplay
+                                                                    src={hoveredRecord.checkOutPhoto}
+                                                                    alt="Check-out"
+                                                                    size="sm"
+                                                                />
+                                                            </div>
+                                                        )}
+
+                                                        <div className="flex-1">
+                                                            <div className="text-xs text-gray-600 mb-1 text-right">Check-out</div>
+                                                            <div className="font-medium text-red-700 text-right">{formatTime(hoveredRecord.checkOut)}</div>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-gray-600">Check-out:</span>
-                                                        <span className="text-red-700 font-medium">{formatTime(hoveredRecord.checkOut)}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-gray-600">Hours:</span>
-                                                        <span className="text-blue-700 font-medium">{calculateHoursWorked(hoveredRecord)}</span>
-                                                    </div>
-                                                </>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
@@ -1068,311 +1201,368 @@ export default function AttendancePortal() {
                                     </div>
 
                                     {selectedDateRecord ? (
-                                      <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 text-sm">
-                                        <div className="space-y-2">
-                                          {selectedDateRecord.fullname && selectedDateRecord.fullname !== "Sunday" && (
-                                            <div className="flex justify-between">
-                                              <span className="text-gray-600">Employee:</span>
-                                              <span className="font-medium">{selectedDateRecord.fullname}</span>
-                                            </div>
-                                          )}
-                                          {selectedDateRecord.department && selectedDateRecord.department !== "Weekend" && (
-                                            <div className="flex justify-between">
-                                              <span className="text-gray-600">Department:</span>
-                                              <span className="font-medium">{selectedDateRecord.department}</span>
-                                            </div>
-                                          )}
-                                          {selectedDateRecord.status !== "Sunday" && (
-                                            <div className="flex justify-between">
-                                              <span className="text-gray-600">Check-in:</span>
-                                              <span className="font-medium text-green-600">
-                                                {formatTime(selectedDateRecord.checkIn)}
-                                              </span>
-                                            </div>
-                                          )}
-                                        </div>
-                                        <div className="space-y-2">
-                                          <div className="flex justify-between">
-                                            <span className="text-gray-600">Status:</span>
-                                            <span className={`font-medium px-2 py-1 rounded text-xs sm:text-sm ${getStatusColor(deriveStatus(selectedDateRecord))}`}>
-                                              {deriveStatus(selectedDateRecord)}
-                                            </span>
-                                          </div>
-                                          {selectedDateRecord.status !== "Sunday" && (
-                                            <>
-                                              <div className="flex justify-between">
-                                                <span className="text-gray-600">Check-out:</span>
-                                                <span className="font-medium text-red-600">
-                                                  {formatTime(selectedDateRecord.checkOut)}
-                                                </span>
-                                              </div>
-                                              <div className="flex justify-between">
-                                                <span className="text-gray-600">Hours:</span>
-                                                <span className="font-medium text-blue-600">
-                                                  {calculateHoursWorked(selectedDateRecord)}
-                                                </span>
-                                              </div>
-                                            </>
-                                          )}
-                                        </div>
-                                        {/* Mark Attendance Button or Request Manager logic */}
-                                        {(() => {
-                                          // --- Improved absence & button logic for today's date ---
-                                          const today = new Date();
-                                          const todayStr = formatDateForComparison(today);
-                                          const todayISO = formatDateForComparison(new Date());
-                                          // Determine user email robustly (loggedInEmail, profileData, or localStorage)
-                                          const userEmailForCheck = (loggedInEmail || profileData?.email || localStorage.getItem("user_email") || "").trim().toLowerCase();
-                                          const record = selectedDateRecord ?? ({} as AttendanceRecord);
-                                          const buttonLabel =
-                                            !record.checkIn || record.checkIn === "-" || record.checkIn === "null"
-                                              ? "Mark Check-In"
-                                              : !record.checkOut || record.checkOut === "-" || record.checkOut === "null"
-                                              ? "Mark Check-Out"
-                                              : "";
-
-                                          // Absence logic for today
-                                          const normalizedUserEmail = (userEmailForCheck || "").trim().toLowerCase();
-                                          const isAbsentToday = absences.some(abs => {
-                                              const absDate = formatDateForComparison(abs.date);
-                                              const absEmail = (abs.email || "").trim().toLowerCase();
-                                              return absDate === todayISO && absEmail === normalizedUserEmail;
-                                          });
-
-                                          // Wait for absences to be fetched before showing any button
-                                          if (!absences || absences.length === 0) {
-                                              return (
-                                                  <div className="mt-4 text-center text-gray-500">
-                                                      Loading attendance data...
-                                                  </div>
-                                              );
-                                          }
-
-                                          // Only show button logic for today
-                                          const isToday = selectedDate === todayStr;
-                                          if (isToday) {
-                                            // If today is absent, show "Request Manager"
-                                            if (isAbsentToday) {
-                                              // Check if request already submitted for this date
-                                              const requestKey = `${normalizedUserEmail}|${selectedDate}`;
-                                              const existingRequest = submittedRequests[requestKey];
-                                              
-                                              if (existingRequest) {
-                                                // Show already submitted status
-                                                return (
-                                                  <div className="mt-6 text-center">
-                                                    <div className="flex justify-center mb-3">
-                                                      <Image
-                                                        src={profileData?.profile_picture || "/default-avatar.png"}
-                                                        alt="Profile"
-                                                        width={64}
-                                                        height={64}
-                                                        className="rounded-full border-2 border-green-400 shadow-sm"
-                                                      />
+                                        <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 text-sm">
+                                            <div className="space-y-3">
+                                                {selectedDateRecord.fullname && selectedDateRecord.fullname !== "Sunday" && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600">Employee:</span>
+                                                        <span className="font-medium">{selectedDateRecord.fullname}</span>
                                                     </div>
-                                                    <div className="max-w-md mx-auto bg-green-50 border border-green-200 rounded-lg p-4">
-                                                      <div className="flex items-center gap-2 mb-2">
-                                                        <span className="text-green-600 text-xl">✓</span>
-                                                        <h3 className="font-semibold text-green-800">Request Already Submitted</h3>
-                                                      </div>
-                                                      <p className="text-sm text-gray-700 mb-2">
-                                                        <strong>Status:</strong> <span className="text-green-700">{existingRequest.status}</span>
-                                                      </p>
-                                                      <p className="text-sm text-gray-700 mb-2">
-                                                        <strong>Reason:</strong> {existingRequest.reason}
-                                                      </p>
-                                                      <p className="text-xs text-gray-500">
-                                                        Submitted: {new Date(existingRequest.timestamp).toLocaleString()}
-                                                      </p>
-                                                    </div>
-                                                  </div>
-                                                );
-                                              }
-                                              
-                                              // Show request form
-                                              return (
-                                                <div className="mt-6 text-center">
-                                                  <div className="flex justify-center mb-3">
-                                                    <Image
-                                                      src={profileData?.profile_picture || "/default-avatar.png"}
-                                                      alt="Profile"
-                                                      width={64}
-                                                      height={64}
-                                                      className="rounded-full border-2 border-orange-400 shadow-sm"
-                                                    />
-                                                  </div>
-                                                  <div className="max-w-md mx-auto text-left">
-                                                    <label className="block text-sm text-gray-700 mb-1">Describe the issue</label>
-                                                    <textarea
-                                                      className="w-full border rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                                                      rows={3}
-                                                      placeholder="E.g., Network issue; could not check-in before 10:45."
-                                                      value={raiseReason}
-                                                      onChange={e => setRaiseReason(e.target.value)}
-                                                    />
-                                                    {raiseMessage && (
-                                                      <p className={`mt-2 text-sm ${raiseMessage.includes('Request sent') || raiseMessage.includes('Status:') ? 'text-green-600' : 'text-red-600'}`}>{raiseMessage}</p>
-                                                    )}
-                                                    <button
-                                                      type="button"
-                                                      className="mt-3 px-5 py-2 bg-orange-600 text-white font-semibold rounded-md hover:bg-orange-700 transition-all duration-200 disabled:opacity-60"
-                                                      disabled={raiseSubmitting || !raiseReason.trim()}
-                                                      onClick={() => selectedDate && handleRaiseAttendance(selectedDate)}
-                                                    >
-                                                      {raiseSubmitting ? 'Sending...' : 'Request Manager'}
-                                                    </button>
-                                                  </div>
-                                                </div>
-                                              );
-                                            }
-                                            // Else show Mark Check-In or Check-Out
-                                            if (buttonLabel) {
-                                              return (
-                                                <div className="mt-6 text-center">
-                                                  <div className="flex justify-center mb-3">
-                                                    <Image
-                                                      src={profileData?.profile_picture || "/default-avatar.png"}
-                                                      alt="Profile"
-                                                      width={64}
-                                                      height={64}
-                                                      className="rounded-full border-2 border-blue-400 shadow-sm"
-                                                    />
-                                                  </div>
-                                                  <button
-                                                    type="button"
-                                                    className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-all duration-200"
-                                                    onClick={handleMarkAttendance}
-                                                  >
-                                                    {buttonLabel}
-                                                  </button>
-                                                </div>
-                                              );
-                                            }
-                                          }
-                                          return null;
-                                        })()}
-                                      </div>
-                                    ) : new Date(selectedDate).getDay() === 0 ? (
-                                      // Sunday card
-                                      <div className="text-sm">
-                                        <div className="flex justify-between items-center mb-2">
-                                          <span className="text-gray-600">Status:</span>
-                                          <span className={`font-medium px-2 py-1 rounded text-xs sm:text-sm ${getStatusColor("Sunday")}`}>
-                                            Sunday
-                                          </span>
-                                        </div>
-                                        <p className="text-gray-600 text-sm">Weekend - No work scheduled</p>
-                                      </div>
-                                    ) : (() => {
-                                      // ✅ Local date comparison
-                                      const today = new Date();
-                                      const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-                                      const isToday = selectedDate === localToday;
-                                      if (isToday) {
-                                        if (!absences || absences.length === 0) {
-                                          return (
-                                            <div className="text-center">
-                                              <p className="text-gray-600 text-sm mb-3">Loading attendance data...</p>
-                                            </div>
-                                          );
-                                        }
-                                        // Check if today is marked absent; if so, show Request Manager instead of Mark Check-In
-                                        const todayISO = localToday; // already in YYYY-MM-DD
-                                        const normalizedUserEmail = (loggedInEmail || profileData?.email || localStorage.getItem("user_email") || "").trim().toLowerCase();
-                                        const isAbsentToday = absences.some(abs => {
-                                          const absDate = formatDateForComparison(abs.date);
-                                          const absEmail = (abs.email || "").trim().toLowerCase();
-                                          return absDate === todayISO && absEmail === normalizedUserEmail;
-                                        });
-
-                                        if (isAbsentToday) {
-                                          // Check if request already submitted for this date
-                                          const requestKey = `${normalizedUserEmail}|${selectedDate}`;
-                                          const existingRequest = submittedRequests[requestKey];
-                                          
-                                          if (existingRequest) {
-                                            // Show already submitted status
-                                            return (
-                                              <div className="text-center">
-                                                <p className="text-gray-600 text-sm mb-3">You have been marked absent for today.</p>
-                                                <div className="flex justify-center mb-3">
-                                                  <Image
-                                                    src={profileData?.profile_picture || "/default-avatar.png"}
-                                                    alt="Profile"
-                                                    width={64}
-                                                    height={64}
-                                                    className="rounded-full border-2 border-green-400 shadow-sm"
-                                                  />
-                                                </div>
-                                                <div className="max-w-md mx-auto bg-green-50 border border-green-200 rounded-lg p-4">
-                                                  <div className="flex items-center gap-2 mb-2">
-                                                    <span className="text-green-600 text-xl">✓</span>
-                                                    <h3 className="font-semibold text-green-800">Request Already Submitted</h3>
-                                                  </div>
-                                                  <p className="text-sm text-gray-700 mb-2">
-                                                    <strong>Status:</strong> <span className="text-green-700">{existingRequest.status}</span>
-                                                  </p>
-                                                  <p className="text-sm text-gray-700 mb-2">
-                                                    <strong>Reason:</strong> {existingRequest.reason}
-                                                  </p>
-                                                  <p className="text-xs text-gray-500">
-                                                    Submitted: {new Date(existingRequest.timestamp).toLocaleString()}
-                                                  </p>
-                                                </div>
-                                              </div>
-                                            );
-                                          }
-                                          
-                                          return (
-                                            <div className="text-center">
-                                              <p className="text-gray-600 text-sm mb-3">You have been marked absent for today.</p>
-                                              <div className="flex justify-center mb-3">
-                                                <Image
-                                                  src={profileData?.profile_picture || "/default-avatar.png"}
-                                                  alt="Profile"
-                                                  width={64}
-                                                  height={64}
-                                                  className="rounded-full border-2 border-orange-400 shadow-sm"
-                                                />
-                                              </div>
-                                              <div className="max-w-md mx-auto text-left">
-                                                <label className="block text-sm text-gray-700 mb-1">Describe the issue</label>
-                                                <textarea
-                                                  className="w-full border rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-                                                  rows={3}
-                                                  placeholder="E.g., Network issue; could not check-in before 10:45."
-                                                  value={raiseReason}
-                                                  onChange={e => setRaiseReason(e.target.value)}
-                                                />
-                                                {raiseMessage && (
-                                                  <p className={`mt-2 text-sm ${raiseMessage.includes('Request sent') || raiseMessage.includes('Status:') ? 'text-green-600' : 'text-red-600'}`}>{raiseMessage}</p>
                                                 )}
-                                                <button
-                                                  type="button"
-                                                  className="mt-3 px-5 py-2 bg-orange-600 text-white font-semibold rounded-md hover:bg-orange-700 transition-all duration-200 disabled:opacity-60"
-                                                  disabled={raiseSubmitting || !raiseReason.trim()}
-                                                  onClick={() => selectedDate && handleRaiseAttendance(selectedDate)}
-                                                >
-                                                  {raiseSubmitting ? 'Sending...' : 'Request Manager'}
-                                                </button>
-                                              </div>
-                                            </div>
-                                          );
-                                        }
+                                                {selectedDateRecord.department && selectedDateRecord.department !== "Weekend" && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-600">Department:</span>
+                                                        <span className="font-medium">{selectedDateRecord.department}</span>
+                                                    </div>
+                                                )}
 
-                                        return (
-                                          <div className="text-center">
-                                            <p className="text-gray-600 text-sm mb-3">No attendance record yet for today.</p>
-                                            <button
-                                              className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-all duration-200"
-                                              onClick={handleMarkAttendance}
-                                            >
-                                              Mark Check-In
-                                            </button>
-                                          </div>
-                                        );
-                                      }
-                                      return <p className="text-gray-500 text-sm">No attendance record found for this date.</p>;
+                                                {/* Time and Photo Section */}
+                                                <div className="pt-2">
+                                                    {(() => {
+                                                        const displayStatus = deriveStatus(selectedDateRecord);
+                                                        const isAbsent = displayStatus === "Absent";
+                                                        const isSunday = displayStatus === "Sunday";
+
+                                                        return (
+                                                            <div className="relative border border-blue-100 bg-white/50 rounded-xl p-4 flex flex-col gap-3">
+                                                                {!isAbsent && !isSunday && (
+                                                                    <div className="flex items-center justify-between relative mt-2">
+                                                                        {/* Connecting Line */}
+                                                                        <div className="absolute left-4 right-4 top-1/2 h-0.5 bg-gray-100 -z-10"></div>
+
+                                                                        {/* Check In */}
+                                                                        <div className="flex flex-col items-center gap-1 bg-white/80 backdrop-blur-sm p-2 rounded-lg z-0 min-w-[80px]">
+                                                                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Check In</span>
+                                                                            <div className="relative">
+                                                                                {selectedDateRecord.checkInPhoto ? (
+                                                                                    <PhotoDisplay
+                                                                                        src={selectedDateRecord.checkInPhoto}
+                                                                                        alt="In"
+                                                                                        size="md"
+                                                                                        className="border-2 border-green-100 shadow-sm"
+                                                                                    />
+                                                                                ) : (
+                                                                                    <div className="w-12 h-12 rounded-full bg-green-50 border border-green-200 flex items-center justify-center text-green-600 font-bold text-xs shadow-sm">
+                                                                                        IN
+                                                                                    </div>
+                                                                                )}
+                                                                                {/* <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-sm"></div> */}
+                                                                            </div>
+                                                                            <span className="text-xs font-bold text-gray-800 mt-1">{formatTime(selectedDateRecord.checkIn)}</span>
+                                                                        </div>
+
+                                                                        {/* Hours Pill (Center) */}
+                                                                        <div className="flex flex-col items-center z-10">
+                                                                            <span className="text-[10px] text-gray-400 font-medium mb-1 bg-white px-1">Duration</span>
+                                                                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm flex items-center gap-1.5">
+                                                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                                </svg>
+                                                                                {calculateHoursWorked(selectedDateRecord)}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Check Out */}
+                                                                        <div className="flex flex-col items-center gap-1 bg-white/80 backdrop-blur-sm p-2 rounded-lg z-0 min-w-[80px]">
+                                                                            <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Check Out</span>
+                                                                            <div className="relative">
+                                                                                {selectedDateRecord.checkOutPhoto ? (
+                                                                                    <PhotoDisplay
+                                                                                        src={selectedDateRecord.checkOutPhoto}
+                                                                                        alt="Out"
+                                                                                        size="md"
+                                                                                        className="border-2 border-red-100 shadow-sm"
+                                                                                    />
+                                                                                ) : (
+                                                                                    <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600 font-bold text-xs shadow-sm">
+                                                                                        OUT
+                                                                                    </div>
+                                                                                )}
+                                                                                {/* {selectedDateRecord.checkOut && selectedDateRecord.checkOut !== "-" ? (
+                                                                                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white shadow-sm"></div>
+                                                                                ) : (
+                                                                                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-gray-300 rounded-full border-2 border-white shadow-sm"></div>
+                                                                                )} */}
+                                                                            </div>
+                                                                            <span className="text-xs font-bold text-gray-800 mt-1">{formatTime(selectedDateRecord.checkOut)}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                                <div className="flex justify-between pt-2 border-t border-gray-100">
+                                                                    <span className="text-gray-600 font-medium">Status:</span>
+                                                                    <span className={`font-bold px-3 py-1 rounded-full text-xs shadow-sm ${getStatusColor(displayStatus)}`}>
+                                                                        {displayStatus}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            </div>
+                                            {/* Mark Attendance Button or Request Manager logic */}
+                                            {(() => {
+                                                // --- Improved absence & button logic for today's date ---
+                                                const today = new Date();
+                                                const todayStr = formatDateForComparison(today);
+                                                const todayISO = formatDateForComparison(new Date());
+                                                // Determine user email robustly (loggedInEmail, profileData, or localStorage)
+                                                const userEmailForCheck = (loggedInEmail || profileData?.email || localStorage.getItem("user_email") || "").trim().toLowerCase();
+                                                const record = selectedDateRecord ?? ({} as AttendanceRecord);
+                                                const buttonLabel =
+                                                    !record.checkIn || record.checkIn === "-" || record.checkIn === "null"
+                                                        ? "Mark Check-In"
+                                                        : !record.checkOut || record.checkOut === "-" || record.checkOut === "null"
+                                                            ? "Mark Check-Out"
+                                                            : "";
+
+                                                // Absence logic for today
+                                                const normalizedUserEmail = (userEmailForCheck || "").trim().toLowerCase();
+                                                const isAbsentToday = absences.some(abs => {
+                                                    const absDate = formatDateForComparison(abs.date);
+                                                    const absEmail = (abs.email || "").trim().toLowerCase();
+                                                    return absDate === todayISO && absEmail === normalizedUserEmail;
+                                                });
+
+                                                // Wait for absences to be fetched before showing any button
+                                                if (!absences || absences.length === 0) {
+                                                    return (
+                                                        <div className="mt-4 text-center text-gray-500">
+                                                            Loading attendance data...
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // Only show button logic for today
+                                                const isToday = selectedDate === todayStr;
+                                                if (isToday) {
+                                                    // If today is absent, show "Request Manager"
+                                                    if (isAbsentToday) {
+                                                        // Check if request already submitted for this date
+                                                        const requestKey = `${normalizedUserEmail}|${selectedDate}`;
+                                                        const existingRequest = submittedRequests[requestKey];
+
+                                                        if (existingRequest) {
+                                                            // Show already submitted status
+                                                            return (
+                                                                <div className="mt-6 text-center">
+                                                                    <div className="flex justify-center mb-3">
+                                                                        <Image
+                                                                            src={profileData?.profile_picture || "/default-avatar.png"}
+                                                                            alt="Profile"
+                                                                            width={64}
+                                                                            height={64}
+                                                                            className="rounded-full border-2 border-green-400 shadow-sm"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="max-w-md mx-auto bg-green-50 border border-green-200 rounded-lg p-4">
+                                                                        <div className="flex items-center gap-2 mb-2">
+                                                                            <span className="text-green-600 text-xl">✓</span>
+                                                                            <h3 className="font-semibold text-green-800">Request Already Submitted</h3>
+                                                                        </div>
+                                                                        <p className="text-sm text-gray-700 mb-2">
+                                                                            <strong>Status:</strong> <span className="text-green-700">{existingRequest.status}</span>
+                                                                        </p>
+                                                                        <p className="text-sm text-gray-700 mb-2">
+                                                                            <strong>Reason:</strong> {existingRequest.reason}
+                                                                        </p>
+                                                                        <p className="text-xs text-gray-500">
+                                                                            Submitted: {new Date(existingRequest.timestamp).toLocaleString()}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        // Show request form
+                                                        return (
+                                                            <div className="mt-6 text-center">
+                                                                <div className="flex justify-center mb-3">
+                                                                    <Image
+                                                                        src={profileData?.profile_picture || "/default-avatar.png"}
+                                                                        alt="Profile"
+                                                                        width={64}
+                                                                        height={64}
+                                                                        className="rounded-full border-2 border-orange-400 shadow-sm"
+                                                                    />
+                                                                </div>
+                                                                <div className="max-w-md mx-auto text-left">
+                                                                    <label className="block text-sm text-gray-700 mb-1">Describe the issue</label>
+                                                                    <textarea
+                                                                        className="w-full border rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                                                        rows={3}
+                                                                        placeholder="E.g., Network issue; could not check-in before 10:45."
+                                                                        value={raiseReason}
+                                                                        onChange={e => setRaiseReason(e.target.value)}
+                                                                    />
+                                                                    {raiseMessage && (
+                                                                        <p className={`mt-2 text-sm ${raiseMessage.includes('Request sent') || raiseMessage.includes('Status:') ? 'text-green-600' : 'text-red-600'}`}>{raiseMessage}</p>
+                                                                    )}
+                                                                    <button
+                                                                        type="button"
+                                                                        className="mt-3 px-5 py-2 bg-orange-600 text-white font-semibold rounded-md hover:bg-orange-700 transition-all duration-200 disabled:opacity-60"
+                                                                        disabled={raiseSubmitting || !raiseReason.trim()}
+                                                                        onClick={() => selectedDate && handleRaiseAttendance(selectedDate)}
+                                                                    >
+                                                                        {raiseSubmitting ? 'Sending...' : 'Request Manager'}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    // Else show Mark Check-In or Check-Out
+                                                    if (buttonLabel) {
+                                                        return (
+                                                            <div className="mt-6 text-center">
+                                                                <div className="flex justify-center mb-3">
+                                                                    <Image
+                                                                        src={profileData?.profile_picture || "/default-avatar.png"}
+                                                                        alt="Profile"
+                                                                        width={64}
+                                                                        height={64}
+                                                                        className="rounded-full border-2 border-blue-400 shadow-sm"
+                                                                    />
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-all duration-200"
+                                                                    onClick={handleMarkAttendance}
+                                                                >
+                                                                    {buttonLabel}
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    }
+                                                }
+                                                return null;
+                                            })()}
+                                        </div>
+                                    ) : new Date(selectedDate).getDay() === 0 ? (
+                                        // Sunday card
+                                        <div className="text-sm">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-gray-600">Status:</span>
+                                                <span className={`font-medium px-2 py-1 rounded text-xs sm:text-sm ${getStatusColor("Sunday")}`}>
+                                                    Sunday
+                                                </span>
+                                            </div>
+                                            <p className="text-gray-600 text-sm">Weekend - No work scheduled</p>
+                                        </div>
+                                    ) : (() => {
+                                        // ✅ Local date comparison
+                                        const today = new Date();
+                                        const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                                        const isToday = selectedDate === localToday;
+                                        if (isToday) {
+                                            if (!absences || absences.length === 0) {
+                                                return (
+                                                    <div className="text-center">
+                                                        <p className="text-gray-600 text-sm mb-3">Loading attendance data...</p>
+                                                    </div>
+                                                );
+                                            }
+                                            // Check if today is marked absent; if so, show Request Manager instead of Mark Check-In
+                                            const todayISO = localToday; // already in YYYY-MM-DD
+                                            const normalizedUserEmail = (loggedInEmail || profileData?.email || localStorage.getItem("user_email") || "").trim().toLowerCase();
+                                            const isAbsentToday = absences.some(abs => {
+                                                const absDate = formatDateForComparison(abs.date);
+                                                const absEmail = (abs.email || "").trim().toLowerCase();
+                                                return absDate === todayISO && absEmail === normalizedUserEmail;
+                                            });
+
+                                            if (isAbsentToday) {
+                                                // Check if request already submitted for this date
+                                                const requestKey = `${normalizedUserEmail}|${selectedDate}`;
+                                                const existingRequest = submittedRequests[requestKey];
+
+                                                if (existingRequest) {
+                                                    // Show already submitted status
+                                                    return (
+                                                        <div className="text-center">
+                                                            <p className="text-gray-600 text-sm mb-3">You have been marked absent for today.</p>
+                                                            <div className="flex justify-center mb-3">
+                                                                <Image
+                                                                    src={profileData?.profile_picture || "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PGNpcmNsZSBjeD0iNTAiIGN5PSI0MCIgcj0iMTIiIGZpbGw9IiM5OTkiLz48cGF0aCBkPSJNNDAgNjAgTDYwIDYwIEw2MCA5MCBMNDAgOTAgWiIgZmlsbD0iIzk5OSIvPjxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZGRkIi8+PC9zdmc+"}
+                                                                    alt="Profile"
+                                                                    width={64}
+                                                                    height={64}
+                                                                    className="rounded-full border-2 border-green-400 shadow-sm"
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PGNpcmNsZSBjeD0iNTAiIGN5PSI0MCIgcj0iMTIiIGZpbGw9IiM5OTkiLz48cGF0aCBkPSJNNDAgNjAgTDYwIDYwIEw2MCA5MCBMNDAgOTAgWiIgZmlsbD0iIzk5OSIvPjxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZGRkIi8+PC9zdmc+';
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <div className="max-w-md mx-auto bg-green-50 border border-green-200 rounded-lg p-4">
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <span className="text-green-600 text-xl">✓</span>
+                                                                    <h3 className="font-semibold text-green-800">Request Already Submitted</h3>
+                                                                </div>
+                                                                <p className="text-sm text-gray-700 mb-2">
+                                                                    <strong>Status:</strong> <span className="text-green-700">{existingRequest.status}</span>
+                                                                </p>
+                                                                <p className="text-sm text-gray-700 mb-2">
+                                                                    <strong>Reason:</strong> {existingRequest.reason}
+                                                                </p>
+                                                                <p className="text-xs text-gray-500">
+                                                                    Submitted: {new Date(existingRequest.timestamp).toLocaleString()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <div className="text-center">
+                                                        <p className="text-gray-600 text-sm mb-3">You have been marked absent for today.</p>
+                                                        <div className="flex justify-center mb-3">
+                                                            <Image
+                                                                src={profileData?.profile_picture || "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PGNpcmNsZSBjeD0iNTAiIGN5PSI0MCIgcj0iMTIiIGZpbGw9IiM5OTkiLz48cGF0aCBkPSJNNDAgNjAgTDYwIDYwIEw2MCA5MCBMNDAgOTAgWiIgZmlsbD0iIzk5OSIvPjxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZGRkIi8+PC9zdmc+"}
+                                                                alt="Profile"
+                                                                width={64}
+                                                                height={64}
+                                                                className="rounded-full border-2 border-orange-400 shadow-sm"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PGNpcmNsZSBjeD0iNTAiIGN5PSI0MCIgcj0iMTIiIGZpbGw9IiM5OTkiLz48cGF0aCBkPSJNNDAgNjAgTDYwIDYwIEw2MCA5MCBMNDAgOTAgWiIgZmlsbD0iIzk5OSIvPjxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiBmaWxsPSIjZGRkIi8+PC9zdmc+';
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div className="max-w-md mx-auto text-left">
+                                                            <label className="block text-sm text-gray-700 mb-1">Describe the issue</label>
+                                                            <textarea
+                                                                className="w-full border rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                                                rows={3}
+                                                                placeholder="E.g., Network issue; could not check-in before 10:45."
+                                                                value={raiseReason}
+                                                                onChange={e => setRaiseReason(e.target.value)}
+                                                            />
+                                                            {raiseMessage && (
+                                                                <p className={`mt-2 text-sm ${raiseMessage.includes('Request sent') || raiseMessage.includes('Status:') ? 'text-green-600' : 'text-red-600'}`}>{raiseMessage}</p>
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                className="mt-3 px-5 py-2 bg-orange-600 text-white font-semibold rounded-md hover:bg-orange-700 transition-all duration-200 disabled:opacity-60"
+                                                                disabled={raiseSubmitting || !raiseReason.trim()}
+                                                                onClick={() => selectedDate && handleRaiseAttendance(selectedDate)}
+                                                            >
+                                                                {raiseSubmitting ? 'Sending...' : 'Request Manager'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <div className="text-center">
+                                                    <p className="text-gray-600 text-sm mb-3">No attendance record yet for today.</p>
+                                                    <button
+                                                        className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition-all duration-200"
+                                                        onClick={handleMarkAttendance}
+                                                    >
+                                                        Mark Check-In
+                                                    </button>
+                                                </div>
+                                            );
+                                        }
+                                        return <p className="text-gray-500 text-sm">No attendance record found for this date.</p>;
                                     })()}
                                 </div>
                             )}
@@ -1439,7 +1629,7 @@ export default function AttendancePortal() {
                                 {chartData.filter(item => item.value > 0).map((item,) => (
                                     <div key={item.title} className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <span 
+                                            <span
                                                 className="inline-block w-3 h-3 rounded-sm"
                                                 style={{ backgroundColor: item.color }}
                                             ></span>
@@ -1461,7 +1651,7 @@ export default function AttendancePortal() {
                         </h2>
                         <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                               {absences
+                                {absences
                                     .filter(absence => absence.email.toLowerCase() === (loggedInEmail || "").toLowerCase())
                                     .map(absence => (
                                         <div key={absence.date + '-' + (absence.email || '')} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
@@ -1505,6 +1695,7 @@ export default function AttendancePortal() {
                         onDateChange={setSelectedDate}
                         formatDateForComparison={formatDateForComparison}
                         absences={absences}
+                        formatTime={formatTime}
                     />
                 </div>
 
@@ -1519,64 +1710,160 @@ export default function AttendancePortal() {
                             // @ts-ignore
                             (() => {
                                 const deriveStatus = (record: AttendanceRecord): string => {
-                                  if (!record) return "-";
-                                  if (record.status === "Sunday") return "Sunday";
-                                  if (record.status === "Absent") return "Absent";
-                                  const hasIn = !!(record.checkIn && record.checkIn !== "-" && record.checkIn !== "null");
-                                  const hasOut = !!(record.checkOut && record.checkOut !== "-" && record.checkOut !== "null");
-                                  if (hasIn && hasOut) return "Present";
-                                  if (hasIn && !hasOut) return "Working In";
-                                  return record.status && record.status !== "-" ? record.status : "-";
+                                    if (!record) return "-";
+                                    if (record.status === "Sunday") return "Sunday";
+                                    if (record.status === "Absent") return "Absent";
+                                    const hasIn = !!(record.checkIn && record.checkIn !== "-" && record.checkIn !== "null");
+                                    const hasOut = !!(record.checkOut && record.checkOut !== "-" && record.checkOut !== "null");
+                                    if (hasIn && hasOut) return "Present";
+                                    if (hasIn && !hasOut) return "Working In";
+                                    return record.status && record.status !== "-" ? record.status : "-";
                                 };
                                 return (
                                     fetchedAttendance
-                                    .filter(record => {
-                                        const recordEmail = (record.email || "").trim().toLowerCase();
-                                        const currentEmail = (loggedInEmail || "").trim().toLowerCase();
-                                        return recordEmail === currentEmail;
-                                    })
-                                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                                    .map(record => {
-                                        const displayStatus = deriveStatus(record);
-                                        return (
-                                            <div
-                                                key={record.id}
-                                                className="bg-white rounded-lg shadow-sm sm:shadow-md p-3 sm:p-4 border hover:shadow-md sm:hover:shadow-lg transition flex flex-col gap-1 sm:gap-2"
-                                                style={{minWidth: 0}}
-                                            >
-                                                <div className="flex items-center justify-between mb-1 sm:mb-2">
-                                                    <div className="text-xs sm:text-sm text-gray-500">{formatDateForDisplay(record.date)}</div>
-                                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded ${getStatusColor(displayStatus)}`}>
-                                                        {displayStatus}
-                                                    </span>
-                                                </div>
-                                                {record.fullname && (
-                                                    <div className="flex items-center justify-between text-xs mb-1">
-                                                        <span className="text-gray-600">Name:</span>
-                                                        <span className="font-medium">{record.fullname}</span>
+                                        .filter(record => {
+                                            const recordEmail = (record.email || "").trim().toLowerCase();
+                                            const currentEmail = (loggedInEmail || "").trim().toLowerCase();
+                                            return recordEmail === currentEmail;
+                                        })
+                                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                        .map(record => {
+                                            const displayStatus = deriveStatus(record);
+                                            const isAbsent = displayStatus === "Absent";
+                                            const isSunday = displayStatus === "Sunday";
+                                            const cardBorderColor = isAbsent ? "border-orange-200" : isSunday ? "border-red-200" : "border-gray-100";
+                                            const cardBgColor = isAbsent ? "bg-orange-50/50" : isSunday ? "bg-red-50/50" : "bg-white";
+
+                                            return (
+                                                <div
+                                                    key={record.id}
+                                                    className={`relative rounded-xl border ${cardBorderColor} ${cardBgColor} p-4 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col gap-3 group`}
+                                                >
+                                                    {/* Card Header */}
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-bold text-gray-800">
+                                                                {new Date(record.date).toLocaleDateString("en-GB", { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500 font-medium">
+                                                                {new Date(record.date).toLocaleDateString("en-US", { weekday: 'long' })}
+                                                            </span>
+                                                        </div>
+                                                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${getStatusColor(displayStatus)}`}>
+                                                            {displayStatus}
+                                                        </span>
                                                     </div>
-                                                )}
-                                                <div className="flex items-center justify-between text-xs mb-1">
-                                                    <span className="text-gray-600">Check-in:</span>
-                                                    <span className="font-medium text-green-700">{formatTime(record.checkIn)}</span>
+
+                                                    {/* Timeline Section */}
+                                                    {!isAbsent && !isSunday && (
+                                                        <div className="flex items-center justify-between relative mt-2">
+                                                            {/* Connecting Line */}
+                                                            <div className="absolute left-4 right-4 top-1/2 h-0.5 bg-gray-100 -z-10"></div>
+
+                                                            {/* Check In */}
+                                                            <div className="flex flex-col items-center gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-lg z-0">
+                                                                <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-0.5">Check In</span>
+                                                                <div className="relative">
+                                                                    {record.checkInPhoto ? (
+                                                                        <PhotoDisplay
+                                                                            src={record.checkInPhoto}
+                                                                            alt="In"
+                                                                            size="sm"
+                                                                            className="border-2 border-green-100 shadow-sm"
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="w-10 h-10 rounded-full bg-green-50 border border-green-200 flex items-center justify-center text-green-600 font-bold text-xs shadow-sm">
+                                                                            IN
+                                                                        </div>
+                                                                    )}
+                                                                    {/* <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm"></div> */}
+                                                                </div>
+                                                                <span className="text-xs font-bold text-gray-800 mt-0.5">{formatTime(record.checkIn)}</span>
+                                                            </div>
+
+                                                            {/* Hours Pill (Center) */}
+                                                            <div className="flex flex-col items-center z-10">
+                                                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 text-blue-700 px-2.5 py-1 rounded-full text-[11px] font-bold shadow-sm flex items-center gap-1">
+                                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                    </svg>
+                                                                    {calculateHoursWorked(record)}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Check Out */}
+                                                            <div className="flex flex-col items-center gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-lg z-0">
+                                                                <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-0.5">Check Out</span>
+                                                                <div className="relative">
+                                                                    {record.checkOutPhoto ? (
+                                                                        <PhotoDisplay
+                                                                            src={record.checkOutPhoto}
+                                                                            alt="Out"
+                                                                            size="sm"
+                                                                            className="border-2 border-red-100 shadow-sm"
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="w-10 h-10 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600 font-bold text-xs shadow-sm">
+                                                                            OUT
+                                                                        </div>
+                                                                    )}
+                                                                    {/* {record.checkOut && record.checkOut !== "-" ? (
+                                                                        <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white shadow-sm"></div>
+                                                                    ) : (
+                                                                        <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-gray-300 rounded-full border-2 border-white shadow-sm"></div>
+                                                                    )} */}
+                                                                </div>
+                                                                <span className="text-xs font-bold text-gray-800 mt-0.5">{formatTime(record.checkOut)}</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Footer Info (if needed) */}
+                                                    {(isAbsent || isSunday) && (
+                                                        <div className="text-xs text-gray-500 text-center italic py-2">
+                                                            {isSunday ? "Weekend Break" : "No attendance recorded"}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="flex items-center justify-between text-xs mb-1">
-                                                    <span className="text-gray-600">Check-out:</span>
-                                                    <span className="font-medium text-red-700">{formatTime(record.checkOut)}</span>
-                                                </div>
-                                                <div className="flex items-center justify-between text-xs mb-1">
-                                                    <span className="text-gray-600">Hours:</span>
-                                                    <span className="font-medium text-blue-700">{calculateHoursWorked(record)}</span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
+                                            );
+                                        })
                                 );
                             })()
                         }
                     </div>
                 </div>
             </div>
+
+            {/* Photo Modal */}
+            {modalOpen && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999] p-4" onClick={() => setModalOpen(false)}>
+                    <div className="relative max-w-4xl max-h-full" onClick={e => e.stopPropagation()}>
+                        <button
+                            className="absolute -top-10 right-0 text-white text-2xl hover:text-gray-300 transition-colors"
+                            onClick={() => setModalOpen(false)}
+                        >
+                            ×
+                        </button>
+                        <div className="bg-white rounded-lg overflow-hidden shadow-2xl">
+                            <Image
+                                src={modalPhotoSrc}
+                                alt={modalPhotoAlt}
+                                width={300}
+                                height={200}
+                                loading="lazy"
+                                className="max-w-full max-h-[80vh] object-contain"
+                                onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMzAwIDIwMCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPkltYWdlIG5vdCBhdmFpbGFibGU8L3RleHQ+PC9zdmc+';
+                                }}
+                            />
+                            <div className="p-4 bg-gray-50 border-t border-gray-200">
+                                <p className="text-gray-700 font-medium text-center">{modalPhotoAlt}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style jsx global>{`
                 /* Professional Calendar Styling with Excel-like Grid */
@@ -1851,6 +2138,105 @@ export default function AttendancePortal() {
                     animation: pulse-glow 2s infinite;
                 }
 
+                /* Professional Photo Display Styles */
+                .photo-display-container {
+                    transition: all 0.3s ease;
+                    border-radius: 0.5rem;
+                    overflow: hidden;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+                    border: 1px solid #e2e8f0;
+                }
+
+                .photo-display-container:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+                }
+
+                .photo-label {
+                    font-weight: 500;
+                    color: #4b5563;
+                    margin-bottom: 0.25rem;
+                }
+
+                .photo-placeholder {
+                    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #94a3b8;
+                    font-size: 0.75rem;
+                    text-align: center;
+                    padding: 0.5rem;
+                }
+
+                .photo-error {
+                    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    color: #991b1b;
+                    font-size: 0.75rem;
+                    text-align: center;
+                    padding: 0.5rem;
+                }
+
+                /* Photo Modal Styles */
+                .photo-modal-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-color: rgba(0, 0, 0, 0.75);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 9999;
+                }
+
+                .photo-modal-content {
+                    background: white;
+                    border-radius: 0.5rem;
+                    overflow: hidden;
+                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                    max-width: 90vw;
+                    max-height: 90vh;
+                }
+
+                .photo-modal-image {
+                    max-width: 100%;
+                    max-height: 80vh;
+                    object-fit: contain;
+                }
+
+                .photo-modal-caption {
+                    padding: 1rem;
+                    background-color: #f9fafb;
+                    border-top: 1px solid #e5e7eb;
+                    text-align: center;
+                    font-weight: 500;
+                    color: #374151;
+                }
+
+                .photo-modal-close {
+                    position: absolute;
+                    top: -2.5rem;
+                    right: 0;
+                    color: white;
+                    font-size: 2rem;
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    padding: 0.5rem;
+                    transition: color 0.2s;
+                }
+
+                .photo-modal-close:hover {
+                    color: #d1d5db;
+                }
+
                 /* Extra small devices (phones, 480px and down) */
                 @media (max-width: 480px) {
                     .react-calendar__tile {
@@ -1916,6 +2302,7 @@ function AttendanceRecordsWithDatePicker({
     selectedDate,
     formatDateForComparison,
     absences,
+    formatTime,
 }: {
     fetchedAttendance: AttendanceRecord[];
     loggedInEmail: string | null;
@@ -1925,6 +2312,7 @@ function AttendanceRecordsWithDatePicker({
     onDateChange: (date: string | null) => void;
     formatDateForComparison: (date: Date | string) => string;
     absences: AbsenceRecord[];
+    formatTime: (time: string | null | undefined) => string;
 }) {
     if (loadingFetchedAttendance) {
         return (
@@ -2048,57 +2436,100 @@ function AttendanceRecordsWithDatePicker({
     return (
         <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
             {filteredRecords.map(record => {
-const displayStatus = deriveStatus(record);
+                const displayStatus = deriveStatus(record);
+                const isAbsent = displayStatus === "Absent";
+                const isSunday = displayStatus === "Sunday";
+                const cardBorderColor = isAbsent ? "border-orange-200" : isSunday ? "border-red-200" : "border-gray-100";
+                const cardBgColor = isAbsent ? "bg-orange-50/50" : isSunday ? "bg-red-50/50" : "bg-white";
+
                 return (
-                <div
-                    key={record.id}
-                    className={`bg-white rounded-lg border p-3 shadow-sm flex flex-col gap-1 ${displayStatus === "Absent" ? "border-orange-200 bg-orange-50" : displayStatus === "Sunday" ? "border-red-200 bg-red-50" : ""}`}
-                    style={{ minWidth: 0 }}
-                >
-                    <div className="flex justify-between text-sm">
-                        <span className="font-medium">{new Date(record.date).toLocaleDateString("en-GB")}</span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getStatusColor(displayStatus)}`}>
-                            {displayStatus}
-                        </span>
+                    <div
+                        key={record.id}
+                        className={`relative rounded-xl border ${cardBorderColor} ${cardBgColor} p-4 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col gap-3 group`}
+                    >
+                        {/* Card Header */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <span className="text-sm font-bold text-gray-800">
+                                    {new Date(record.date).toLocaleDateString("en-GB", { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </span>
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${getStatusColor(displayStatus)}`}>
+                                {displayStatus}
+                            </span>
+                        </div>
+
+                        {/* Timeline Section */}
+                        {!isAbsent && !isSunday && (
+                            <div className="flex items-center justify-between relative mt-2">
+                                {/* Connecting Line */}
+                                <div className="absolute left-4 right-4 top-1/2 h-0.5 bg-gray-100 -z-10"></div>
+
+                                {/* Check In */}
+                                <div className="flex flex-col items-center gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-lg z-0">
+                                    <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-0.5">Check In</span>
+                                    <div className="relative">
+                                        {record.checkInPhoto ? (
+                                            <PhotoDisplay
+                                                src={record.checkInPhoto}
+                                                alt="In"
+                                                size="sm"
+                                                className="border-2 border-green-100 shadow-sm"
+                                            />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-full bg-green-50 border border-green-200 flex items-center justify-center text-green-600 font-bold text-xs shadow-sm">
+                                                IN
+                                            </div>
+                                        )}
+                                        {/* <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm"></div> */}
+                                    </div>
+                                    <span className="text-xs font-bold text-gray-800 mt-0.5">{formatTime(record.checkIn)}</span>
+                                </div>
+
+                                {/* Hours Pill (Center) */}
+                                <div className="flex flex-col items-center z-10">
+                                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 text-blue-700 px-2.5 py-1 rounded-full text-[11px] font-bold shadow-sm flex items-center gap-1">
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        {calcHoursWorked(record)}
+                                    </div>
+                                </div>
+
+                                {/* Check Out */}
+                                <div className="flex flex-col items-center gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-lg z-0">
+                                    <span className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-0.5">Check Out</span>
+                                    <div className="relative">
+                                        {record.checkOutPhoto ? (
+                                            <PhotoDisplay
+                                                src={record.checkOutPhoto}
+                                                alt="Out"
+                                                size="sm"
+                                                className="border-2 border-red-100 shadow-sm"
+                                            />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600 font-bold text-xs shadow-sm">
+                                                OUT
+                                            </div>
+                                        )}
+                                        {/* {record.checkOut && record.checkOut !== "-" ? (
+                                            <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white shadow-sm"></div>
+                                        ) : (
+                                            <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-gray-300 rounded-full border-2 border-white shadow-sm"></div>
+                                        )} */}
+                                    </div>
+                                    <span className="text-xs font-bold text-gray-800 mt-0.5">{formatTime(record.checkOut)}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Footer Info (if needed) */}
+                        {(isAbsent || isSunday) && (
+                            <div className="text-xs text-gray-500 text-center italic py-2">
+                                {isSunday ? "Weekend Break" : "No attendance recorded"}
+                            </div>
+                        )}
                     </div>
-                    {record.fullname && record.fullname !== "Sunday" && (
-                        <div className="flex justify-between text-xs">
-                            <span>Employee:</span>
-                            <span className="font-medium">{record.fullname}</span>
-                        </div>
-                    )}
-                    {displayStatus !== "Sunday" && (
-                        <>
-                            <div className="flex justify-between text-xs">
-                                <span>Check-in:</span>
-                                <span className={`font-medium ${displayStatus === "Absent" ? "text-orange-700" : "text-green-700"}`}>
-                                    {record.checkIn === "-" || record.checkIn === "null"
-                                        ? "-"
-                                        : new Date(`${record.date}T${record.checkIn}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
-                                </span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                                <span>Check-out:</span>
-                                <span className={`font-medium ${displayStatus === "Absent" ? "text-orange-700" : "text-red-700"}`}>
-                                    {record.checkOut === "-" || record.checkOut === "null"
-                                        ? "-"
-                                        : new Date(`${record.date}T${record.checkOut}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
-                                </span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                                <span>Hours:</span>
-                                <span className={`font-medium ${displayStatus === "Absent" ? "text-orange-700" : "text-blue-700"}`}>
-                                    {calcHoursWorked(record)}
-                                </span>
-                            </div>
-                        </>
-                    )}
-                    {displayStatus === "Sunday" && (
-                        <div className="text-xs text-gray-600 text-center py-1">
-                            Weekend - No work scheduled
-                        </div>
-                    )}
-                </div>
                 );
             })}
         </div>

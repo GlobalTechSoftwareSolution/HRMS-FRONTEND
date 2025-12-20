@@ -27,6 +27,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
    { name: "Dashboard", path: "/ceo/dashboard" },
     { name: "Reports", path: "/ceo/reports" },
     { name: "Employees", path: "/ceo/employees" },
+    { name: "Shift & OT", path: "/ceo/shift" },
     { name: "Attendence", path: "/ceo/attendence" },
     { name: "Monthly Report", path: "/ceo/ceo_monthly_report" },
     { name: "Finance", path: "/ceo/finance" },
@@ -41,6 +42,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Tasks", path: "/manager/tasks" },
     { name: "Reports", path: "/manager/reports" },
     { name: "Team", path: "/manager/team" },
+    { name: "Shift & OT", path: "/manager/shift" },
     { name: "LeaveApprovals", path: "/manager/leaveapprovals" },
     { name: "Attendence", path: "/manager/attendence" },
     { name: "Monthly Report", path: "/manager/manager_monthly_report" },
@@ -85,6 +87,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
   ],
   admin: [
     { name: "Attendence", path: "/admin/attendence" },
+    { name: "Shift & OT", path: "/admin/shift-ot" },
     { name: "Approvals", path: "/admin/approvals" },
     { name: "Petty Cash", path: "/admin/petty-cash" },
     { name: "System Settings", path: "/admin/system-settings" },

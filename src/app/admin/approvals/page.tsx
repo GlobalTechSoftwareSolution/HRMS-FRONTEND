@@ -84,7 +84,7 @@ const Approvalpage: React.FC = () => {
         throw new Error(`Failed to approve user: ${response.status}`);
       }
 
-      const result = await response.json();
+      await response.json();
 
       // Update local state
       setUsers(prevUsers =>
@@ -124,7 +124,7 @@ const Approvalpage: React.FC = () => {
         throw new Error(`Failed to reject user: ${response.status}`);
       }
 
-      const result = await response.json();
+      await response.json();
 
       // Remove user from the list
       setUsers(prevUsers => prevUsers.filter(user => user.email !== email))

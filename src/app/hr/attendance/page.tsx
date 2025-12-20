@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -11,18 +12,26 @@ type AttendanceRecord = {
   date: string;
   check_in: string | null;
   check_out: string | null;
+  check_in_photo?: string | null;
+  check_out_photo?: string | null;
   hours: { hrs: number; mins: number; secs: number };
+  isCurrentlyWorking?: boolean;
+  currentHours?: { hrs: number; mins: number; secs: number };
+};
+
+type RawAttendance = {
+  email: string;
+  fullname: string;
+  department: string;
+  date: string;
+  check_in: string | null;
+  check_out: string | null;
+  check_in_photo?: string | null;
+  check_out_photo?: string | null;
 };
 
 type ApiAttendanceResponse = {
-  attendance: {
-    email: string;
-    fullname: string;
-    department: string;
-    date: string;
-    check_in: string | null;
-    check_out: string | null;
-  }[];
+  attendance: RawAttendance[];
 };
 
 type Employee = {
@@ -37,6 +46,33 @@ export default function HrAttendencePage() {
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
 
+  // Update real-time working hours for currently working employees
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAttendance(prevAttendance => {
+        return prevAttendance.map(record => {
+          if (record.isCurrentlyWorking && record.check_in && !record.check_out) {
+            const inTime = new Date(`${record.date}T${record.check_in}`).getTime();
+            const currentTime = new Date().getTime();
+            const diffInSeconds = Math.max(0, (currentTime - inTime) / 1000);
+            const currentHours = {
+              hrs: Math.floor(diffInSeconds / 3600),
+              mins: Math.floor((diffInSeconds % 3600) / 60),
+              secs: Math.round(diffInSeconds % 60),
+            };
+            return {
+              ...record,
+              currentHours
+            };
+          }
+          return record;
+        });
+      });
+    }, 1000); // Update every second
+
+    return () => clearInterval(interval);
+  }, []);
+
   // ---------------- Fetch Attendance ----------------
   useEffect(() => {
     const fetchData = async () => {
@@ -48,9 +84,13 @@ export default function HrAttendencePage() {
         if (!res.ok) throw new Error("Failed to fetch attendance");
         const data: ApiAttendanceResponse = await res.json();
 
-        const mapped: AttendanceRecord[] = (data.attendance || []).map((a) => {
+        const mapped: AttendanceRecord[] = (data.attendance || []).map((a: RawAttendance) => {
           let hours = { hrs: 0, mins: 0, secs: 0 };
+          let currentHours = { hrs: 0, mins: 0, secs: 0 };
+          let isCurrentlyWorking = false;
+          
           if (a.check_in && a.check_out) {
+            // Completed shift
             const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
             const outTime = new Date(`${a.date}T${a.check_out}`).getTime();
             const diffInSeconds = Math.max(0, (outTime - inTime) / 1000);
@@ -59,7 +99,19 @@ export default function HrAttendencePage() {
               mins: Math.floor((diffInSeconds % 3600) / 60),
               secs: Math.round(diffInSeconds % 60),
             };
+          } else if (a.check_in && !a.check_out) {
+            // Currently working
+            isCurrentlyWorking = true;
+            const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
+            const currentTime = new Date().getTime();
+            const diffInSeconds = Math.max(0, (currentTime - inTime) / 1000);
+            currentHours = {
+              hrs: Math.floor(diffInSeconds / 3600),
+              mins: Math.floor((diffInSeconds % 3600) / 60),
+              secs: Math.round(diffInSeconds % 60),
+            };
           }
+          
           return {
             email: a.email,
             fullname: a.fullname,
@@ -67,7 +119,11 @@ export default function HrAttendencePage() {
             date: a.date,
             check_in: a.check_in,
             check_out: a.check_out,
+            check_in_photo: a.check_in_photo || null,
+            check_out_photo: a.check_out_photo || null,
             hours,
+            isCurrentlyWorking,
+            currentHours: isCurrentlyWorking ? currentHours : undefined,
           };
         });
 
@@ -102,6 +158,7 @@ export default function HrAttendencePage() {
   const today = new Date().toISOString().split("T")[0];
   const todaysAttendance = attendance.filter((a) => a.date === today);
   const checkedIn = todaysAttendance.filter((a) => a.check_in).length;
+  const currentlyWorking = todaysAttendance.filter((a) => a.isCurrentlyWorking).length;
   const totalEmployees = employees.length;
   const absent = totalEmployees - checkedIn;
 
@@ -247,6 +304,7 @@ export default function HrAttendencePage() {
           {[
             { title: "Total Employees", value: totalEmployees, color: "bg-gradient-to-r from-blue-400 to-blue-600" },
             { title: "Checked In", value: checkedIn, color: "bg-gradient-to-r from-green-400 to-green-600" },
+            { title: "Currently Working", value: currentlyWorking, color: "bg-gradient-to-r from-emerald-400 to-emerald-600" },
             { title: "Absent", value: absent, color: "bg-gradient-to-r from-red-400 to-red-600" },
             { title: "Total Hours", value: totalHoursTodayDisplay, color: "bg-gradient-to-r from-purple-400 to-purple-600" },
           ].map((kpi) => (
@@ -323,25 +381,118 @@ export default function HrAttendencePage() {
                       </span>
                     </div>
                   </div>
+                  
+                  {/* Check-in/Check-out Images */}
+                  <div className="flex gap-3 mb-3 justify-center">
+                    {rec.check_in_photo ? (
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                        <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-green-200 shadow-sm">
+                          <Image
+                            src={rec.check_in_photo}
+                            alt="Check-in"
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                let placeholder = parent.querySelector('.image-placeholder') as HTMLElement;
+                                if (!placeholder) {
+                                  placeholder = document.createElement('div') as HTMLElement;
+                                  placeholder.className = 'image-placeholder w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs';
+                                  placeholder.innerHTML = 'No Img';
+                                  parent.appendChild(placeholder);
+                                }
+                                placeholder.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                        <div className="w-12 h-12 rounded-full bg-gray-100 border-2 border-gray-200 flex items-center justify-center text-gray-400">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {rec.check_out_photo ? (
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                        <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-red-200 shadow-sm">
+                          <Image
+                            src={rec.check_out_photo}
+                            alt="Check-out"
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                let placeholder = parent.querySelector('.image-placeholder') as HTMLElement;
+                                if (!placeholder) {
+                                  placeholder = document.createElement('div') as HTMLElement;
+                                  placeholder.className = 'image-placeholder w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs';
+                                  placeholder.innerHTML = 'No Img';
+                                  parent.appendChild(placeholder);
+                                }
+                                placeholder.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                        <div className="w-12 h-12 rounded-full bg-gray-100 border-2 border-gray-200 flex items-center justify-center text-gray-400">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
                   <div>
-                    <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
+                    <p className="text-xs sm:text-sm text-gray-400 mb-1">
+                      {rec.isCurrentlyWorking ? 'Working Hours' : 'Worked Hours'}
+                    </p>
                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{
                           width: `${
                             Math.min(
-                              ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
+                              (((rec.isCurrentlyWorking ? (rec.currentHours?.hrs || 0) + (rec.currentHours?.mins || 0) / 60 + (rec.currentHours?.secs || 0) / 3600 : rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) || 0) / 8) * 100,
                               100
                             )
                           }%`
                         }}
                         transition={{ duration: 1 }}
-                        className="h-2 bg-blue-500 rounded-full"
+                        className={`h-2 rounded-full ${rec.isCurrentlyWorking ? 'bg-green-500' : 'bg-blue-500'}`}
                       />
                     </div>
-                    <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
-                      {rec.hours.hrs}h {rec.hours.mins}m {rec.hours.secs}s
+                    <p className="text-xs sm:text-sm text-center text-gray-600 mt-1 flex items-center justify-center">
+                      {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.hrs || 0}h 
+                      {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.mins || 0}m 
+                      {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.secs || 0}s
+                      {rec.isCurrentlyWorking && (
+                        <motion.span 
+                          className="ml-2 w-2 h-2 rounded-full bg-green-500"
+                          animate={{ opacity: [0, 1, 0] }}
+                          transition={{ repeat: Infinity, duration: 1.5 }}
+                        />
+                      )}
                     </p>
                   </div>
                 </motion.div>

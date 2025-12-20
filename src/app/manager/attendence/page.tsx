@@ -1,10 +1,22 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
+
+type RawAttendance = {
+  email: string;
+  fullname: string;
+  department: string;
+  date: string;
+  check_in: string | null;
+  check_out: string | null;
+  check_in_photo?: string | null;
+  check_out_photo?: string | null;
+};
 
 type AttendanceRecord = {
   email: string;
@@ -13,7 +25,11 @@ type AttendanceRecord = {
   date: string;
   check_in: string | null;
   check_out: string | null;
+  check_in_photo?: string | null;
+  check_out_photo?: string | null;
   hours: { hrs: number; mins: number; secs: number };
+  isCurrentlyWorking?: boolean;
+  currentHours?: { hrs: number; mins: number; secs: number };
 };
 
 
@@ -66,6 +82,33 @@ export default function ManagerAttendenceDashboard() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
+
+  // Update real-time working hours for currently working employees
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAttendance(prevAttendance => {
+        return prevAttendance.map(record => {
+          if (record.isCurrentlyWorking && record.check_in && !record.check_out) {
+            const inTime = new Date(`${record.date}T${record.check_in}`).getTime();
+            const currentTime = new Date().getTime();
+            const diffInSeconds = Math.max(0, (currentTime - inTime) / 1000);
+            const currentHours = {
+              hrs: Math.floor(diffInSeconds / 3600),
+              mins: Math.floor((diffInSeconds % 3600) / 60),
+              secs: Math.round(diffInSeconds % 60),
+            };
+            return {
+              ...record,
+              currentHours
+            };
+          }
+          return record;
+        });
+      });
+    }, 1000); // Update every second
+
+    return () => clearInterval(interval);
+  }, []);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [activeStartDate, setActiveStartDate] = useState<Date>(new Date());
   const [holidays, setHolidays] = useState<Holiday[]>([]);
@@ -96,9 +139,13 @@ export default function ManagerAttendenceDashboard() {
           attendanceData = [];
         }
 
-        const mapped: AttendanceRecord[] = attendanceData.map((a) => {
+        const mapped: AttendanceRecord[] = attendanceData.map((a: RawAttendance) => {
           let hours = { hrs: 0, mins: 0, secs: 0 };
+          let currentHours = { hrs: 0, mins: 0, secs: 0 };
+          let isCurrentlyWorking = false;
+          
           if (a.check_in && a.check_out) {
+            // Completed shift
             const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
             const outTime = new Date(`${a.date}T${a.check_out}`).getTime();
             const diffInSeconds = Math.max(0, (outTime - inTime) / 1000);
@@ -107,7 +154,19 @@ export default function ManagerAttendenceDashboard() {
               mins: Math.floor((diffInSeconds % 3600) / 60),
               secs: Math.round(diffInSeconds % 60),
             };
+          } else if (a.check_in && !a.check_out) {
+            // Currently working
+            isCurrentlyWorking = true;
+            const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
+            const currentTime = new Date().getTime();
+            const diffInSeconds = Math.max(0, (currentTime - inTime) / 1000);
+            currentHours = {
+              hrs: Math.floor(diffInSeconds / 3600),
+              mins: Math.floor((diffInSeconds % 3600) / 60),
+              secs: Math.round(diffInSeconds % 60),
+            };
           }
+          
           return {
             email: a.email,
             fullname: a.fullname,
@@ -115,7 +174,11 @@ export default function ManagerAttendenceDashboard() {
             date: a.date,
             check_in: a.check_in,
             check_out: a.check_out,
+            check_in_photo: a.check_in_photo || null,
+            check_out_photo: a.check_out_photo || null,
             hours,
+            isCurrentlyWorking,
+            currentHours: isCurrentlyWorking ? currentHours : undefined,
           };
         });
 
@@ -263,7 +326,14 @@ export default function ManagerAttendenceDashboard() {
   // Recalculate metrics when data changes
   const totalEmployees = employees.length;
   const todaysAttendance = attendance.filter((a) => a.date === today);
-  const checkedIn = todaysAttendance.filter((a) => a.check_in).length;
+  
+  // Get attendance for selected date
+  const selectedDateAttendance = selectedDate
+    ? attendance.filter((a) => a.date === selectedDate)
+    : todaysAttendance;
+    
+  const checkedIn = selectedDateAttendance.filter((a) => a.check_in).length;
+  const currentlyWorking = selectedDateAttendance.filter((a) => a.isCurrentlyWorking).length;
   
   // Calculate absent employees properly
   // Absent = Total employees - Checked in employees
@@ -290,12 +360,6 @@ export default function ManagerAttendenceDashboard() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
 
-
-
-  // Get attendance for selected date
-  const selectedDateAttendance = selectedDate
-    ? attendance.filter((a) => a.date === selectedDate)
-    : [];
 
   // Get holiday for selected date
   const selectedDateHoliday = selectedDate
@@ -598,6 +662,7 @@ export default function ManagerAttendenceDashboard() {
           {[
             { title: "Total Employees", value: totalEmployees, color: "bg-gradient-to-r from-blue-400 to-blue-600" },
             { title: "Checked In", value: checkedIn, color: "bg-gradient-to-r from-green-400 to-green-600" },
+            { title: "Currently Working", value: currentlyWorking, color: "bg-gradient-to-r from-emerald-400 to-emerald-600" },
             { title: "Absent", value: absent, color: "bg-gradient-to-r from-red-400 to-red-600" },
             { title: "On Leave", value: onLeave, color: "bg-gradient-to-r from-yellow-400 to-yellow-600" },
           ].map((kpi) => (
@@ -892,32 +957,177 @@ export default function ManagerAttendenceDashboard() {
                   )}
                   
                   {/* Attendance Records */}
-                  <h4 className="text-md font-semibold text-gray-700 mb-2">✅ Attendance Records</h4>
+                  <div className="mb-3">
+                    <h4 className="text-md font-semibold text-gray-700 mb-2 flex items-center">
+                      <span className="mr-2">✅</span> Attendance Records
+                    </h4>
+                    <div className="text-xs text-gray-500 mb-3">
+                      Showing {selectedDateAttendance.length} record(s) for {selectedDate || 'today'}
+                    </div>
+                  </div>
+                  
                   {selectedDateAttendance.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2">
                       {selectedDateAttendance.map((rec) => (
                         <div
                           key={`${rec.email}-${rec.date}`}
-                          className="bg-gray-50 border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow"
+                          className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-300"
                         >
-                          <h4 className="font-semibold text-gray-800 text-sm">{rec.fullname}</h4>
-                          <p className="text-xs text-gray-500 mb-2">{rec.email}</p>
-                          <div className="flex gap-2 mb-2">
-                            <span className={`px-2 py-1 text-xs rounded-full ${rec.check_in ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                              In: {rec.check_in ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString() : 'N/A'}
-                            </span>
-                            <span className={`px-2 py-1 text-xs rounded-full ${rec.check_out ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                              Out: {rec.check_out ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString() : 'N/A'}
-                            </span>
+                          {/* Employee Info */}
+                          <div className="mb-3 pb-2 border-b border-gray-100">
+                            <h4 className="font-semibold text-gray-800 text-base">{rec.fullname}</h4>
+                            <p className="text-xs text-gray-500">{rec.email}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              <span className="inline-block px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs">
+                                {rec.department}
+                              </span>
+                            </p>
                           </div>
-                          <p className="text-xs text-gray-600">
-                            Hours: {rec.hours.hrs}h {rec.hours.mins}m
-                          </p>
+                          
+                          {/* Check-in/Check-out Times */}
+                          <div className="mb-3">
+                            <h5 className="text-xs font-semibold text-gray-700 mb-1">⏱️ Time Records</h5>
+                            <div className="flex gap-2 flex-wrap">
+                              <div className={`flex-1 min-w-[100px] px-2 py-1.5 text-xs rounded-lg ${rec.check_in ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                                <div className="font-medium">Check-in</div>
+                                <div className="mt-0.5">
+                                  {rec.check_in ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
+                                </div>
+                              </div>
+                              <div className={`flex-1 min-w-[100px] px-2 py-1.5 text-xs rounded-lg ${rec.check_out ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-orange-50 text-orange-700 border border-orange-100'}`}>
+                                <div className="font-medium">Check-out</div>
+                                <div className="mt-0.5">
+                                  {rec.check_out ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Check-in/Check-out Images */}
+                          <div className="mb-3">
+                            <h5 className="text-xs font-semibold text-gray-700 mb-2">📸 Attendance Photos</h5>
+                            <div className="flex gap-4 justify-center">
+                              {rec.check_in_photo ? (
+                                <div className="flex flex-col items-center">
+                                  <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                                  <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-green-200 shadow-sm">
+                                    <Image
+                                      src={rec.check_in_photo}
+                                      alt="Check-in Photo"
+                                      width={48}
+                                      height={48}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                        const parent = target.parentElement;
+                                        if (parent) {
+                                          let placeholder = parent.querySelector('.image-placeholder') as HTMLElement;
+                                          if (!placeholder) {
+                                            placeholder = document.createElement('div') as HTMLElement;
+                                            placeholder.className = 'image-placeholder w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs';
+                                            placeholder.innerHTML = 'No Img';
+                                            parent.appendChild(placeholder);
+                                          }
+                                          placeholder.style.display = 'flex';
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center">
+                                  <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                                  <div className="w-12 h-12 rounded-full bg-gray-100 border-2 border-gray-200 flex items-center justify-center text-gray-400">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {rec.check_out_photo ? (
+                                <div className="flex flex-col items-center">
+                                  <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                                  <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-red-200 shadow-sm">
+                                    <Image
+                                      src={rec.check_out_photo}
+                                      alt="Check-out Photo"
+                                      width={48}
+                                      height={48}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                        const parent = target.parentElement;
+                                        if (parent) {
+                                          let placeholder = parent.querySelector('.image-placeholder') as HTMLElement;
+                                          if (!placeholder) {
+                                            placeholder = document.createElement('div') as HTMLElement;
+                                            placeholder.className = 'image-placeholder w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs';
+                                            placeholder.innerHTML = 'No Img';
+                                            parent.appendChild(placeholder);
+                                          }
+                                          placeholder.style.display = 'flex';
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center">
+                                  <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                                  <div className="w-12 h-12 rounded-full bg-gray-100 border-2 border-gray-200 flex items-center justify-center text-gray-400">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Hours Display with Real-time Updates */}
+                          <div className="pt-2 border-t border-gray-100">
+                            <h5 className="text-xs font-semibold text-gray-700 mb-1">📊 Work Duration</h5>
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm text-gray-600 flex items-center">
+                                <span className="mr-1">{rec.isCurrentlyWorking ? '⏳ Currently Working' : '💼 Worked Hours'}</span>
+                                {rec.isCurrentlyWorking && (
+                                  <motion.span 
+                                    className="ml-1 w-2 h-2 rounded-full bg-green-500"
+                                    animate={{ opacity: [0, 1, 0] }}
+                                    transition={{ repeat: Infinity, duration: 1.5 }}
+                                  />
+                                )}
+                              </p>
+                              <p className="text-sm font-semibold text-gray-800">
+                                {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.hrs || 0}h 
+                                {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.mins || 0}m
+                              </p>
+                            </div>
+                            
+                            {/* Progress bar for worked hours */}
+                            <div className="mt-2 w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{
+                                  width: `${Math.min(((rec.isCurrentlyWorking ? (rec.currentHours?.hrs || 0) + (rec.currentHours?.mins || 0) / 60 : (rec.hours.hrs || 0) + (rec.hours.mins || 0) / 60) || 0) / 8 * 100, 100)}%`
+                                }}
+                                transition={{ duration: 1 }}
+                                className={`h-full rounded-full ${rec.isCurrentlyWorking ? 'bg-green-500' : 'bg-blue-500'}`}
+                              />
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-500 text-sm">No attendance records for this date.</p>
+                    <div className="bg-gray-50 rounded-lg p-6 text-center">
+                      <div className="text-4xl mb-2">📅</div>
+                      <p className="text-gray-500 text-sm">No attendance records found for this date.</p>
+                      <p className="text-gray-400 text-xs mt-1">Select a different date or check back later.</p>
+                    </div>
                   )}
                 </div>
               )}
@@ -997,25 +1207,118 @@ export default function ManagerAttendenceDashboard() {
                       </span>
                     </div>
                   </div>
+                  
+                  {/* Check-in/Check-out Images */}
+                  <div className="flex gap-3 mb-3 justify-center">
+                    {rec.check_in_photo ? (
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                        <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-green-200 shadow-sm">
+                          <Image
+                            src={rec.check_in_photo}
+                            alt="Check-in"
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                let placeholder = parent.querySelector('.image-placeholder') as HTMLElement;
+                                if (!placeholder) {
+                                  placeholder = document.createElement('div') as HTMLElement;
+                                  placeholder.className = 'image-placeholder w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs';
+                                  placeholder.innerHTML = 'No Img';
+                                  parent.appendChild(placeholder);
+                                }
+                                placeholder.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                        <div className="w-12 h-12 rounded-full bg-gray-100 border-2 border-gray-200 flex items-center justify-center text-gray-400">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {rec.check_out_photo ? (
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                        <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-red-200 shadow-sm">
+                          <Image
+                            src={rec.check_out_photo}
+                            alt="Check-out"
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                let placeholder = parent.querySelector('.image-placeholder') as HTMLElement;
+                                if (!placeholder) {
+                                  placeholder = document.createElement('div') as HTMLElement;
+                                  placeholder.className = 'image-placeholder w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs';
+                                  placeholder.innerHTML = 'No Img';
+                                  parent.appendChild(placeholder);
+                                }
+                                placeholder.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                        <div className="w-12 h-12 rounded-full bg-gray-100 border-2 border-gray-200 flex items-center justify-center text-gray-400">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
                   <div>
-                    <p className="text-xs sm:text-sm text-gray-400 mb-1">Worked Hours</p>
+                    <p className="text-xs sm:text-sm text-gray-400 mb-1">
+                      {rec.isCurrentlyWorking ? 'Working Hours' : 'Worked Hours'}
+                    </p>
                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{
                           width: `${
                             Math.min(
-                              ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
+                              (((rec.isCurrentlyWorking ? (rec.currentHours?.hrs || 0) + (rec.currentHours?.mins || 0) / 60 + (rec.currentHours?.secs || 0) / 3600 : rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) || 0) / 8) * 100,
                               100
                             )
                           }%`
                         }}
                         transition={{ duration: 1 }}
-                        className="h-2 bg-blue-500 rounded-full"
+                        className={`h-2 rounded-full ${rec.isCurrentlyWorking ? 'bg-green-500' : 'bg-blue-500'}`}
                       />
                     </div>
-                    <p className="text-xs sm:text-sm text-center text-gray-600 mt-1">
-                      {rec.hours.hrs}h {rec.hours.mins}m {rec.hours.secs}s
+                    <p className="text-xs sm:text-sm text-center text-gray-600 mt-1 flex items-center justify-center">
+                      {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.hrs || 0}h 
+                      {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.mins || 0}m 
+                      {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.secs || 0}s
+                      {rec.isCurrentlyWorking && (
+                        <motion.span 
+                          className="ml-2 w-2 h-2 rounded-full bg-green-500"
+                          animate={{ opacity: [0, 1, 0] }}
+                          transition={{ repeat: Infinity, duration: 1.5 }}
+                        />
+                      )}
                     </p>
                   </div>
                 </motion.div>
@@ -1053,11 +1356,12 @@ export default function ManagerAttendenceDashboard() {
                     key={date}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="bg-white rounded-lg sm:rounded-xl shadow-md p-3 sm:p-4 md:p-6 border border-gray-200 w-full overflow-hidden"
+                    className="bg-white rounded-xl shadow-md p-5 border border-gray-200 w-full overflow-hidden"
                   >
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 sm:mb-4 gap-2">
-                      <div className="min-w-0 w-full sm:w-auto">
-                        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-800 break-words">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3 pb-3 border-b border-gray-100">
+                      <div className="min-w-0 w-full md:w-auto">
+                        <h3 className="text-lg font-bold text-gray-800 break-words flex items-center">
+                          <span className="mr-2">📅</span>
                           {new Date(date).toLocaleDateString('en-US', { 
                             weekday: 'long', 
                             year: 'numeric', 
@@ -1065,52 +1369,63 @@ export default function ManagerAttendenceDashboard() {
                             day: 'numeric' 
                           })}
                         </h3>
-                        <p className="text-sm text-gray-500">
-                          {records.length} employee{records.length !== 1 ? 's' : ''} • Avg: {avgHoursDisplay}
+                      </div>
+                      <div className="text-right min-w-0 bg-gray-50 px-4 py-2 rounded-lg">
+                        <p className="text-sm text-gray-700">
+                          <span className="font-bold text-gray-900">{records.length}</span> employee{records.length !== 1 ? 's' : ''} • 
+                          <span className="font-semibold">Avg: {avgHoursDisplay}</span>
                         </p>
                       </div>
-                      <button
-                        onClick={() => {
-                          setSelectedDate(date);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                        className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                      >
-                        View on Calendar
-                      </button>
                     </div>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                      {records.map((rec) => (
-                        <div
-                          key={`${rec.email}-${rec.date}`}
-                          className="bg-gray-50 border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow"
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                      {records.map((record) => (
+                        <div 
+                          key={`${record.email}-${date}`}
+                          className="bg-gray-50 border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-300 flex flex-col"
                         >
-                          <h4 className="font-semibold text-gray-800 text-sm truncate">{rec.fullname}</h4>
-                          <p className="text-xs text-gray-500 mb-2 truncate">{rec.department}</p>
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            <span className={`px-2 py-0.5 text-xs rounded-full ${rec.check_in ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                              {rec.check_in ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'No In'}
-                            </span>
-                            <span className={`px-2 py-0.5 text-xs rounded-full ${rec.check_out ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                              {rec.check_out ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'No Out'}
-                            </span>
+                          {/* Employee Info */}
+                          <div className="mb-3 pb-2 border-b border-gray-100">
+                            <h4 className="font-bold text-gray-800 text-base truncate" title={record.fullname}>{record.fullname}</h4>
+                            <p className="text-xs text-gray-500 mt-1">
+                              <span className="inline-block px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs truncate max-w-[120px]">
+                                {record.department}
+                              </span>
+                            </p>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          
+                          {/* Time Records */}
+                          <div className="mb-3 flex-grow">
+                            <div className="flex gap-2 mb-2">
+                              <div className={`flex-1 px-2 py-1.5 text-xs rounded-lg ${record.check_in ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                                <div className="font-medium text-[10px]">📥 Check-in</div>
+                                <div className="mt-0.5 font-semibold">
+                                  {record.check_in ? new Date(`${date}T${record.check_in}`).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
+                                </div>
+                              </div>
+                              <div className={`flex-1 px-2 py-1.5 text-xs rounded-lg ${record.check_out ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-orange-50 text-orange-700 border border-orange-100'}`}>
+                                <div className="font-medium text-[10px]">📤 Check-out</div>
+                                <div className="mt-0.5 font-semibold">
+                                  {record.check_out ? new Date(`${date}T${record.check_out}`).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Worked Hours */}
+                          <div className="pt-2 border-t border-gray-100">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-gray-600">⏱️ Worked</span>
+                              <span className="text-sm font-bold text-gray-800">{record.hours.hrs}h {record.hours.mins}m</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-blue-500 rounded-full"
                                 style={{
-                                  width: `${Math.min(
-                                    ((rec.hours.hrs + rec.hours.mins / 60) / 8) * 100,
-                                    100
-                                  )}%`
+                                  width: `${Math.min(((record.hours.hrs + record.hours.mins / 60) / 8) * 100, 100)}%`
                                 }}
                               />
                             </div>
-                            <span className="text-xs text-gray-600 whitespace-nowrap">
-                              {rec.hours.hrs}h {rec.hours.mins}m
-                            </span>
                           </div>
                         </div>
                       ))}

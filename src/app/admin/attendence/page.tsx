@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import {
   PieChart,
   Pie,
@@ -19,6 +20,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 
+type RawAttendance = {
+  email: string;
+  fullname: string;
+  department: string;
+  date: string;
+  check_in: string | null;
+  check_out: string | null;
+  check_in_photo?: string | null;
+  check_out_photo?: string | null;
+};
+
 type AttendanceRecord = {
   email: string;
   fullname: string;
@@ -26,7 +38,11 @@ type AttendanceRecord = {
   date: string;
   check_in: string | null;
   check_out: string | null;
+  check_in_photo?: string | null;
+  check_out_photo?: string | null;
   hours: { hrs: number; mins: number; secs: number };
+  isCurrentlyWorking?: boolean;
+  currentHours?: { hrs: number; mins: number; secs: number };
 };
 
 type Employee = {
@@ -48,9 +64,36 @@ export default function AdminAttendanceDashboard() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalEmployees, setTotalEmployees] = useState(0);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Update real-time working hours for currently working employees
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAttendance(prevAttendance => {
+        return prevAttendance.map(record => {
+          if (record.isCurrentlyWorking && record.check_in && !record.check_out) {
+            const inTime = new Date(`${record.date}T${record.check_in}`).getTime();
+            const currentTime = new Date().getTime();
+            const diffInSeconds = Math.max(0, (currentTime - inTime) / 1000);
+            const currentHours = {
+              hrs: Math.floor(diffInSeconds / 3600),
+              mins: Math.floor((diffInSeconds % 3600) / 60),
+              secs: Math.round(diffInSeconds % 60),
+            };
+            return {
+              ...record,
+              currentHours
+            };
+          }
+          return record;
+        });
+      });
+    }, 1000); // Update every second
+
+    return () => clearInterval(interval);
+  }, []);
   const [, setEmployees] = useState<Employee[]>([]);
   const [, setLoadingEmployees] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // Fetch Attendance
   useEffect(() => {
@@ -64,9 +107,13 @@ export default function AdminAttendanceDashboard() {
         const responseData = await res.json();
         const data = Array.isArray(responseData) ? { attendance: responseData } : responseData;
 
-        const mapped: AttendanceRecord[] = (data.attendance || []).map((a: AttendanceRecord) => {
+        const mapped: AttendanceRecord[] = (data.attendance || []).map((a: RawAttendance) => {
           let hours = { hrs: 0, mins: 0, secs: 0 };
+          let currentHours = { hrs: 0, mins: 0, secs: 0 };
+          let isCurrentlyWorking = false;
+          
           if (a.check_in && a.check_out) {
+            // Completed shift
             const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
             const outTime = new Date(`${a.date}T${a.check_out}`).getTime();
             const diffInSeconds = Math.max(0, (outTime - inTime) / 1000);
@@ -75,7 +122,19 @@ export default function AdminAttendanceDashboard() {
               mins: Math.floor((diffInSeconds % 3600) / 60),
               secs: Math.round(diffInSeconds % 60),
             };
+          } else if (a.check_in && !a.check_out) {
+            // Currently working
+            isCurrentlyWorking = true;
+            const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
+            const currentTime = new Date().getTime();
+            const diffInSeconds = Math.max(0, (currentTime - inTime) / 1000);
+            currentHours = {
+              hrs: Math.floor(diffInSeconds / 3600),
+              mins: Math.floor((diffInSeconds % 3600) / 60),
+              secs: Math.round(diffInSeconds % 60),
+            };
           }
+          
           return {
             email: a.email,
             fullname: a.fullname,
@@ -83,7 +142,11 @@ export default function AdminAttendanceDashboard() {
             date: a.date,
             check_in: a.check_in,
             check_out: a.check_out,
+            check_in_photo: a.check_in_photo || null,
+            check_out_photo: a.check_out_photo || null,
             hours,
+            isCurrentlyWorking,
+            currentHours: isCurrentlyWorking ? currentHours : undefined,
           };
         });
 
@@ -126,11 +189,14 @@ export default function AdminAttendanceDashboard() {
     d.setDate(d.getDate() - 1);
     return d.toISOString().split("T")[0];
   })();
-  const todaysAttendance = attendance.filter((a) => a.date === today);
-  const checkedIn = todaysAttendance.filter((a) => a.check_in).length;
+  const selectedAttendance = selectedDate 
+    ? attendance.filter((a) => a.date === selectedDate)
+    : attendance.filter((a) => a.date === today);
+  const checkedIn = selectedAttendance.filter((a) => a.check_in).length;
+  const currentlyWorking = selectedAttendance.filter((a) => a.isCurrentlyWorking).length;
   const absent = totalEmployees - checkedIn;
 
-  const totalHoursToday = todaysAttendance.reduce(
+  const totalHoursToday = selectedAttendance.reduce(
     (acc, a) => acc + (a.hours.hrs * 3600 + a.hours.mins * 60 + a.hours.secs),
     0
   );
@@ -241,8 +307,8 @@ export default function AdminAttendanceDashboard() {
 
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
-    const todayStr = new Date().toLocaleDateString();
-    doc.text(`Date: ${todayStr}`, doc.internal.pageSize.getWidth() / 2, y + 15, {
+    const reportDate = selectedDate ? new Date(selectedDate).toLocaleDateString() : new Date().toLocaleDateString();
+    doc.text(`Date: ${reportDate}`, doc.internal.pageSize.getWidth() / 2, y + 15, {
       align: "center",
     });
 
@@ -257,7 +323,7 @@ export default function AdminAttendanceDashboard() {
     ];
     const tableRows: (string | number)[][] = [];
 
-    todaysAttendance.forEach((rec, idx) => {
+    selectedAttendance.forEach((rec, idx) => {
       tableRows.push([
         idx + 1,
         rec.fullname || "Unknown",
@@ -296,7 +362,8 @@ export default function AdminAttendanceDashboard() {
       },
     });
 
-    doc.save(`Attendance-Report-${todayStr}.pdf`);
+    const fileNameDate = selectedDate ? selectedDate : new Date().toISOString().split('T')[0];
+    doc.save(`Attendance-Report-${fileNameDate}.pdf`);
   };
 
   return (
@@ -396,6 +463,11 @@ export default function AdminAttendanceDashboard() {
                 title: "Checked In", 
                 value: checkedIn, 
                 color: "bg-gradient-to-r from-green-400 to-green-600" 
+              },
+              { 
+                title: "Currently Working", 
+                value: currentlyWorking, 
+                color: "bg-gradient-to-r from-emerald-400 to-emerald-600" 
               },
               { 
                 title: "Absent", 
@@ -520,9 +592,9 @@ export default function AdminAttendanceDashboard() {
                   <div className="h-3 sm:h-4 bg-gray-200 rounded w-full"></div>
                 </div>
               ))
-            ) : todaysAttendance.length ? (
+            ) : selectedAttendance.length ? (
               <AnimatePresence>
-                {todaysAttendance.map((rec, idx) => (
+                {selectedAttendance.map((rec, idx) => (
                   <motion.div
                     key={`${rec.email}-${rec.date}`}
                     initial={{ opacity: 0, y: 20 }}
@@ -566,25 +638,118 @@ export default function AdminAttendanceDashboard() {
                         </span>
                       </div>
                     </div>
+                    
+                    {/* Check-in/Check-out Images */}
+                    <div className="flex gap-2 mb-2">
+                      {rec.check_in_photo ? (
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                          <div className="relative w-10 h-10 rounded-full overflow-hidden border border-green-200">
+                            <Image
+                              src={rec.check_in_photo}
+                              alt="Check-in"
+                              width={40}
+                              height={40}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  let placeholder = parent.querySelector('.image-placeholder') as HTMLElement;
+                                  if (!placeholder) {
+                                    placeholder = document.createElement('div') as HTMLElement;
+                                    placeholder.className = 'image-placeholder w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs';
+                                    placeholder.innerHTML = 'No Img';
+                                    parent.appendChild(placeholder);
+                                  }
+                                  placeholder.style.display = 'flex';
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                          <div className="w-10 h-10 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {rec.check_out_photo ? (
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                          <div className="relative w-10 h-10 rounded-full overflow-hidden border border-red-200">
+                            <Image
+                              src={rec.check_out_photo}
+                              alt="Check-out"
+                              width={40}
+                              height={40}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  let placeholder = parent.querySelector('.image-placeholder') as HTMLElement;
+                                  if (!placeholder) {
+                                    placeholder = document.createElement('div') as HTMLElement;
+                                    placeholder.className = 'image-placeholder w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs';
+                                    placeholder.innerHTML = 'No Img';
+                                    parent.appendChild(placeholder);
+                                  }
+                                  placeholder.style.display = 'flex';
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                          <div className="w-10 h-10 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
                     <div>
-                      <p className="text-xs text-gray-400 mb-1">Worked Hours</p>
+                      <p className="text-xs text-gray-400 mb-1">
+                        {rec.isCurrentlyWorking ? 'Working Hours' : 'Worked Hours'}
+                      </p>
                       <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{
                             width: `${
                               Math.min(
-                                ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
+                                (((rec.isCurrentlyWorking ? (rec.currentHours?.hrs || 0) + (rec.currentHours?.mins || 0) / 60 + (rec.currentHours?.secs || 0) / 3600 : rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) || 0) / 8) * 100,
                                 100
                               )
                             }%`
                           }}
                           transition={{ duration: 1 }}
-                          className="h-2 bg-blue-500 rounded-full"
+                          className={`h-2 rounded-full ${rec.isCurrentlyWorking ? 'bg-green-500' : 'bg-blue-500'}`}
                         />
                       </div>
-                      <p className="text-xs text-center text-gray-600 mt-1">
-                        {rec.hours.hrs}h {rec.hours.mins}m {rec.hours.secs}s
+                      <p className="text-xs text-center text-gray-600 mt-1 flex items-center justify-center">
+                        {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.hrs || 0}h 
+                        {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.mins || 0}m 
+                        {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.secs || 0}s
+                        {rec.isCurrentlyWorking && (
+                          <motion.span 
+                            className="ml-1 w-2 h-2 rounded-full bg-green-500"
+                            animate={{ opacity: [0, 1, 0] }}
+                            transition={{ repeat: Infinity, duration: 1.5 }}
+                          />
+                        )}
                       </p>
                     </div>
                   </motion.div>
@@ -592,14 +757,14 @@ export default function AdminAttendanceDashboard() {
               </AnimatePresence>
             ) : (
               <div className="col-span-full text-center text-gray-500 p-4 sm:p-6 md:p-8 bg-white rounded-lg sm:rounded-xl shadow-lg">
-                No attendance records for today.
+                No attendance records for {selectedDate ? new Date(selectedDate).toLocaleDateString() : 'today'}.
               </div>
             )}
           </motion.div>
 
           {/* Full Attendance List */}
           <h2 className="text-base sm:text-lg md:text-xl font-semibold text-gray-700 mb-2 sm:mb-3">
-            Full Attendance Records
+            Full Attendance Records {selectedDate ? `for ${new Date(selectedDate).toLocaleDateString()}` : ''}
           </h2>
           
           {/* Calendar for filtering */}
@@ -611,7 +776,7 @@ export default function AdminAttendanceDashboard() {
                   if (!(value instanceof Date)) return;
                   const local = new Date(value.getTime() - value.getTimezoneOffset() * 60000);
                   const dateStr = local.toISOString().split("T")[0];
-                  setSelectedDate(dateStr === selectedDate ? null : dateStr);
+                  setSelectedDate(dateStr);
                 }}
                 value={
                   selectedDate
@@ -706,6 +871,88 @@ export default function AdminAttendanceDashboard() {
                           </span>
                         </div>
                       </div>
+                      
+                      {/* Check-in/Check-out Images */}
+                      <div className="flex gap-2 mb-2">
+                        {rec.check_in_photo ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                            <div className="relative w-10 h-10 rounded-full overflow-hidden border border-green-200">
+                              <Image
+                                src={rec.check_in_photo}
+                                alt="Check-in"
+                                width={40}
+                                height={40}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    let placeholder = parent.querySelector('.image-placeholder') as HTMLElement;
+                                    if (!placeholder) {
+                                      placeholder = document.createElement('div') as HTMLElement;
+                                      placeholder.className = 'image-placeholder w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs';
+                                      placeholder.innerHTML = 'No Img';
+                                      parent.appendChild(placeholder);
+                                    }
+                                    placeholder.style.display = 'flex';
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center">
+                            <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                            <div className="w-10 h-10 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {rec.check_out_photo ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                            <div className="relative w-10 h-10 rounded-full overflow-hidden border border-red-200">
+                              <Image
+                                src={rec.check_out_photo}
+                                alt="Check-out"
+                                width={40}
+                                height={40}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    let placeholder = parent.querySelector('.image-placeholder') as HTMLElement;
+                                    if (!placeholder) {
+                                      placeholder = document.createElement('div') as HTMLElement;
+                                      placeholder.className = 'image-placeholder w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs';
+                                      placeholder.innerHTML = 'No Img';
+                                      parent.appendChild(placeholder);
+                                    }
+                                    placeholder.style.display = 'flex';
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center">
+                            <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                            <div className="w-10 h-10 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
                       <div>
                         <p className="text-xs text-gray-400 mb-1">Worked Hours</p>
                         <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">

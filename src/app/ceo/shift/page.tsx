@@ -1,12 +1,12 @@
 // app/hr/calendar/page.tsx
-import HolidayCalendar from '@/components/google_calendar_maker';
 import DashboardLayout from '@/components/DashboardLayout';
+import ShiftmakerComponent from '@/components/Shift_maker';
 
 export default function CalendarPage() {
   return (
     <DashboardLayout role='ceo'>
       <div>
-      <HolidayCalendar />
+      <ShiftmakerComponent/>
     </div>
     </DashboardLayout>
   );

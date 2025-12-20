@@ -15,6 +15,7 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
+import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
 import { motion, AnimatePresence } from "framer-motion";
 import "react-calendar/dist/Calendar.css";
@@ -30,6 +31,24 @@ type Holiday = {
   description?: string;
 }
 
+type RawAttendanceRecord = {
+  email?: string;
+  fullname?: string;
+  department?: string;
+  date?: string;
+  check_in?: string | null;
+  check_out?: string | null;
+  check_in_photo?: string | null;
+  check_out_photo?: string | null;
+  checkInPhoto?: string | null;
+  checkOutPhoto?: string | null;
+  check_in_img?: string | null;
+  check_out_img?: string | null;
+  photo_in?: string | null;
+  photo_out?: string | null;
+  [key: string]: unknown; // Allow additional fields
+};
+
 type AttendanceRecord = {
   email: string;
   fullname: string;
@@ -37,10 +56,25 @@ type AttendanceRecord = {
   date: string;
   check_in: string | null;
   check_out: string | null;
+  checkInDateTime?: string | null;
+  check_in_photo?: string | null;
+  check_out_photo?: string | null;
   hours: { hrs: number; mins: number; secs: number };
+  isCurrentlyWorking?: boolean;
 };
 
 
+
+type RawEmployee = {
+  id?: number;
+  email?: string;
+  fullname?: string;
+  department?: string;
+  date_joined?: string;
+  reports_to?: string;
+  profile_picture?: string | null;
+  [key: string]: unknown; // Allow additional fields
+};
 
 type Employee = {
   id: number;
@@ -49,6 +83,7 @@ type Employee = {
   department: string;
   date_joined?: string;
   reports_to?: string;
+  profile_picture?: string | null;
   [key: string]: unknown;
 };
 
@@ -63,11 +98,24 @@ export default function ManagerDashboard() {
     const year = d.getFullYear();
     return `${day}/${month}/${year}`;
   };
+  
+  // Helper to calculate real-time hours for currently working employees
+  const calculateRealTimeHours = (checkInTime: string, currentDate: Date) => {
+    const inTime = new Date(checkInTime).getTime();
+    const currentTime = currentDate.getTime();
+    const diffInSeconds = Math.max(0, (currentTime - inTime) / 1000);
+    return {
+      hrs: Math.floor(diffInSeconds / 3600),
+      mins: Math.floor((diffInSeconds % 3600) / 60),
+      secs: Math.round(diffInSeconds % 60),
+    };
+  };
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
   // --- For mini calendar selection (full attendance list) ---
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [holidays] = useState<Holiday[]>([]);
@@ -129,13 +177,14 @@ export default function ManagerDashboard() {
         );
         if (!res.ok) throw new Error("Failed to fetch attendance");
         const responseData = await res.json();
+        console.log('Raw attendance data:', responseData);
         const data = Array.isArray(responseData) ? { attendance: responseData } : responseData;
 
-        const mapped: AttendanceRecord[] = (data.attendance || []).map((a: AttendanceRecord) => {
+        const mapped: AttendanceRecord[] = (data.attendance || []).map((a: RawAttendanceRecord) => {
           let hours = { hrs: 0, mins: 0, secs: 0 };
           if (a.check_in && a.check_out) {
-            const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
-            const outTime = new Date(`${a.date}T${a.check_out}`).getTime();
+            const inTime = new Date(`${a.date || ''}T${a.check_in}`).getTime();
+            const outTime = new Date(`${a.date || ''}T${a.check_out}`).getTime();
             const diffInSeconds = Math.max(0, (outTime - inTime) / 1000);
             hours = {
               hrs: Math.floor(diffInSeconds / 3600),
@@ -143,14 +192,33 @@ export default function ManagerDashboard() {
               secs: Math.round(diffInSeconds % 60),
             };
           }
+          // Check if employee is currently working (checked in but not checked out)
+          const isCurrentlyWorking = a.check_in && !a.check_out;
+          
+          // Store check-in datetime for real-time calculations
+          const checkInDateTime = a.check_in ? `${a.date || ''}T${a.check_in}` : null;
+          
+          console.log('Processing attendance record:', a);
+          console.log('Check-in photo field:', a.check_in_photo);
+          console.log('Check-out photo field:', a.check_out_photo);
+          // Check for different possible field names for photos
+          const checkInPhoto = a.check_in_photo || a.checkInPhoto || a.check_in_img || a.photo_in || null;
+          const checkOutPhoto = a.check_out_photo || a.checkOutPhoto || a.check_out_img || a.photo_out || null;
+          console.log('Mapped check-in photo:', checkInPhoto);
+          console.log('Mapped check-out photo:', checkOutPhoto);
+          
           return {
-            email: a.email,
-            fullname: a.fullname,
-            department: a.department,
-            date: a.date,
-            check_in: a.check_in,
-            check_out: a.check_out,
+            email: a.email || '',
+            fullname: a.fullname || '',
+            department: a.department || '',
+            date: a.date || '',
+            check_in: a.check_in || null,
+            check_out: a.check_out || null,
+            check_in_photo: checkInPhoto,
+            check_out_photo: checkOutPhoto,
+            checkInDateTime,
             hours,
+            isCurrentlyWorking,
           };
         });
 
@@ -163,6 +231,15 @@ export default function ManagerDashboard() {
       }
     };
     fetchData();
+  }, []);
+  
+  // Update current time every second for real-time calculations
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    
+    return () => clearInterval(timer);
   }, []);
 
   // ---------------- Fetch Employees ----------------
@@ -177,13 +254,22 @@ export default function ManagerDashboard() {
         const responseData = await res.json();
         const data = Array.isArray(responseData) ? responseData : (responseData?.employees || responseData?.data || []);
         const today = new Date();
-        const filtered = data.filter((emp: Employee) => {
+        const filtered = data.filter((emp: RawEmployee) => {
           if (!emp.date_joined) return true;
-          const joinDate = new Date(emp.date_joined);
+          const joinDate = new Date(emp.date_joined || '');
           return joinDate <= today; // include only if joined on or before today
         });
-        setEmployees(filtered);
-        setTotalEmployees(filtered.length);
+        const mappedEmployees: Employee[] = filtered.map((emp: RawEmployee) => ({
+          id: emp.id || 0,
+          email: emp.email || '',
+          fullname: emp.fullname || '',
+          department: emp.department || '',
+          date_joined: emp.date_joined,
+          reports_to: emp.reports_to,
+          profile_picture: emp.profile_picture || null
+        }));
+        setEmployees(mappedEmployees);
+        setTotalEmployees(mappedEmployees.length);
       } catch (err) {
         console.error("Error fetching employees:", err);
       } finally {
@@ -270,7 +356,7 @@ export default function ManagerDashboard() {
   // ---------------- Bar Chart: Daily Hours Worked per Employee (for selected date) ----------------
   // If selectedDate is set, show hours for that date, else show for today
   const barChartData = dateAttendance.map((rec) => ({
-    name: rec.fullname.length > 14 ? rec.fullname.slice(0, 12) + "…" : rec.fullname,
+    name: (rec.fullname || 'Unknown').length > 14 ? (rec.fullname || 'Unknown').slice(0, 12) + "…" : (rec.fullname || 'Unknown'),
     hours: Number((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600).toFixed(2)),
   }));
 
@@ -373,14 +459,14 @@ export default function ManagerDashboard() {
       let checkOutDisplay = "Absent";
       let hoursDisplay = "Absent";
 
-      if (rec.check_in) {
-        checkInDisplay = new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString();
-        if (rec.check_out) {
-          checkOutDisplay = new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString();
-          hoursDisplay = `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`;
+      if (rec?.check_in) {
+        checkInDisplay = new Date(`${rec?.date}T${rec?.check_in}`).toLocaleTimeString();
+        if (rec?.check_out) {
+          checkOutDisplay = new Date(`${rec?.date}T${rec?.check_out}`).toLocaleTimeString();
+          hoursDisplay = `${rec?.hours.hrs}h ${rec?.hours.mins}m ${rec?.hours.secs}s`;
         } else {
           checkOutDisplay = "Pending";
-          hoursDisplay = `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`;
+          hoursDisplay = `${rec?.hours.hrs}h ${rec?.hours.mins}m ${rec?.hours.secs}s`;
         }
       }
 
@@ -795,58 +881,132 @@ const calendarEvents = [
                           <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{rec.fullname}</h3>
                           <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-500 break-all truncate">{rec.email}</p>
                         </div>
-                        <div className="mb-2 sm:mb-3">
-                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400">Check-in / Check-out</p>
+                        {/* Check-in/Check-out Images */}
+                        <div className="flex gap-4 mb-3 justify-center">
+                          <div className="flex flex-col items-center">
+                            <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                            <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-green-200 shadow-sm">
+                              {rec?.check_in_photo ? (
+                                <>
+                                  {console.log('Rendering check-in image:', rec?.check_in_photo)}
+                                  <Image
+                                    src={rec?.check_in_photo.startsWith('http') ? rec?.check_in_photo : `${process.env.NEXT_PUBLIC_API_URL}${rec?.check_in_photo}`}
+                                    alt="Check-in Photo"
+                                    width={48}
+                                    height={48}
+                                    className="w-full h-full object-cover"
+                                    unoptimized
+                                    onError={(e) => {
+                                      console.error('Error loading check-in image:', e);
+                                      // Handle image loading error
+                                    }}
+                                  />
+                                </>
+                              ) : (
+                                <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                                  No Img
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col items-center">
+                            <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                            <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-red-200 shadow-sm">
+                              {rec?.check_out_photo ? (
+                                <>
+                                  {console.log('Rendering check-out image:', rec?.check_out_photo)}
+                                  <Image
+                                    src={rec?.check_out_photo.startsWith('http') ? rec?.check_out_photo : `${process.env.NEXT_PUBLIC_API_URL}${rec?.check_out_photo}`}
+                                    alt="Check-out Photo"
+                                    width={48}
+                                    height={48}
+                                    className="w-full h-full object-cover"
+                                    unoptimized
+                                    onError={(e) => {
+                                      console.error('Error loading check-out image:', e);
+                                      // Handle image loading error
+                                    }}
+                                  />
+                                </>
+                              ) : (
+                                <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                                  No Img
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mb-2 sm:mb-3">                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400">Check-in / Check-out</p>
                           <div className="flex gap-2 mt-1 flex-wrap">
                             <span
                               className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                                rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                rec?.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                               }`}
                             >
-                              {rec.check_in
-                                ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
+                              {rec?.check_in
+                                ? new Date(`${rec?.date}T${rec?.check_in}`).toLocaleTimeString()
                                 : "Absent"}
                             </span>
                             <span
                               className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                                rec.check_out
+                                rec?.check_out
                                   ? "bg-green-100 text-green-700"
-                                  : rec.check_in
+                                  : rec?.check_in
                                   ? "bg-orange-100 text-orange-700"
                                   : "bg-red-100 text-red-700"
                               }`}
                             >
-                              {rec.check_out
-                                ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
-                                : rec.check_in
+                              {rec?.check_out
+                                ? new Date(`${rec?.date}T${rec?.check_out}`).toLocaleTimeString()
+                                : rec?.check_in
                                 ? "Pending"
                                 : "Absent"}
                             </span>
                           </div>
                         </div>
-                        <div>
-                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">Worked Hours</p>
+                        <div>                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">Worked Hours</p>
                           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                             <motion.div
                               initial={{ width: 0 }}
                               animate={{
                                 width: `${
                                   rec.check_in
-                                    ? Math.min(
-                                        ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
-                                        100
-                                      )
+                                    ? rec.isCurrentlyWorking && rec.checkInDateTime
+                                      ? (() => {
+                                          const realTimeHours = calculateRealTimeHours(rec.checkInDateTime, currentTime);
+                                          return Math.min(
+                                            ((realTimeHours.hrs + realTimeHours.mins / 60 + realTimeHours.secs / 3600) / 8) * 100,
+                                            100
+                                          );
+                                        })()
+                                      : Math.min(
+                                          ((rec?.hours.hrs + rec?.hours.mins / 60 + rec?.hours.secs / 3600) / 8) * 100,
+                                          100
+                                        )
                                     : 0
                                 }%`
                               }}
                               transition={{ duration: 1 }}
-                              className={`h-2 ${rec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
+                              className={`h-2 ${rec?.isCurrentlyWorking ? "bg-green-500" : rec?.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
                             />
                           </div>
-                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-center text-gray-600 mt-1">
-                            {rec.check_in
-                              ? `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-center text-gray-600 mt-1 flex items-center justify-center">
+                            {rec?.check_in
+                              ? rec?.isCurrentlyWorking && rec?.checkInDateTime
+                                ? (() => {
+                                  const realTimeHours = calculateRealTimeHours(rec?.checkInDateTime, currentTime);
+                                  return `${realTimeHours.hrs}h ${realTimeHours.mins}m ${realTimeHours.secs}s`;
+                                })()
+                                : `${rec?.hours.hrs}h ${rec?.hours.mins}m ${rec?.hours.secs}s`
                               : "Absent"}
+                            {rec?.isCurrentlyWorking && (
+                              <motion.span 
+                                className="ml-2 w-2 h-2 rounded-full bg-green-500"
+                                animate={{ opacity: [0, 1, 0] }}
+                                transition={{ repeat: Infinity, duration: 1.5 }}
+                              />
+                            )}
                           </p>
                         </div>
                       </motion.div>
@@ -1033,13 +1193,21 @@ const calendarEvents = [
                   }
                   // Otherwise, show attendance cards as normal
                   return dateAttendance
-                    .sort((a, b) => a.fullname.localeCompare(b.fullname))
+                      .sort((a, b) => (a.fullname || '').localeCompare(b.fullname || ''))
                     .map((rec, idx) => {
                       const workedPercent = rec.check_in
-                        ? Math.min(
-                            ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
-                            100
-                          )
+                        ? rec.isCurrentlyWorking && rec.checkInDateTime
+                          ? (() => {
+                              const realTimeHours = calculateRealTimeHours(rec.checkInDateTime, currentTime);
+                              return Math.min(
+                                ((realTimeHours.hrs + realTimeHours.mins / 60 + realTimeHours.secs / 3600) / 8) * 100,
+                                100
+                              );
+                            })()
+                          : Math.min(
+                              ((rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) / 8) * 100,
+                              100
+                            )
                         : 0;
                       return (
                         <motion.div
@@ -1053,7 +1221,62 @@ const calendarEvents = [
                           <div className="mb-3 sm:mb-4">
                             <h3 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-800">{rec.fullname}</h3>
                             <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-500 break-all truncate">{rec.email}</p>
+                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-500 mt-1">
+                              <span className="inline-block px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs">
+                                {rec.department}
+                              </span>
+                            </p>
                           </div>
+                          
+                          {/* Check-in/Check-out Images */}
+                          <div className="flex gap-4 mb-3 justify-center">
+                            <div className="flex flex-col items-center">
+                              <span className="text-xs text-gray-500 mb-1">Check-in</span>
+                              <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-green-200 shadow-sm">
+                                {rec?.check_in_photo ? (
+                                  <>
+                                    {console.log('Rendering check-in image:', rec?.check_in_photo)}
+                                    <Image
+                                      src={rec?.check_in_photo.startsWith('http') ? rec?.check_in_photo : `${process.env.NEXT_PUBLIC_API_URL}${rec?.check_in_photo}`}
+                                      alt="Check-in Photo"
+                                      width={48}
+                                      height={48}
+                                      className="w-full h-full object-cover"
+                                      unoptimized
+                                    />
+                                  </>
+                                ) : (
+                                  <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                                    No Img
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-col items-center">
+                              <span className="text-xs text-gray-500 mb-1">Check-out</span>
+                              <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-red-200 shadow-sm">
+                                {rec?.check_out_photo ? (
+                                  <>
+                                    {console.log('Rendering check-out image:', rec?.check_out_photo)}
+                                    <Image
+                                      src={rec?.check_out_photo.startsWith('http') ? rec?.check_out_photo : `${process.env.NEXT_PUBLIC_API_URL}${rec?.check_out_photo}`}
+                                      alt="Check-out Photo"
+                                      width={48}
+                                      height={48}
+                                      className="w-full h-full object-cover"
+                                      unoptimized
+                                    />
+                                  </>
+                                ) : (
+                                  <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs">
+                                    No Img
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
                           <div className="mb-2 sm:mb-3">
                             <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400">Date</p>
                             <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-700 font-medium">{formatDate(rec.date)}</p>
@@ -1088,7 +1311,9 @@ const calendarEvents = [
                             </div>
                           </div>
                           <div>
-                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">Worked Hours</p>
+                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">
+                            {rec?.isCurrentlyWorking ? '⏳ Currently Working' : '💼 Worked Hours'}
+                            </p>
                             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                               <motion.div
                                 initial={{ width: 0 }}
@@ -1096,13 +1321,25 @@ const calendarEvents = [
                                   width: `${workedPercent}%`
                                 }}
                                 transition={{ duration: 1 }}
-                                className={`h-2 ${rec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
+                                className={`h-2 ${rec.isCurrentlyWorking ? "bg-green-500" : rec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
                               />
                             </div>
-                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-center text-gray-600 mt-1">
+                            <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-center text-gray-600 mt-1 flex items-center justify-center">
                               {rec.check_in
-                                ? `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`
+                                ? rec.isCurrentlyWorking && rec.checkInDateTime
+                                  ? (() => {
+                                      const realTimeHours = calculateRealTimeHours(rec.checkInDateTime, currentTime);
+                                      return `${realTimeHours.hrs}h ${realTimeHours.mins}m ${realTimeHours.secs}s`;
+                                    })()
+                                  : `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`
                                 : "Absent"}
+                              {rec.isCurrentlyWorking && (
+                                <motion.span 
+                                  className="ml-2 w-2 h-2 rounded-full bg-green-500"
+                                  animate={{ opacity: [0, 1, 0] }}
+                                  transition={{ repeat: Infinity, duration: 1.5 }}
+                                />
+                              )}
                             </p>
                           </div>
                         </motion.div>
@@ -1127,7 +1364,7 @@ const calendarEvents = [
                   // Sort by date desc, then name
                   cards.sort((a, b) => {
                     if (a.date !== b.date) return b.date.localeCompare(a.date);
-                    return a.emp.fullname.localeCompare(b.emp.fullname);
+                    return (a.emp.fullname || '').localeCompare(b.emp.fullname || '');
                   });
                   // If all cards are for future dates, show message
                   if (
@@ -1157,13 +1394,23 @@ const calendarEvents = [
                       date: date,
                       check_in: null,
                       check_out: null,
+                      checkInDateTime: null,
+                      isCurrentlyWorking: false,
                       hours: { hrs: 0, mins: 0, secs: 0 }
                     };
-                    const workedPercent = displayRec.check_in
-                      ? Math.min(
-                          ((displayRec.hours.hrs + displayRec.hours.mins / 60 + displayRec.hours.secs / 3600) / 8) * 100,
-                          100
-                        )
+                    const workedPercent = displayRec?.check_in
+                      ? displayRec?.isCurrentlyWorking && displayRec?.checkInDateTime
+                        ? (() => {
+                            const realTimeHours = calculateRealTimeHours(displayRec?.checkInDateTime, currentTime);
+                            return Math.min(
+                              ((realTimeHours.hrs + realTimeHours.mins / 60 + realTimeHours.secs / 3600) / 8) * 100,
+                              100
+                            );
+                          })()
+                        : Math.min(
+                            ((displayRec?.hours.hrs + displayRec?.hours.mins / 60 + displayRec?.hours.secs / 3600) / 8) * 100,
+                            100
+                          )
                       : 0;
                     return (
                       <motion.div
@@ -1187,32 +1434,34 @@ const calendarEvents = [
                           <div className="flex gap-2 mt-1 flex-wrap">
                             <span
                               className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                                displayRec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                displayRec?.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                               }`}
                             >
-                              {displayRec.check_in
-                                ? new Date(`${displayRec.date}T${displayRec.check_in}`).toLocaleTimeString()
+                              {displayRec?.check_in
+                                ? new Date(`${displayRec?.date}T${displayRec?.check_in}`).toLocaleTimeString()
                                 : "Absent"}
                             </span>
                             <span
                               className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                                displayRec.check_out
+                                displayRec?.check_out
                                   ? "bg-green-100 text-green-700"
-                                  : displayRec.check_in
+                                  : displayRec?.check_in
                                   ? "bg-orange-100 text-orange-700"
                                   : "bg-red-100 text-red-700"
                               }`}
                             >
-                              {displayRec.check_out
-                                ? new Date(`${displayRec.date}T${displayRec.check_out}`).toLocaleTimeString()
-                                : displayRec.check_in
+                              {displayRec?.check_out
+                                ? new Date(`${displayRec?.date}T${displayRec?.check_out}`).toLocaleTimeString()
+                                : displayRec?.check_in
                                 ? "Pending"
                                 : "Absent"}
                             </span>
                           </div>
                         </div>
                         <div>
-                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">Worked Hours</p>
+                          <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-gray-400 mb-1">
+                            {displayRec?.isCurrentlyWorking ? '⏳ Currently Working' : '💼 Worked Hours'}
+                          </p>
                           <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                             <motion.div
                               initial={{ width: 0 }}
@@ -1220,12 +1469,17 @@ const calendarEvents = [
                                 width: `${workedPercent}%`
                               }}
                               transition={{ duration: 1 }}
-                              className={`h-2 ${displayRec.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
+                              className={`h-2 ${displayRec?.isCurrentlyWorking ? "bg-green-500" : displayRec?.check_in ? "bg-blue-500" : "bg-gray-300"} rounded-full`}
                             />
                           </div>
                           <p className="text-[10px] sm:text-xs md:text-sm lg:text-base text-center text-gray-600 mt-1">
-                            {displayRec.check_in
-                              ? `${displayRec.hours.hrs}h ${displayRec.hours.mins}m ${displayRec.hours.secs}s`
+                            {displayRec?.check_in
+                              ? displayRec?.isCurrentlyWorking && displayRec?.checkInDateTime
+                                ? (() => {
+                                    const realTimeHours = calculateRealTimeHours(displayRec?.checkInDateTime, currentTime);
+                                    return `${realTimeHours.hrs}h ${realTimeHours.mins}m ${realTimeHours.secs}s`;
+                                  })()
+                                : `${displayRec?.hours.hrs}h ${displayRec?.hours.mins}m ${displayRec?.hours.secs}s`
                               : "Absent"}
                           </p>
                         </div>
