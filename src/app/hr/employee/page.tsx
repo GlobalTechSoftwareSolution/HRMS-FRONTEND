@@ -74,9 +74,25 @@ const [error, setError] = useState<string>("");
         if (res.data && res.data.payrolls?.length > 0) {
           const payroll = res.data.payrolls[0];
           setPayrollData((prev) => ({ ...prev, [employee.email]: payroll }));
+        } else {
+          // No payroll data found
+          setPayrollData((prev) => ({ ...prev, [employee.email]: {} }));
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("Failed to fetch payroll for", employee.email, err);
+        // Set empty object on error to avoid undefined state
+        setPayrollData((prev) => ({ ...prev, [employee.email]: {} }));
+        
+        // Show user-friendly error message
+        if (axios.isAxiosError(err)) {
+          if (err.response?.status === 404) {
+            console.warn(`No payroll data found for employee: ${employee.email}`);
+          } else {
+            console.error(`Error fetching payroll for ${employee.email}:`, err.message);
+          }
+        } else {
+          console.error(`Unexpected error fetching payroll for ${employee.email}:`, err);
+        }
       }
     },
     [API_BASE]
@@ -87,37 +103,59 @@ const [error, setError] = useState<string>("");
     async (employee: Employee) => {
       try {
         const res = await axios.get(`${API_BASE}/api/accounts/get_document/${employee.email}/`);
-        if (res.data && res.data.length > 0) {
-          const docs = res.data[0];
-          const documentList: Document[] = Object.entries(docs)
-            .filter(([key, value]) =>
-              [
-                "resume",
-                "appointment_letter",
-                "offer_letter",
-                "bonafide_crt",
-                "tenth",
-                "twelth",
-                "degree",
-                "masters",
-                "marks_card",
-                "certificates",
-                "award",
-                "id_proof",
-                "releaving_letter",
-                "resignation_letter",
-                "achievement_crt",
-              ].includes(key) && value != null
-            )
-            .map(([key, value], idx) => ({
-              id: idx,
-              document_name: key.replace(/_/g, " ").toUpperCase(),
-              document_file: value as string,
-            }));
-          setDocumentData((prev) => ({ ...prev, [employee.email]: documentList }));
+        if (res.data) {
+          // Handle different response structures
+          const docsData = Array.isArray(res.data) ? res.data[0] : res.data;
+          if (docsData) {
+            const documentList: Document[] = Object.entries(docsData)
+              .filter(([key, value]) =>
+                [
+                  "resume",
+                  "appointment_letter",
+                  "offer_letter",
+                  "bonafide_crt",
+                  "tenth",
+                  "twelth",
+                  "degree",
+                  "masters",
+                  "marks_card",
+                  "certificates",
+                  "award",
+                  "id_proof",
+                  "releaving_letter",
+                  "resignation_letter",
+                  "achievement_crt",
+                ].includes(key) && value != null
+              )
+              .map(([key, value], idx) => ({
+                id: idx,
+                document_name: key.replace(/_/g, " ").toUpperCase(),
+                document_file: value as string,
+              }));
+            setDocumentData((prev) => ({ ...prev, [employee.email]: documentList }));
+          } else {
+            // No documents found for this employee
+            setDocumentData((prev) => ({ ...prev, [employee.email]: [] }));
+          }
+        } else {
+          // No data returned from API
+          setDocumentData((prev) => ({ ...prev, [employee.email]: [] }));
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("Failed to fetch documents for", employee.email, err);
+        // Set empty array on error to avoid undefined state
+        setDocumentData((prev) => ({ ...prev, [employee.email]: [] }));
+        
+        // Show user-friendly error message
+        if (axios.isAxiosError(err)) {
+          if (err.response?.status === 404) {
+            console.warn(`No documents found for employee: ${employee.email}`);
+          } else {
+            console.error(`Error fetching documents for ${employee.email}:`, err.message);
+          }
+        } else {
+          console.error(`Unexpected error fetching documents for ${employee.email}:`, err);
+        }
       }
     },
     [API_BASE]
@@ -127,32 +165,66 @@ const [error, setError] = useState<string>("");
   const fetchAllAwards = useCallback(async () => {
     try {
       const res = await axios.get(`${API_BASE}/api/accounts/list_awards/`);
-      if (res.data && Array.isArray(res.data)) {
+      if (res.data) {
+        // Handle different response structures
+        const awardsData = Array.isArray(res.data) ? res.data : (res.data.awards || res.data.data || []);
         const awardsByEmail: Record<string, Award[]> = {};
-        res.data.forEach((award: Award & { email: string; created_at: string }) => {
+        awardsData.forEach((award: Award & { email: string; created_at: string }) => {
           if (!awardsByEmail[award.email]) awardsByEmail[award.email] = [];
           awardsByEmail[award.email].push({
             id: award.id,
             title: award.title,
             description: award.description,
-            date: award.created_at,
+            date: award.created_at || award.date,
             photo: award.photo,
           });
         });
         setAwardData(awardsByEmail);
+      } else {
+        // No data returned from API
+        setAwardData({});
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Failed to fetch awards", err);
+      // Set empty object on error to avoid undefined state
+      setAwardData({});
+      
+      // Show user-friendly error message
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 404) {
+          console.warn("No awards found in the system");
+        } else {
+          console.error("Error fetching awards:", err.message);
+        }
+      } else {
+        console.error("Unexpected error fetching awards:", err);
+      }
     }
   }, [API_BASE]);
 
   const handleViewDetails = async (employee: Employee) => {
     setSelectedEmployee(employee);
-    await Promise.all([
-      fetchPayrollForEmployee(employee),
-      fetchDocumentsForEmployee(employee),
-      fetchAllAwards(),
-    ]);
+    
+    try {
+      // Fetch data for the selected employee
+      await Promise.all([
+        fetchPayrollForEmployee(employee),
+        fetchDocumentsForEmployee(employee),
+      ]);
+      
+      // Fetch awards only if not already loaded
+      if (Object.keys(awardData).length === 0) {
+        await fetchAllAwards();
+      }
+    } catch (err: unknown) {
+      console.error("Error loading employee details:", err);
+      // Still show the modal even if some data failed to load
+      if (axios.isAxiosError(err)) {
+        console.error("Axios error:", err.message);
+      } else {
+        console.error("Unexpected error:", err);
+      }
+    }
   };
 
   // Fetch all employees
@@ -184,7 +256,9 @@ const [error, setError] = useState<string>("");
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    // Pre-fetch awards data
+    fetchAllAwards();
+  }, [fetchData, fetchAllAwards]);
 
   const departments = Array.from(new Set(employees.map((e) => e.department).filter(Boolean))) as string[];
 
@@ -354,10 +428,10 @@ const [error, setError] = useState<string>("");
                 <h4 className="text-base sm:text-lg font-semibold flex items-center mb-2">
                   <FiFileText className="mr-2 text-blue-600" /> Documents
                 </h4>
-                {documentData[selectedEmployee.email]?.length ? (
+                {documentData[selectedEmployee.email] && documentData[selectedEmployee.email].length > 0 ? (
                   <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-2">
-                    {documentData[selectedEmployee.email].map((doc) => (
-                      <li key={doc.id} className="flex justify-between items-center text-xs sm:text-sm gap-2">
+                    {documentData[selectedEmployee.email].map((doc, index) => (
+                      <li key={`${doc.id}-${doc.document_name}-${index}`} className="flex justify-between items-center text-xs sm:text-sm gap-2">
                         <span className="truncate mr-2 flex-1 min-w-0">{doc.document_name}</span>
                         <button
                           onClick={() => window.open(doc.document_file, "_blank")}
@@ -378,10 +452,10 @@ const [error, setError] = useState<string>("");
                 <h4 className="text-base sm:text-lg font-semibold flex items-center mb-2">
                   <FiAward className="mr-2 text-yellow-600" /> Awards
                 </h4>
-                {awardData[selectedEmployee.email]?.length ? (
+                {awardData[selectedEmployee.email] && awardData[selectedEmployee.email].length > 0 ? (
                   <ul className="list-disc pl-4 sm:pl-5 space-y-2">
-                    {awardData[selectedEmployee.email].map((award) => (
-                      <li key={award.id} className="flex items-center space-x-2 sm:space-x-3">
+                    {awardData[selectedEmployee.email].map((award, index) => (
+                      <li key={`${award.id}-${award.title}-${index}`} className="flex items-center space-x-2 sm:space-x-3">
                         {award.photo && (
                           <Image
                             src={award.photo}

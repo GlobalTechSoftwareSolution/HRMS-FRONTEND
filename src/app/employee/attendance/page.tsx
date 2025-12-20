@@ -18,6 +18,48 @@ type AttendanceRecord = {
     email: string;
     fullname?: string;
     department?: string;
+    shift?: string;
+    shiftTime?: string;
+    otHours?: number;
+    breakHours?: number;
+    otPeriods?: { start: string; end: string; hours: number }[];
+    breakPeriods?: { start: string; end: string; duration: number }[];
+};
+
+type ShiftRecord = {
+    id?: number;
+    shift_id?: number;
+    emp_email: string;
+    employee_email?: string;
+    shift: string;
+    shift_type?: string;
+    start_time: string;
+    end_time: string;
+    date: string;
+    status?: string;
+    ot_hours?: number;
+};
+
+type OTRecord = {
+    id?: number;
+    email: string;
+    manager_email: string;
+    ot_start: string;
+    ot_end: string;
+    date?: string;
+    status?: string;
+    hours?: number;
+};
+
+type BreakRecord = {
+    id?: number;
+    email: string;
+    manager_email: string;
+    break_start: string;
+    break_end: string;
+    date?: string;
+    status?: string;
+    duration?: number;
 };
 
 interface PhotoDisplayProps {
@@ -175,6 +217,11 @@ export default function AttendancePortal() {
 
     // Profile data state (moved to top level)
     const [profileData, setProfileData] = useState<ProfileData | null>(null);
+
+    // Shift and OT data state
+    const [shifts, setShifts] = useState<ShiftRecord[]>([]);
+    const [otRecords, setOtRecords] = useState<OTRecord[]>([]);
+    const [breaks, setBreaks] = useState<BreakRecord[]>([]);
 
     // Normalize leave dates (supports single date or start/end range fields)
     const getLeaveDates = (l: Leave): string[] => {
@@ -531,6 +578,182 @@ export default function AttendancePortal() {
             fetchApprovedLeaves();
         }
     }, [loggedInEmail]);
+
+    // Fetch shifts, OT, and breaks data
+    useEffect(() => {
+        const fetchShiftsAndOT = async () => {
+            if (!loggedInEmail) return;
+
+            try {
+                // Fetch shifts
+                const shiftRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_shifts/`);
+                if (shiftRes.ok) {
+                    const shiftData = await shiftRes.json();
+                    console.log('Shift API Response:', shiftData);
+                    const userShifts = (shiftData.shifts || [])
+                        .filter((shift: ShiftRecord) =>
+                            shift.emp_email === loggedInEmail || shift.employee_email === loggedInEmail
+                        )
+                        .map((shift: ShiftRecord) => ({
+                            id: shift.shift_id || shift.id,
+                            emp_email: shift.emp_email || shift.employee_email,
+                            shift: shift.shift || shift.shift_type || 'Morning',
+                            shift_type: shift.shift || shift.shift_type || 'Morning',
+                            start_time: shift.start_time,
+                            end_time: shift.end_time,
+                            date: shift.date,
+                            status: shift.status || 'active',
+                            ot_hours: shift.ot_hours
+                        }));
+                    console.log('Filtered user shifts:', userShifts);
+                    setShifts(userShifts);
+                } else {
+                    console.error('Failed to fetch shifts:', shiftRes.status, shiftRes.statusText);
+                }
+
+                // Fetch OT records
+                const otRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_ot/`);
+                if (otRes.ok) {
+                    const otData = await otRes.json();
+                    const userOT = (otData.ot_records || otData || [])
+                        .filter((ot: OTRecord) => ot.email === loggedInEmail)
+                        .map((ot: OTRecord) => ({
+                            id: ot.id,
+                            email: ot.email,
+                            manager_email: ot.manager_email,
+                            ot_start: ot.ot_start,
+                            ot_end: ot.ot_end,
+                            date: ot.date,
+                            status: ot.status,
+                            hours: ot.hours
+                        }));
+                    setOtRecords(userOT);
+                }
+
+                // Fetch breaks
+                const breakRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_breaks/`);
+                if (breakRes.ok) {
+                    const breakData = await breakRes.json();
+                    console.log('Break data fetched:', breakData);
+                    // Handle different response formats
+                    let breaksArray = [];
+                    if (Array.isArray(breakData)) {
+                        breaksArray = breakData;
+                    } else if (breakData.break_records && Array.isArray(breakData.break_records)) {
+                        breaksArray = breakData.break_records;
+                    } else if (breakData.breaks && Array.isArray(breakData.breaks)) {
+                        breaksArray = breakData.breaks;
+                    } else if (breakData.data && Array.isArray(breakData.data)) {
+                        breaksArray = breakData.data;
+                    } else {
+                        breaksArray = [];
+                    }
+
+                    console.log('Breaks array:', breaksArray);
+                    const userBreaks = breaksArray
+                        .filter((br: BreakRecord) => br.email === loggedInEmail)
+                        .map((br: BreakRecord) => ({
+                            id: br.id,
+                            email: br.email,
+                            manager_email: br.manager_email,
+                            break_start: br.break_start,
+                            break_end: br.break_end,
+                            date: br.date,
+                            status: br.status,
+                            duration: br.duration
+                        }));
+                    console.log('User breaks:', userBreaks);
+                    setBreaks(userBreaks);
+                }
+            } catch (error) {
+                console.error('Error fetching shifts, OT, and breaks:', error);
+            }
+        };
+
+        fetchShiftsAndOT();
+    }, [loggedInEmail]);
+
+    // Merge shifts, OT, and break data into attendance records
+    useEffect(() => {
+        if (fetchedAttendance.length > 0 && shifts.length >= 0) { // Allow merging even if no shifts
+            const mergedAttendance = fetchedAttendance.map(record => {
+                // Find shift for this date
+                const shiftForDate = shifts.find(shift => shift.date === record.date);
+                const shiftInfo = shiftForDate ? {
+                    shift: shiftForDate.shift,
+                    shiftTime: `${shiftForDate.start_time} - ${shiftForDate.end_time}`
+                } : null;
+
+                // Calculate OT hours and collect OT periods for this date
+                const otForDate = otRecords.filter(ot => {
+                    const otDate = ot.date || new Date(ot.ot_start).toISOString().split('T')[0];
+                    return otDate === record.date;
+                });
+
+                const totalOtHours = otForDate.reduce((total, ot) => {
+                    if (ot.hours) return total + ot.hours;
+
+                    // Calculate hours from ot_start and ot_end if hours not provided
+                    if (ot.ot_start && ot.ot_end) {
+                        const start = new Date(ot.ot_start);
+                        const end = new Date(ot.ot_end);
+                        const diffMs = end.getTime() - start.getTime();
+                        const hours = diffMs / (1000 * 60 * 60);
+                        return total + Math.max(0, hours);
+                    }
+
+                    return total;
+                }, 0);
+
+                // Collect OT periods
+                const otPeriods = otForDate.map(ot => ({
+                    start: ot.ot_start,
+                    end: ot.ot_end,
+                    hours: ot.hours || (ot.ot_start && ot.ot_end ? (new Date(ot.ot_end).getTime() - new Date(ot.ot_start).getTime()) / (1000 * 60 * 60) : 0)
+                }));
+
+                // Calculate total break hours and collect break periods for this date
+                const breaksForDate = breaks.filter(br => {
+                    const breakDate = br.date || new Date(br.break_start).toISOString().split('T')[0];
+                    return breakDate === record.date;
+                });
+
+                const totalBreakHours = breaksForDate.reduce((total, br) => {
+                    if (br.duration) return total + br.duration;
+
+                    // Calculate duration from break_start and break_end if duration not provided
+                    if (br.break_start && br.break_end) {
+                        const start = new Date(br.break_start);
+                        const end = new Date(br.break_end);
+                        const diffMs = end.getTime() - start.getTime();
+                        const hours = diffMs / (1000 * 60 * 60);
+                        return total + Math.max(0, hours);
+                    }
+
+                    return total;
+                }, 0);
+
+                // Collect break periods
+                const breakPeriods = breaksForDate.map(br => ({
+                    start: br.break_start,
+                    end: br.break_end,
+                    duration: br.duration || (br.break_start && br.break_end ? (new Date(br.break_end).getTime() - new Date(br.break_start).getTime()) / (1000 * 60 * 60) : 0)
+                }));
+
+                return {
+                    ...record,
+                    shift: shiftInfo?.shift || undefined,
+                    shiftTime: shiftInfo?.shiftTime || undefined,
+                    otHours: totalOtHours > 0 ? totalOtHours : undefined,
+                    otPeriods: otPeriods.length > 0 ? otPeriods : undefined,
+                    breakHours: totalBreakHours > 0 ? totalBreakHours : undefined,
+                    breakPeriods: breakPeriods.length > 0 ? breakPeriods : undefined
+                };
+            });
+
+            setFetchedAttendance(mergedAttendance);
+        }
+    }, [shifts, otRecords, breaks, fetchedAttendance.length]);
 
     // Update selected date record when selectedDate changes
     useEffect(() => {
@@ -987,6 +1210,75 @@ export default function AttendancePortal() {
                     </div>
                 </div>
 
+                {/* Today's Schedule Widget */}
+                <div className="mb-8 sm:mb-10">
+                    <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-700">Today&apos;s Schedule</h2>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="p-4 border-b border-gray-50 bg-gray-50/50 flex justify-between items-center">
+                            <h3 className="font-bold text-gray-800 text-sm uppercase tracking-wide">Schedule for Today</h3>
+                            <span className="text-xs font-bold bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">{(() => {
+                                const today = new Date().toISOString().split('T')[0];
+                                const todayShifts = shifts.filter(shift => shift.date === today);
+                                const todayOT = otRecords.filter(ot => ot.ot_start?.startsWith(today));
+                                return todayShifts.length + todayOT.length;
+                            })()}</span>
+                        </div>
+                        <div className="p-4 space-y-3">
+                            {/* Today's Shifts */}
+                            {(() => {
+                                const today = new Date().toISOString().split('T')[0];
+                                const todayShifts = shifts.filter(shift => shift.date === today);
+                                const todayOT = otRecords.filter(ot => ot.ot_start?.startsWith(today));
+
+                                return (
+                                    <>
+                                        {todayShifts.map((shift) => (
+                                            <div key={`shift-${shift.id}`} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h4 className="text-sm font-semibold text-gray-800">{shift.shift} Shift</h4>
+                                                    <p className="text-xs text-gray-600">{formatTime(shift.start_time)} - {formatTime(shift.end_time)}</p>
+                                                </div>
+                                                <span className="text-xs font-bold bg-blue-200 text-blue-700 px-2 py-1 rounded-full">Shift</span>
+                                            </div>
+                                        ))}
+
+                                        {/* Today's OT */}
+                                        {todayOT.map((ot) => {
+                                            const startTime = new Date(ot.ot_start);
+                                            const endTime = new Date(ot.ot_end);
+                                            const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+
+                                            return (
+                                                <div key={`ot-${ot.id}`} className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                                                    <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                                        </svg>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <h4 className="text-sm font-semibold text-gray-800">Overtime</h4>
+                                                        <p className="text-xs text-gray-600">{startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })} - {endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</p>
+                                                    </div>
+                                                    <span className="text-xs font-bold bg-orange-200 text-orange-700 px-2 py-1 rounded-full">{Math.abs(hours).toFixed(1)}h</span>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {todayShifts.length === 0 && todayOT.length === 0 && (
+                                            <div className="text-center py-4 text-gray-400 text-xs">No schedule for today</div>
+                                        )}
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                </div>
+
                 {/* Calendar Section */}
                 <div className="mb-8 sm:mb-10">
                     <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 text-gray-700">Attendance Calendar</h2>
@@ -1132,6 +1424,45 @@ export default function AttendancePortal() {
                                                     <span className="font-medium">{hoveredRecord.department}</span>
                                                 </div>
                                             )}
+                                            {/* Shift Information */}
+                                            {hoveredRecord.shift && (
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-600">Shift:</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        <span className="font-medium text-blue-700">{hoveredRecord.shift}</span>
+                                                        {hoveredRecord.shiftTime && (
+                                                            <span className="text-xs text-blue-600">({hoveredRecord.shiftTime})</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {/* OT Information */}
+                                            {hoveredRecord.otHours && hoveredRecord.otHours > 0 && (
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-600">Overtime:</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <svg className="w-3 h-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                                        </svg>
+                                                        <span className="font-medium text-purple-700">{hoveredRecord.otHours.toFixed(1)}h</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {/* Break Information */}
+                                            {hoveredRecord.breakHours && hoveredRecord.breakHours > 0 && (
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-600">Break:</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z M9 3v1m6-1v1m-7 5h8m-4 4v.01" />
+                                                        </svg>
+                                                        <span className="font-medium text-green-700">{hoveredRecord.breakHours.toFixed(1)}h</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                             {hoveredRecord.status !== "Sunday" && (
                                                 <div className="pt-1">
                                                     <div className="flex items-center justify-between gap-2 mb-2">
@@ -1213,6 +1544,45 @@ export default function AttendancePortal() {
                                                     <div className="flex justify-between">
                                                         <span className="text-gray-600">Department:</span>
                                                         <span className="font-medium">{selectedDateRecord.department}</span>
+                                                    </div>
+                                                )}
+                                                {/* Shift Information */}
+                                                {selectedDateRecord.shift && (
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-gray-600">Shift:</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            </svg>
+                                                            <span className="font-medium text-blue-700">{selectedDateRecord.shift}</span>
+                                                            {selectedDateRecord.shiftTime && (
+                                                                <span className="text-sm text-blue-600">({selectedDateRecord.shiftTime})</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {/* OT Information */}
+                                                {selectedDateRecord.otHours && selectedDateRecord.otHours > 0 && (
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-gray-600">Overtime:</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                                            </svg>
+                                                            <span className="font-medium text-purple-700">{selectedDateRecord.otHours.toFixed(1)} hours</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {/* Break Information */}
+                                                {selectedDateRecord.breakHours && selectedDateRecord.breakHours > 0 && (
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-gray-600">Break:</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z M9 3v1m6-1v1m-7 5h8m-4 4v.01" />
+                                                            </svg>
+                                                            <span className="font-medium text-green-700">{selectedDateRecord.breakHours.toFixed(1)} hours</span>
+                                                        </div>
                                                     </div>
                                                 )}
 
@@ -1652,7 +2022,12 @@ export default function AttendancePortal() {
                         <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 shadow-sm">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {absences
-                                    .filter(absence => absence.email.toLowerCase() === (loggedInEmail || "").toLowerCase())
+                                    .filter(absence => {
+                                        const absenceDate = new Date(absence.date);
+                                        return absence.email.toLowerCase() === (loggedInEmail || "").toLowerCase() &&
+                                               absenceDate.getMonth() === currentMonth.getMonth() &&
+                                               absenceDate.getFullYear() === currentMonth.getFullYear();
+                                    })
                                     .map(absence => (
                                         <div key={absence.date + '-' + (absence.email || '')} className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                                             <div className="flex items-center justify-between mb-2">
@@ -1696,6 +2071,10 @@ export default function AttendancePortal() {
                         formatDateForComparison={formatDateForComparison}
                         absences={absences}
                         formatTime={formatTime}
+                        shifts={shifts}
+                        otRecords={otRecords}
+                        currentMonth={currentMonth}
+                        breaks={breaks}
                     />
                 </div>
 
@@ -1754,6 +2133,37 @@ export default function AttendancePortal() {
                                                         </span>
                                                     </div>
 
+                                                    {/* Shift, OT, and Break Info */}
+                                                    {(record.shift || record.otHours || record.breakHours) && (
+                                                        <div className="flex gap-2 flex-wrap">
+                                                            {record.shift && (
+                                                                <div className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-full text-xs">
+                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                    </svg>
+                                                                    {record.shift}
+                                                                    {record.shiftTime && <span className="text-blue-600">({record.shiftTime})</span>}
+                                                                </div>
+                                                            )}
+                                                            {record.otPeriods && record.otPeriods.length > 0 && (
+                                                                <div className="flex items-center gap-1 bg-purple-50 text-purple-700 px-2 py-1 rounded-full text-xs">
+                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                                                    </svg>
+                                                                    OT: {record.otPeriods.map((ot) => `${new Date(ot.start).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}-${new Date(ot.end).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`).join(', ')}
+                                                                </div>
+                                                            )}
+                                                            {record.breakHours && record.breakHours > 0 && (
+                                                                <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-full text-xs">
+                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z M9 3v1m6-1v1m-7 5h8m-4 4v.01" />
+                                                                    </svg>
+                                                                    Break: {record.breakHours.toFixed(1)}h
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
                                                     {/* Timeline Section */}
                                                     {!isAbsent && !isSunday && (
                                                         <div className="flex items-center justify-between relative mt-2">
@@ -1776,7 +2186,6 @@ export default function AttendancePortal() {
                                                                             IN
                                                                         </div>
                                                                     )}
-                                                                    {/* <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm"></div> */}
                                                                 </div>
                                                                 <span className="text-xs font-bold text-gray-800 mt-0.5">{formatTime(record.checkIn)}</span>
                                                             </div>
@@ -1807,11 +2216,6 @@ export default function AttendancePortal() {
                                                                             OUT
                                                                         </div>
                                                                     )}
-                                                                    {/* {record.checkOut && record.checkOut !== "-" ? (
-                                                                        <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white shadow-sm"></div>
-                                                                    ) : (
-                                                                        <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-gray-300 rounded-full border-2 border-white shadow-sm"></div>
-                                                                    )} */}
                                                                 </div>
                                                                 <span className="text-xs font-bold text-gray-800 mt-0.5">{formatTime(record.checkOut)}</span>
                                                             </div>
@@ -2303,6 +2707,10 @@ function AttendanceRecordsWithDatePicker({
     formatDateForComparison,
     absences,
     formatTime,
+    shifts,
+    otRecords,
+    currentMonth,
+    breaks,
 }: {
     fetchedAttendance: AttendanceRecord[];
     loggedInEmail: string | null;
@@ -2313,6 +2721,10 @@ function AttendanceRecordsWithDatePicker({
     formatDateForComparison: (date: Date | string) => string;
     absences: AbsenceRecord[];
     formatTime: (time: string | null | undefined) => string;
+    shifts: ShiftRecord[];
+    otRecords: OTRecord[];
+    currentMonth: Date;
+    breaks: BreakRecord[];
 }) {
     if (loadingFetchedAttendance) {
         return (
@@ -2340,7 +2752,10 @@ function AttendanceRecordsWithDatePicker({
             if (selectedDate) {
                 return formatDateForComparison(record.date) === selectedDate;
             }
-            return true;
+            // When no date selected, filter by current month
+            const recordDate = new Date(record.date);
+            return recordDate.getMonth() === currentMonth.getMonth() &&
+                   recordDate.getFullYear() === currentMonth.getFullYear();
         })
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -2457,6 +2872,93 @@ function AttendanceRecordsWithDatePicker({
                             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${getStatusColor(displayStatus)}`}>
                                 {displayStatus}
                             </span>
+                        </div>
+
+                        {/* Schedule Information */}
+                        <div className="mb-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                            <h4 className="text-xs font-semibold text-gray-700 mb-1">Schedule:</h4>
+                            <div className="space-y-1">
+                                {(() => {
+                                    const dateShifts = shifts.filter(shift => shift.date === record.date);
+                                    const dateOT = otRecords.filter(ot => {
+                                        try {
+                                            const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
+                                            return otDate === record.date;
+                                        } catch {
+                                            return false;
+                                        }
+                                    });
+                                    const dateBreaks = breaks.filter(br => {
+                                        try {
+                                            const breakDate = new Date(br.break_start).toISOString().split('T')[0];
+                                            return breakDate === record.date && br.break_end;
+                                        } catch {
+                                            return false;
+                                        }
+                                    });
+                                    console.log(`Breaks for ${record.date}:`, dateBreaks);
+
+                                    if (dateShifts.length === 0 && dateOT.length === 0 && dateBreaks.length === 0) {
+                                        return (
+                                            <div className="text-xs text-gray-500 italic">No scheduled shifts, overtime or breaks</div>
+                                        );
+                                    }
+
+                                    return (
+                                        <>
+                                            {dateShifts.map((shift) => (
+                                                <div key={`shift-${shift.id}`} className="flex items-center gap-1 text-xs">
+                                                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                                                    <span className="text-blue-700 font-medium">{shift.shift} Shift:</span>
+                                                    <span className="text-gray-600">{formatTime(shift.start_time)} - {formatTime(shift.end_time)}</span>
+                                                </div>
+                                            ))}
+                                            {dateOT.map((ot) => {
+                                                const startTime = new Date(ot.ot_start);
+                                                const endTime = new Date(ot.ot_end);
+                                                const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+
+                                                const formatTime12Hour = (date: Date) => {
+                                                    const hours = date.getHours();
+                                                    const minutes = date.getMinutes();
+                                                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                                                    const displayHours = hours % 12 || 12;
+                                                    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+                                                };
+
+                                                return (
+                                                    <div key={`ot-${ot.id}`} className="flex items-center gap-1 text-xs">
+                                                        <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+                                                        <span className="text-orange-700 font-medium">Overtime:</span>
+                                                        <span className="text-gray-600">{formatTime12Hour(startTime)} - {formatTime12Hour(endTime)} ({Math.abs(hours).toFixed(1)}h)</span>
+                                                    </div>
+                                                );
+                                            })}
+                                            {dateBreaks.map((breakRecord) => {
+                                                const breakStart = new Date(breakRecord.break_start);
+                                                const breakEnd = new Date(breakRecord.break_end!);
+                                                const duration = (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60 * 60);
+
+                                                const formatTime12Hour = (date: Date) => {
+                                                    const hours = date.getHours();
+                                                    const minutes = date.getMinutes();
+                                                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                                                    const displayHours = hours % 12 || 12;
+                                                    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+                                                };
+
+                                                return (
+                                                    <div key={`break-${breakRecord.id}`} className="flex items-center gap-1 text-xs">
+                                                        <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                                                        <span className="text-red-700 font-medium">Break:</span>
+                                                        <span className="text-gray-600">{formatTime12Hour(breakStart)} - {formatTime12Hour(breakEnd)} ({Math.abs(duration).toFixed(1)}h)</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </>
+                                    );
+                                })()}
+                            </div>
                         </div>
 
                         {/* Timeline Section */}

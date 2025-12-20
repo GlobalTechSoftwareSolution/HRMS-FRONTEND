@@ -314,7 +314,7 @@ const OTMakerComponent = () => {
       today.setHours(0, 0, 0, 0);
       recordDate.setHours(0, 0, 0, 0);
       return recordDate >= today;
-    } catch (e) {
+    } catch {
       return false;
     }
   };

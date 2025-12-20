@@ -139,7 +139,23 @@ const DocumentPage = () => {
   const fetchDocuments = async () => {
     try {
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_documents/`);
-      const documentsArray = Array.isArray(res.data) ? res.data : (res.data?.documents || res.data?.list_documents || res.data?.data || []);
+      
+      // Handle different response structures
+      let documentsArray = [];
+      
+      if (Array.isArray(res.data)) {
+        documentsArray = res.data;
+      } else if (res.data?.documents && Array.isArray(res.data.documents)) {
+        documentsArray = res.data.documents;
+      } else if (res.data?.list_documents && Array.isArray(res.data.list_documents)) {
+        documentsArray = res.data.list_documents;
+      } else if (res.data?.data && Array.isArray(res.data.data)) {
+        documentsArray = res.data.data;
+      } else {
+        // If response is a single object with document properties
+        documentsArray = [res.data];
+      }
+      
       setDocuments(documentsArray);
     } catch (error) {
       console.error('Error fetching documents:', error);
@@ -154,34 +170,89 @@ const DocumentPage = () => {
     }
     
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_awards/`);
+      // First try to fetch awards for specific user
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_awards/?email=${email}`);
       
-      if (res.data && Array.isArray(res.data)) {
-        // Filter awards by selected email
-        const userAwards = res.data.filter((a: Award) => a.email === email);
+      if (res.data) {
+        // Handle different response structures
+        let awardsData: Award[] = [];
+        
+        if (Array.isArray(res.data)) {
+          awardsData = res.data;
+        } else if (res.data.awards && Array.isArray(res.data.awards)) {
+          awardsData = res.data.awards;
+        } else if (res.data.data && Array.isArray(res.data.data)) {
+          awardsData = res.data.data;
+        } else {
+          // If response is a single object with award properties
+          awardsData = [res.data];
+        }
         
         // Map awards to ensure they have proper IDs
-        const mappedAwards = userAwards.map((award: Award) => {
+        const mappedAwards = awardsData.map((award: Award, index: number) => {
           // Use pk as id if id is not available
           if (award.pk && !award.id) {
             return { ...award, id: award.pk };
+          }
+          // If no id or pk, use index as id
+          if (!award.id) {
+            return { ...award, id: index };
           }
           return award;
         });
         
         setAwards(mappedAwards);
       } else {
-
         setAwards([]);
       }
-    } catch (err) {
-
-      // Show error message to user
-      if (axios.isAxiosError(err)) {
-        const errorMsg = err.response?.data?.message || 'Failed to load awards';
-        setIssueMessage({ open: true, type: 'error', message: errorMsg });
+    } catch (_) {
+      // If specific user endpoint fails, try general endpoint and filter
+      try {
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_awards/`);
+        
+        if (res.data) {
+          // Handle different response structures
+          let awardsData: Award[] = [];
+          
+          if (Array.isArray(res.data)) {
+            awardsData = res.data;
+          } else if (res.data.awards && Array.isArray(res.data.awards)) {
+            awardsData = res.data.awards;
+          } else if (res.data.data && Array.isArray(res.data.data)) {
+            awardsData = res.data.data;
+          } else {
+            // If response is a single object with award properties
+            awardsData = [res.data];
+          }
+          
+          // Filter awards by selected email
+          const userAwards = awardsData.filter((a: Award) => a.email === email);
+          
+          // Map awards to ensure they have proper IDs
+          const mappedAwards = userAwards.map((award: Award, index: number) => {
+            // Use pk as id if id is not available
+            if (award.pk && !award.id) {
+              return { ...award, id: award.pk };
+            }
+            // If no id or pk, use index as id
+            if (!award.id) {
+              return { ...award, id: index };
+            }
+            return award;
+          });
+          
+          setAwards(mappedAwards);
+        } else {
+          setAwards([]);
+        }
+      } catch (fallbackErr) {
+        // Show error message to user
+        if (axios.isAxiosError(fallbackErr)) {
+          const errorMsg = fallbackErr.response?.data?.message || 'Failed to load awards';
+          setIssueMessage({ open: true, type: 'error', message: errorMsg });
+        }
+        setAwards([]);
       }
-      setAwards([]);
     }
   };
 
@@ -694,7 +765,9 @@ const DocumentPage = () => {
                           "masters",
                           "award",
                         ].map((docType) => {
-                          const docValue = documents.find(doc => doc.email === selectedUser.email)?.[docType];
+                          // Find document for the selected user
+                          const userDoc = documents.find(doc => doc.email === selectedUser.email);
+                          const docValue = userDoc?.[docType];
                           const isIssueDoc =
                             ["appointment_letter", "offer_letter", "bonafide_crt", "releaving_letter"].includes(docType);
 
@@ -709,7 +782,9 @@ const DocumentPage = () => {
                             const endpoint = issueEndpoints[docType];
                             if (!endpoint) return;
 
-                            const docValue = documents.find(doc => doc.email === selectedUser.email)?.[docType];
+                            // Find document for the selected user
+                            const userDoc = documents.find(doc => doc.email === selectedUser.email);
+                            const docValue = userDoc?.[docType];
 
                             if (docValue) {
                               setConfirmIssue({ open: true, docType, endpoint });
@@ -779,7 +854,7 @@ const DocumentPage = () => {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                             {awards.map((award, index) => (
                               <div
-                                key={`${award.id || index}-${award.title || 'award'}-${index}`}
+                                key={`${award.id || award.pk || index}-${award.title || 'award'}-${award.email || 'no-email'}`}
                                 className="border border-gray-200 rounded-lg p-2 sm:p-3 md:p-4 bg-white hover:shadow transition"
                               >
                                 <h4 className="font-bold text-gray-900 text-sm sm:text-base truncate">{award.title}</h4>
@@ -800,7 +875,7 @@ const DocumentPage = () => {
                                 )}
 
                                 <p className="text-xs text-gray-500 mt-2">
-                                  Awarded on {formatDate(award.created_at)}
+                                  Awarded on {formatDate(award.created_at || award.date)}
                                 </p>
                                 <div className="flex justify-end mt-2 sm:mt-3 gap-1 sm:gap-2">
                                   <button

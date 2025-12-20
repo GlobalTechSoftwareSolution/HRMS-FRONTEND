@@ -45,6 +45,17 @@ export default function HrAttendencePage() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [currentMonth, setCurrentMonth] = useState<number>(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+
+
+  // Utility function to normalize date format for comparison
+  const normalizeDate = (dateStr: string) => {
+    // Ensure date is in YYYY-MM-DD format
+    const date = new Date(dateStr);
+    return date.toISOString().split("T")[0];
+  };
 
   // Update real-time working hours for currently working employees
   useEffect(() => {
@@ -79,7 +90,7 @@ export default function HrAttendencePage() {
       try {
         setLoading(true);
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_attendance/`
+          `https://hrms.globaltechsoftwaresolutions.cloud/api/accounts/list_attendance/`
         );
         if (!res.ok) throw new Error("Failed to fetch attendance");
         const data: ApiAttendanceResponse = await res.json();
@@ -137,12 +148,13 @@ export default function HrAttendencePage() {
     fetchData();
   }, []);
 
+
   // ---------------- Fetch Employees ----------------
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`
+          `https://hrms.globaltechsoftwaresolutions.cloud/api/accounts/employees/`
         );
         if (!res.ok) throw new Error("Failed to fetch employees");
         const data = await res.json();
@@ -155,14 +167,42 @@ export default function HrAttendencePage() {
     fetchEmployees();
   }, []);
 
-  const today = new Date().toISOString().split("T")[0];
-  const todaysAttendance = attendance.filter((a) => a.date === today);
-  const checkedIn = todaysAttendance.filter((a) => a.check_in).length;
-  const currentlyWorking = todaysAttendance.filter((a) => a.isCurrentlyWorking).length;
+  const selectedDateAttendance = attendance.filter((a) => normalizeDate(a.date) === normalizeDate(selectedDate));
+  const checkedIn = selectedDateAttendance.filter((a) => a.check_in).length;
+  const currentlyWorking = selectedDateAttendance.filter((a) => a.isCurrentlyWorking).length;
   const totalEmployees = employees.length;
   const absent = totalEmployees - checkedIn;
 
-  const totalHoursToday = todaysAttendance.reduce(
+  // Calendar navigation functions
+  const goToPreviousMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear(prev => prev - 1);
+    } else {
+      setCurrentMonth(prev => prev - 1);
+    }
+  };
+
+  const goToNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear(prev => prev + 1);
+    } else {
+      setCurrentMonth(prev => prev + 1);
+    }
+  };
+
+  const goToToday = () => {
+    const today = new Date();
+    setCurrentYear(today.getFullYear());
+    setCurrentMonth(today.getMonth());
+    setSelectedDate(today.toISOString().split("T")[0]);
+  };
+
+  // Get attendance for selected date
+  // (already declared above)
+
+  const totalHoursToday = selectedDateAttendance.reduce(
     (acc, a) => acc + (a.hours.hrs * 3600 + a.hours.mins * 60 + a.hours.secs),
     0
   );
@@ -172,6 +212,51 @@ export default function HrAttendencePage() {
     const secs = Math.round(totalHoursToday % 60);
     return `${hrs}h ${mins}m ${secs}s`;
   })();
+
+  // Calendar Header Component
+  const CalendarHeader = () => {
+    const months = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            onClick={goToPreviousMonth}
+            className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors border border-gray-300"
+          >
+            <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <div className="text-center">
+            <div className="text-base sm:text-xl font-bold text-gray-800">
+              {months[currentMonth]} {currentYear}
+            </div>
+          </div>
+
+          <button
+            onClick={goToNextMonth}
+            className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors border border-gray-300"
+          >
+            <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
+        <button
+          onClick={goToToday}
+          className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs sm:text-sm font-medium hover:bg-blue-700 transition-colors"
+        >
+          Today
+        </button>
+      </div>
+    );
+  };
 
   // ---------------- PDF Generation ----------------
  const downloadPDF = async () => {
@@ -213,8 +298,16 @@ export default function HrAttendencePage() {
 
   // --- ATTENDANCE REPORT TITLE ---
   doc.setFontSize(20);
+  // Format selected date for display
+  const formattedSelectedDate = new Date(selectedDate).toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  
   doc.text(
-    "Today's Attendance Report",
+    `Attendance Report for ${formattedSelectedDate}`,
     doc.internal.pageSize.getWidth() / 2,
     90,
     { align: "center" }
@@ -222,8 +315,8 @@ export default function HrAttendencePage() {
 
   doc.setFontSize(12);
   doc.setFont("helvetica", "normal");
-  const todayStr = new Date().toLocaleDateString();
-  doc.text(`Date: ${todayStr}`, doc.internal.pageSize.getWidth() / 2, 110, {
+  const reportDateStr = new Date(selectedDate).toLocaleDateString();
+  doc.text(`Date: ${reportDateStr}`, doc.internal.pageSize.getWidth() / 2, 110, {
     align: "center",
   });
 
@@ -239,7 +332,7 @@ export default function HrAttendencePage() {
   ];
   const tableRows: (string | number)[][] = [];
 
-  todaysAttendance.forEach((rec, idx) => {
+  selectedDateAttendance.forEach((rec, idx) => {
     tableRows.push([
       idx + 1,
       rec.fullname || "Unknown",
@@ -278,9 +371,85 @@ export default function HrAttendencePage() {
     },
   });
 
-  doc.save(`Attendance-Report-${todayStr}.pdf`);
+  // Format selected date for filename
+    const fileNameDateStr = new Date(selectedDate).toLocaleDateString();
+    doc.save(`Attendance-Report-${fileNameDateStr}.pdf`);
 };
 
+  // Week Days Header Component
+  const WeekDaysHeader = () => {
+    const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return (
+      <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1">
+        {weekDays.map((day) => (
+          <div
+            key={day}
+            className="text-center py-1 sm:py-2 text-[10px] sm:text-xs font-semibold text-gray-600"
+          >
+            {day}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Calendar Grid Component
+  const CalendarGrid = () => {
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDay = firstDay.getDay();
+
+    const days = [];
+
+    // Empty days for the start of the month
+    for (let i = 0; i < startingDay; i++) {
+      days.push(<div key={`empty-${i}`} className="h-12 sm:h-16 md:h-20 border border-gray-200 bg-gray-50"></div>);
+    }
+
+    // Actual days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${currentYear}-${(currentMonth + 1)
+        .toString()
+        .padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+      
+      const isToday = normalizeDate(dateStr) === normalizeDate(new Date().toISOString().split("T")[0]);
+      const isSelected = normalizeDate(dateStr) === normalizeDate(selectedDate);
+      
+      // Check if there's attendance for this date
+      const hasAttendance = attendance.some(a => normalizeDate(a.date) === normalizeDate(dateStr));
+
+      days.push(
+        <div
+          key={day}
+          className={`h-12 sm:h-16 md:h-20 border border-gray-200 p-0.5 sm:p-1 cursor-pointer transition-all ${
+            isSelected 
+              ? "bg-blue-500 text-white" 
+              : isToday 
+                ? "bg-blue-100 border-blue-300" 
+                : "bg-white hover:bg-gray-50"
+          }`}
+          onClick={() => setSelectedDate(dateStr)}
+        >
+          <div className={`text-[10px] sm:text-xs font-medium ${
+            isSelected ? "text-white" : 
+            isToday ? "text-blue-600 font-bold" : "text-gray-700"
+          }`}>
+            {day}
+          </div>
+          
+          {/* Indicator for attendance */}
+          {hasAttendance && (
+            <div className="mt-1 flex justify-center">
+              <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white" : "bg-green-500"}`}></div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return <div className="grid grid-cols-7 gap-0.5 sm:gap-1 bg-gray-100 border border-gray-200 rounded-lg overflow-hidden">{days}</div>;
+  };
 
   return (
     <DashboardLayout role="hr">
@@ -318,9 +487,16 @@ export default function HrAttendencePage() {
           ))}
         </motion.div>
 
-        {/* Today Attendance + Download PDF */}
+        {/* Selected Date Attendance + Download PDF */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-700">Today Attendance</h2>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-700">
+            Attendance for {new Date(selectedDate).toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </h2>
           <button
             onClick={downloadPDF}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg sm:mt-5 sm:mb-5 hover:bg-blue-700"
@@ -329,7 +505,8 @@ export default function HrAttendencePage() {
           </button>
         </div>
 
-        {/* Today Attendance Cards */}
+
+        {/* Selected Date Attendance Cards */}
         <motion.div
           className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mb-8"
           initial={{ opacity: 0 }}
@@ -347,9 +524,9 @@ export default function HrAttendencePage() {
                 <div className="h-4 bg-gray-200 rounded w-full"></div>
               </div>
             ))
-          ) : todaysAttendance.length ? (
+          ) : selectedDateAttendance.length ? (
             <AnimatePresence>
-              {todaysAttendance.map((rec, idx) => (
+              {selectedDateAttendance.map((rec, idx) => (
                 <motion.div
                   key={`${rec.email}-${rec.date}`}
                   initial={{ opacity: 0, y: 20 }}
@@ -500,11 +677,29 @@ export default function HrAttendencePage() {
             </AnimatePresence>
           ) : (
             <div className="col-span-full text-center text-gray-500 p-6 sm:p-8 bg-white rounded-xl shadow-lg">
-              No attendance records for today.
+              No attendance records for the selected date.
             </div>
           )}
         </motion.div>
 
+{/* Calendar Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+          <CalendarHeader />
+          <WeekDaysHeader />
+          <CalendarGrid />
+          
+          {/* Selected Date Info */}
+          <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-200">
+            <div className="text-sm font-semibold text-gray-800">
+              Selected Date: {new Date(selectedDate).toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </div>
+          </div>
+        </div>
       </div>
     </DashboardLayout>
   );

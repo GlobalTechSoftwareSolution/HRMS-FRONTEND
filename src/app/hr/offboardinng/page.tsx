@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import DashboardLayout from "@/components/DashboardLayout";
 import Image from "next/image";
@@ -47,6 +47,30 @@ const EmployeeList = () => {
   const [terminationDate, setTerminationDate] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"active" | "applied" | "releaved">("active");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [hoveredStep, setHoveredStep] = useState<{index: number, employee: Employee | null} | null>(null);
+  const [clickedStep, setClickedStep] = useState<{index: number, employee: Employee | null} | null>(null);
+    const popupRef = useRef<HTMLDivElement>(null);
+  
+    // Close popup when clicking outside
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (clickedStep && popupRef.current && !popupRef.current.contains(event.target as Node)) {
+          setClickedStep(null);
+          setHoveredStep(null);
+        }
+      };
+  
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [clickedStep]);
+  
+    const triggerRefresh = () => {
+      console.log('🔄 Triggering manual refresh...');
+      setRefreshTrigger(prev => prev + 1);
+    };
 
   const EMPLOYEES_API = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/employees/`;
   const RELEAVED_API = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_releaved/`
@@ -60,9 +84,12 @@ const EmployeeList = () => {
           axios.get(EMPLOYEES_API),
           axios.get(RELEAVED_API),
         ]);
+        
         const employeesArray = Array.isArray(activeRes.data) ? activeRes.data : (activeRes.data?.employees || activeRes.data?.active || activeRes.data?.data || []);
         setEmployees(employeesArray);
-        const allReleaved = Array.isArray(releavedRes.data) ? releavedRes.data : (releavedRes.data?.releaved || releavedRes.data?.employees || releavedRes.data?.data || []);
+        
+        const allReleaved = Array.isArray(releavedRes.data) ? releavedRes.data : (releavedRes.data?.releaved_employees || releavedRes.data?.releaved || releavedRes.data?.employees || releavedRes.data?.data || []);
+        
         // Releaved Employees - only those actually HR approved (not pending/empty)
         const filteredReleaved = allReleaved.filter(
           (emp: {
@@ -74,12 +101,17 @@ const EmployeeList = () => {
             const managerApproved =
               emp.manager_approved?.toString().toLowerCase() === "approved" ||
               emp.manager_approved?.toString().toLowerCase() === "yes";
+            
             const hrStatus = emp.hr_approved?.toString().toLowerCase();
+            
             // Only show if HR has actually approved (not pending/empty)
             const hrActuallyApproved =
               hrStatus === "approved" || hrStatus === "yes";
+            
             const readyToReleve = emp.ready_to_releve === true;
+            
             const relieved = !!emp.offboarded_at || readyToReleve; // include ready_to_releve employees as releaved
+            
             return managerApproved && hrActuallyApproved && relieved;
           }
         );
@@ -94,9 +126,12 @@ const EmployeeList = () => {
             const managerApproved =
               emp.manager_approved?.toString().toLowerCase() === "approved" ||
               emp.manager_approved?.toString().toLowerCase() === "yes";
+            
             const hrStatus = emp.hr_approved?.toString().toLowerCase();
+            
             const hrPendingOrEmpty =
               !hrStatus || hrStatus === "pending" || hrStatus.trim() === "";
+            
             return managerApproved && hrPendingOrEmpty;
           }
         );
@@ -108,22 +143,25 @@ const EmployeeList = () => {
       }
     };
     fetchEmployees();
-  }, [EMPLOYEES_API, RELEAVED_API]);
+  }, [refreshTrigger, EMPLOYEES_API, RELEAVED_API]);
   // Approve/Reject HR API
   const handleHrApprove = async (email: string, status: "Approved" | "Rejected") => {
     try {
       // Find employee ID using email
       const emp = appliedEmployees.find((e) => e.email === email);
+      
       if (!emp || !emp.id) {
+        console.error('Employee ID not found for HR approval.');
         alert("Employee ID not found for HR approval.");
         return;
       }
 
       // Check manager approval before HR approves
-      if (
-        emp.manager_approved?.toString().toLowerCase() !== "approved" &&
-        emp.manager_approved?.toString().toLowerCase() !== "yes"
-      ) {
+      const managerApproved = emp.manager_approved?.toString().toLowerCase() === "approved" ||
+        emp.manager_approved?.toString().toLowerCase() === "yes";
+      
+      if (!managerApproved) {
+        console.error('Cannot process HR approval. Manager approval is required first.');
         alert("Cannot process HR approval. Manager approval is required first.");
         return;
       }
@@ -145,23 +183,11 @@ const EmployeeList = () => {
           },
         }
       );
-
+      
       alert(`HR ${status} successfully!`);
-      // Refresh employee list
-      const [activeRes, releavedRes] = await Promise.all([
-        axios.get(EMPLOYEES_API),
-        axios.get(RELEAVED_API),
-      ]);
-      const employeesArray = Array.isArray(activeRes.data) ? activeRes.data : (activeRes.data?.employees || activeRes.data?.active || activeRes.data?.data || []);
-      setEmployees(employeesArray);
-      const allReleaved = Array.isArray(releavedRes.data) ? releavedRes.data : (releavedRes.data?.releaved || releavedRes.data?.employees || releavedRes.data?.data || []);
-      const filteredReleaved = allReleaved.filter(
-        (emp: Employee) =>
-          emp.manager_approved?.toLowerCase() === "approved" &&
-          emp.hr_approved?.toLowerCase() === "approved" &&
-          (emp.offboarded_at || emp.ready_to_releve)
-      );
-      setReleavedEmployees(filteredReleaved);
+      
+      // Trigger a refresh to update all tabs
+      triggerRefresh();
     } catch (err) {
       console.error("Error updating HR approval:", err);
       alert("Failed to update HR approval.");
@@ -252,6 +278,7 @@ const EmployeeList = () => {
   // Remove Employee
   const handleRemoveEmployee = async () => {
     if (!showRemoveForm || !terminationReason || !terminationDate) {
+      console.error('Missing required fields for removal');
       alert("Please fill in all fields.");
       return;
     }
@@ -261,6 +288,7 @@ const EmployeeList = () => {
 
       const id = showRemoveForm.id;
       if (!id) {
+        console.error('Employee ID not found for removal');
         alert("Employee ID not found for removal.");
         return;
       }
@@ -281,24 +309,22 @@ const EmployeeList = () => {
       );
 
       if (res.data.error) {
+        console.error('API Error:', res.data.error);
         alert(res.data.error);
       } else {
         alert(res.data.message || "HR approved resignation successfully!");
       }
 
-      setEmployees((prev) =>
-        prev.filter((e) => e.email !== showRemoveForm.email)
-      );
-      setReleavedEmployees((prev) => [...prev, showRemoveForm]);
-
       setShowRemoveForm(null);
       setTerminationReason("");
       setTerminationDate("");
+      // Trigger a refresh to update all tabs
+      triggerRefresh();
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        console.error("Error removing employee:", err.response?.data || err.message);
+        console.error("Axios error removing employee:", err.response?.data || err.message);
       } else {
-        console.error("Unexpected error:", err);
+        console.error("Unexpected error removing employee:", err);
       }
       alert("Failed to remove employee.");
     }
@@ -306,14 +332,14 @@ const EmployeeList = () => {
 
   if (loading) {
     return (
-     <DashboardLayout role="hr">
-       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 text-lg">Loading employees...</p>
+      <DashboardLayout role="hr">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600 text-lg">Loading employees...</p>
+          </div>
         </div>
-      </div>
-     </DashboardLayout>
+      </DashboardLayout>
     );
   }
 
@@ -326,540 +352,609 @@ const EmployeeList = () => {
         * {
           max-width: 100%;
         }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.2s ease-out forwards;
+        }
       `}</style>
-    <DashboardLayout role="hr">
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-3 sm:p-4 md:p-6 text-black overflow-x-hidden w-full">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto w-full">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 md:mb-8 gap-3 sm:gap-4">
-          <div className="w-full sm:w-auto">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Employee Management</h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Manage your team members and offboarding process</p>
-          </div>
-          <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto">
-            <div className="bg-white rounded-lg px-3 sm:px-4 py-2 shadow-sm">
-              <div className="flex items-center space-x-2">
-                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                <span className="text-xs sm:text-sm font-medium">
-                  {employees.length} Active • {releavedEmployees.length} Releaved
-                </span>
+      <DashboardLayout role="hr">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-3 sm:p-4 md:p-6 text-black overflow-x-hidden w-full">
+          {/* Header */}
+          <div className="max-w-7xl mx-auto w-full">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 md:mb-8 gap-3 sm:gap-4">
+              <div className="w-full sm:w-auto">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Employee Management</h1>
+                <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Manage your team members and offboarding process</p>
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        {!selectedEmployee && !selectedReleavedEmployee && (
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-            {/* Tab Navigation */}
-            <div className="border-b overflow-x-auto">
-              <div className="flex min-w-max">
-                <button
-                  onClick={() => setActiveTab("active")}
-                  className={`flex items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-all whitespace-nowrap ${
-                    activeTab === "active"
-                      ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
+              <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto">
+                <div className="bg-white rounded-lg px-3 sm:px-4 py-2 shadow-sm">
+                  <div className="flex items-center space-x-2">
+                    <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                    <span className="text-xs sm:text-sm font-medium">
+                      {employees.length} Active • {releavedEmployees.length} Releaved
+                    </span>
+                  </div>
+                </div>
+                <button 
+                  onClick={triggerRefresh}
+                  className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center"
                 >
-                  <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                  <span className="hidden sm:inline">Active Employees ({employees.length})</span>
-                  <span className="sm:hidden">Active ({employees.length})</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab("applied")}
-                  className={`flex items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-all whitespace-nowrap ${
-                    activeTab === "applied"
-                      ? "text-yellow-600 border-b-2 border-yellow-500 bg-yellow-50"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                  <span className="hidden sm:inline">Applied for Relieve ({appliedEmployees.length})</span>
-                  <span className="sm:hidden">Applied ({appliedEmployees.length})</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab("releaved")}
-                  className={`flex items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-all whitespace-nowrap ${
-                    activeTab === "releaved"
-                      ? "text-red-600 border-b-2 border-red-600 bg-red-50"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                  <span className="hidden sm:inline">Releaved Employees ({releavedEmployees.length})</span>
-                  <span className="sm:hidden">Releaved ({releavedEmployees.length})</span>
+                  <span className="hidden sm:inline">Refresh</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                  </svg>
                 </button>
               </div>
             </div>
 
-            {/* Employee Grid */}
-            <div className="p-6">
-              {activeTab === "active" ? (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {employees.map((emp) => (
-                    <div
-                      key={emp.email}
-                      className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-blue-200 w-full overflow-hidden"
-                    >
-                      <div className="flex flex-col items-center text-center">
-                        <div className="relative mb-4">
-                          <Image
-                            src={emp.profile_picture || "/images/profile.png"}
-                            alt={emp.fullname}
-                            width={150}
-                            height={150}
-                            className="w-20 h-20 rounded-full object-cover border-4 border-blue-50"
-                          />
-                          <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
-                        </div>
-                        
-                        <h3 className="font-bold text-base sm:text-lg text-gray-900 mb-1 break-words w-full">
-                          {emp.fullname}
-                        </h3>
-                        <p className="text-xs sm:text-sm text-gray-600 mb-3 flex items-center justify-center w-full">
-                          <Mail className="w-3 h-3 mr-1 flex-shrink-0" />
-                          <span className="truncate">{emp.email}</span>
-                        </p>
-                        
-                        <div className="w-full space-y-2 mb-4">
-                          {emp.department && (
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-500 flex items-center">
-                                <Building className="w-3 h-3 mr-1" />
-                                Department
-                              </span>
-                              <span className="font-medium text-gray-900">{emp.department}</span>
-                            </div>
-                          )}
-                          {emp.designation && (
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-500 flex items-center">
-                                <Briefcase className="w-3 h-3 mr-1" />
-                                Role
-                              </span>
-                              <span className="font-medium text-gray-900">{emp.designation}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex gap-2 w-full">
-                          <button
-                            onClick={() => setSelectedEmployee(emp)}
-                            className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => setShowRemoveForm(emp)}
-                            className="flex-1 bg-red-600 text-white py-2 px-3 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : activeTab === "applied" ? (
-                // Applied for Relieve Tab
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {appliedEmployees.map((emp) => (
-                    <div
-                      key={emp.email}
-                      className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-yellow-200"
-                    >
-                      <div className="flex flex-col items-center text-center">
-                        <div className="relative mb-4">
-                          <Image
-                            src={emp.profile_picture || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"}
-                            alt={emp.fullname}
-                            width={150}
-                            height={150}
-                            className="w-20 h-20 rounded-full object-cover border-4 border-yellow-50"
-                          />
-                          <div className="absolute bottom-0 right-0 w-5 h-5 bg-yellow-400 rounded-full border-2 border-white"></div>
-                        </div>
-
-                        <h3 className="font-bold text-lg text-gray-900 mb-1">
-                          {emp.fullname}
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-3 flex items-center">
-                          <Mail className="w-3 h-3 mr-1" />
-                          {emp.email}
-                        </p>
-
-                        <div className="w-full space-y-2 mb-4">
-                          {emp.department && (
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-500 flex items-center">
-                                <Building className="w-3 h-3 mr-1" />
-                                Department
-                              </span>
-                              <span className="font-medium text-gray-900">{emp.department}</span>
-                            </div>
-                          )}
-                          {emp.designation && (
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-500 flex items-center">
-                                <Briefcase className="w-3 h-3 mr-1" />
-                                Role
-                              </span>
-                              <span className="font-medium text-gray-900">{emp.designation}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex gap-2 w-full mt-2">
-                          <button
-                            onClick={() => handleHrApprove(emp.email, "Approved")}
-                            className="flex-1 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleHrApprove(emp.email, "Rejected")}
-                            className="flex-1 bg-red-600 text-white py-2 px-3 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {releavedEmployees.map((emp) => (
-                    <div
-                      key={emp.email}
-                      className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-red-200"
-                    >
-                      <div className="flex flex-col items-center text-center">
-                        <div className="relative mb-4">
-                          <Image
-                            src={emp.profile_picture || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"}
-                            alt={emp.fullname}
-                            width={150}
-                            height={150}
-                            className="w-20 h-20 rounded-full object-cover border-4 border-red-50 grayscale"
-                          />
-                          <div className="absolute bottom-0 right-0 w-5 h-5 bg-red-500 rounded-full border-2 border-white"></div>
-                        </div>
-                        
-                        <h3 className="font-bold text-lg text-gray-900 mb-1">
-                          {emp.fullname}
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-3 flex items-center">
-                          <Mail className="w-3 h-3 mr-1" />
-                          {emp.email}
-                        </p>
-                        
-                        <div className="w-full space-y-2 mb-4">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-500">Reason</span>
-                            <span className="font-medium text-red-600 text-xs text-right">
-                              {emp.reason_for_resignation || emp.description || "Not specified"}
-                            </span>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={() => setSelectedReleavedEmployee(emp)}
-                          className="w-full bg-gray-600 text-white py-2 px-3 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
-                        >
-                          View Details
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {(activeTab === "active" && employees.length === 0) && (
-                <div className="text-center py-12">
-                  <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Employees</h3>
-                  <p className="text-gray-500">There are currently no active employees in the system.</p>
-                </div>
-              )}
-
-              {(activeTab === "releaved" && releavedEmployees.length === 0) && (
-                <div className="text-center py-12">
-                  <LogOut className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Releaved Employees</h3>
-                  <p className="text-gray-500">
-                    {appliedEmployees.some((e) => e.ready_to_releve)
-                      ? "Some employees are ready to relieve but not finalized yet."
-                      : "No employees have been releaved yet."}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Employee Detail View */}
-        {(selectedEmployee || selectedReleavedEmployee) && (
-          <div className="max-w-4xl mx-auto w-full">
-            <div className="bg-white rounded-2xl shadow-lg overflow-hidden w-full">
-              <div className="border-b border-gray-200">
-                <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 gap-2">
-                  <button
-                    onClick={() => {
-                      setSelectedEmployee(null);
-                      setSelectedReleavedEmployee(null);
-                    }}
-                    className="flex items-center text-gray-600 hover:text-gray-900 font-medium transition-colors text-sm sm:text-base"
-                  >
-                    <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-1 flex-shrink-0" />
-                    <span className="hidden sm:inline">Back to list</span>
-                    <span className="sm:hidden">Back</span>
-                  </button>
-                  {selectedEmployee && (
+            {/* Main Content */}
+            {!selectedEmployee && !selectedReleavedEmployee && (
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                {/* Tab Navigation */}
+                <div className="border-b overflow-x-auto">
+                  <div className="flex min-w-max">
                     <button
-                      onClick={() => setShowRemoveForm(selectedEmployee)}
-                      className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center text-xs sm:text-sm whitespace-nowrap"
+                      onClick={() => setActiveTab("active")}
+                      className={`flex items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === "active"
+                        ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
+                        : "text-gray-500 hover:text-gray-700"
+                        }`}
+                    >
+                      <User className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                      <span className="hidden sm:inline">Active Employees ({employees.length})</span>
+                      <span className="sm:hidden">Active ({employees.length})</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("applied")}
+                      className={`flex items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === "applied"
+                        ? "text-yellow-600 border-b-2 border-yellow-500 bg-yellow-50"
+                        : "text-gray-500 hover:text-gray-700"
+                        }`}
+                    >
+                      <Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                      <span className="hidden sm:inline">Applied for Relieve ({appliedEmployees.length})</span>
+                      <span className="sm:hidden">Applied ({appliedEmployees.length})</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("releaved")}
+                      className={`flex items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4 font-medium text-xs sm:text-sm transition-all whitespace-nowrap ${activeTab === "releaved"
+                        ? "text-red-600 border-b-2 border-red-600 bg-red-50"
+                        : "text-gray-500 hover:text-gray-700"
+                        }`}
                     >
                       <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                      <span className="hidden sm:inline">Remove Employee</span>
-                      <span className="sm:hidden">Remove</span>
+                      <span className="hidden sm:inline">Releaved Employees ({releavedEmployees.length})</span>
+                      <span className="sm:hidden">Releaved ({releavedEmployees.length})</span>
                     </button>
+                  </div>
+                </div>
+
+                {/* Employee Grid */}
+                <div className="p-6">
+                  {activeTab === "active" ? (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {employees.map((emp) => (
+                        <div
+                          key={emp.email}
+                          className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-blue-200 w-full overflow-hidden"
+                        >
+                          <div className="flex flex-col items-center text-center">
+                            <div className="relative mb-4">
+                              <Image
+                                src={emp.profile_picture || "/images/profile.png"}
+                                alt={emp.fullname}
+                                width={150}
+                                height={150}
+                                className="w-20 h-20 rounded-full object-cover border-4 border-blue-50"
+                              />
+                              <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
+                            </div>
+
+                            <h3 className="font-bold text-base sm:text-lg text-gray-900 mb-1 break-words w-full">
+                              {emp.fullname}
+                            </h3>
+                            <p className="text-xs sm:text-sm text-gray-600 mb-3 flex items-center justify-center w-full">
+                              <Mail className="w-3 h-3 mr-1 flex-shrink-0" />
+                              <span className="truncate">{emp.email}</span>
+                            </p>
+
+                            <div className="w-full space-y-2 mb-4">
+                              {emp.department && (
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-500 flex items-center">
+                                    <Building className="w-3 h-3 mr-1" />
+                                    Department
+                                  </span>
+                                  <span className="font-medium text-gray-900">{emp.department}</span>
+                                </div>
+                              )}
+                              {emp.designation && (
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-500 flex items-center">
+                                    <Briefcase className="w-3 h-3 mr-1" />
+                                    Role
+                                  </span>
+                                  <span className="font-medium text-gray-900">{emp.designation}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex gap-2 w-full">
+                              <button
+                                onClick={() => setSelectedEmployee(emp)}
+                                className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => setShowRemoveForm(emp)}
+                                className="flex-1 bg-red-600 text-white py-2 px-3 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : activeTab === "applied" ? (
+                    // Applied for Relieve Tab
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {appliedEmployees.map((emp) => (
+                        <div
+                          key={emp.email}
+                          className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-yellow-200"
+                        >
+                          <div className="flex flex-col items-center text-center">
+                            <div className="relative mb-4">
+                              <Image
+                                src={emp.profile_picture || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"}
+                                alt={emp.fullname}
+                                width={150}
+                                height={150}
+                                className="w-20 h-20 rounded-full object-cover border-4 border-yellow-50"
+                              />
+                              <div className="absolute bottom-0 right-0 w-5 h-5 bg-yellow-400 rounded-full border-2 border-white"></div>
+                            </div>
+
+                            <h3 className="font-bold text-lg text-gray-900 mb-1">
+                              {emp.fullname}
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-3 flex items-center">
+                              <Mail className="w-3 h-3 mr-1" />
+                              {emp.email}
+                            </p>
+
+                            <div className="w-full space-y-2 mb-4">
+                              {emp.department && (
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-500 flex items-center">
+                                    <Building className="w-3 h-3 mr-1" />
+                                    Department
+                                  </span>
+                                  <span className="font-medium text-gray-900">{emp.department}</span>
+                                </div>
+                              )}
+                              {emp.designation && (
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-500 flex items-center">
+                                    <Briefcase className="w-3 h-3 mr-1" />
+                                    Role
+                                  </span>
+                                  <span className="font-medium text-gray-900">{emp.designation}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex gap-2 w-full mt-2">
+                              <button
+                                onClick={() => handleHrApprove(emp.email, "Approved")}
+                                className="flex-1 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleHrApprove(emp.email, "Rejected")}
+                                className="flex-1 bg-red-600 text-white py-2 px-3 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {releavedEmployees.map((emp) => (
+                        <div
+                          key={emp.email}
+                          className="bg-green-50 border border-green-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 hover:border-green-300"
+                        >
+                          <div className="flex flex-col items-center text-center">
+                            <div className="relative mb-4">
+                              <Image
+                                src={emp.profile_picture || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"}
+                                alt={emp.fullname}
+                                width={150}
+                                height={150}
+                                className="w-20 h-20 rounded-full object-cover border-4 border-green-50 grayscale"
+                              />
+                              <div className="absolute bottom-0 right-0 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
+                            </div>
+
+                            <h3 className="font-bold text-lg text-gray-900 mb-1">
+                              {emp.fullname}
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-3 flex items-center">
+                              <Mail className="w-3 h-3 mr-1" />
+                              {emp.email}
+                            </p>
+
+                            <div className="w-full space-y-2 mb-4">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-500">Reason</span>
+                                <span className="font-medium text-red-600 text-xs text-right">
+                                  {emp.reason_for_resignation || emp.description || "Not specified"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => setSelectedReleavedEmployee(emp)}
+                              className="w-full bg-gray-600 text-white py-2 px-3 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {(activeTab === "active" && employees.length === 0) && (
+                    <div className="text-center py-12">
+                      <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Employees</h3>
+                      <p className="text-gray-500">There are currently no active employees in the system.</p>
+                    </div>
+                  )}
+
+                  {(activeTab === "releaved" && releavedEmployees.length === 0) && (
+                    <div className="text-center py-12">
+                      <LogOut className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No Releaved Employees</h3>
+                      <p className="text-gray-500">
+                        {appliedEmployees.some((e) => e.ready_to_releve)
+                          ? "Some employees are ready to relieve but not finalized yet."
+                          : "No employees have been releaved yet."}
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
+            )}
 
-              <div className="p-4 sm:p-6 md:p-8 w-full overflow-hidden">
-                <div className="flex flex-col lg:flex-row items-start space-y-4 sm:space-y-6 lg:space-y-0 lg:space-x-8 w-full">
-                  <div className="flex-shrink-0">
-                    <Image
-                      src={
-                        selectedEmployee?.profile_picture ||
-                        selectedReleavedEmployee?.profile_picture ||
-                        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face"
-                      }
-                      alt={selectedEmployee?.fullname || selectedReleavedEmployee?.fullname || ""}
-                      width={200}
-                      height={200}
-                      className="w-32 h-32 rounded-2xl object-cover border-4 border-blue-50"
-                    />
-                  </div>
-
-                  <div className="flex-1 grid md:grid-cols-2 gap-4 sm:gap-6 w-full min-w-0">
-                    <div className="space-y-4 sm:space-y-6 min-w-0">
-                      <div className="w-full">
-                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">
-                          {selectedEmployee?.fullname || selectedReleavedEmployee?.fullname}
-                        </h2>
-                        <p className="text-sm sm:text-base text-gray-600 flex items-center w-full">
-                          <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
-                          <span className="break-all">{selectedEmployee?.email || selectedReleavedEmployee?.email}</span>
-                        </p>
-                      </div>
-
-                      <div className="space-y-3 sm:space-y-4 w-full">
-                        <div className="flex items-center text-sm sm:text-base text-gray-700 w-full">
-                          <Building className="w-4 h-4 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
-                          <span className="font-medium mr-2 flex-shrink-0">Department:</span>
-                          <span className="truncate">{selectedEmployee?.department || selectedReleavedEmployee?.department || "—"}</span>
-                        </div>
-                        <div className="flex items-center text-sm sm:text-base text-gray-700 w-full">
-                          <Briefcase className="w-4 h-4 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
-                          <span className="font-medium mr-2 flex-shrink-0">Designation:</span>
-                          <span className="truncate">{selectedEmployee?.designation || selectedReleavedEmployee?.designation || "—"}</span>
-                        </div>
-                        <div className="flex items-center text-sm sm:text-base text-gray-700 w-full">
-                          <Phone className="w-4 h-4 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
-                          <span className="font-medium mr-2 flex-shrink-0">Phone:</span>
-                          <span className="break-all">{selectedEmployee?.phone || selectedReleavedEmployee?.phone || "—"}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4 sm:space-y-6 min-w-0">
-                        <div className="flex items-center text-sm sm:text-base text-gray-700 w-full">
-                          <Calendar className="w-4 h-4 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
-                          <span className="font-medium mr-2 flex-shrink-0">Date Joined:</span>
-                          <span className="truncate">
-                            {formatDate(selectedEmployee?.date_joined || selectedReleavedEmployee?.date_joined)}
-                          </span>
-                        </div>
-
-                      {/* Relief/Approval Progress Steps */}
-                      {(selectedEmployee || selectedReleavedEmployee) && (() => {
-                        // Get the status data from selectedEmployee or selectedReleavedEmployee
-                        const statusData: Employee | Record<string, unknown> = selectedEmployee || selectedReleavedEmployee || {};
-                        const steps = [
-                          { label: "Applied", active: !!statusData },
-                          {
-                            label: "Manager Approved",
-                            active:
-                              statusData.manager_approved?.toString().toLowerCase() === "approved" ||
-                              statusData.manager_approved?.toString().toLowerCase() === "yes",
-                            rejected:
-                              statusData.manager_approved?.toString().toLowerCase() === "rejected" ||
-                              statusData.manager_approved?.toString().toLowerCase() === "no",
-                          },
-                          {
-                            label: "HR Approved",
-                            active:
-                              statusData.hr_approved?.toString().toLowerCase() === "approved" ||
-                              statusData.hr_approved?.toString().toLowerCase() === "yes",
-                            rejected:
-                              statusData.hr_approved?.toString().toLowerCase() === "rejected" ||
-                              statusData.hr_approved?.toString().toLowerCase() === "no",
-                          },
-                          {
-                            label: "Relieved",
-                            active:
-                              !!statusData.offboarded_at &&
-                              (statusData.hr_approved?.toString().toLowerCase() === "approved" ||
-                                statusData.hr_approved?.toString().toLowerCase() === "yes"),
-                          },
-                        ];
-                        return (
-                          <div className="w-full overflow-x-auto">
-                            <div className="flex items-center justify-center gap-1 sm:gap-2 md:gap-4 mb-2 mt-2 min-w-max px-2">
-                              {steps.map((step, index) => (
-                                <React.Fragment key={step.label}>
-                                  <div className="flex flex-col items-center">
-                                    <div
-                                      className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold ${
-                                        step.rejected
-                                          ? "bg-red-500 text-white"
-                                          : step.active
-                                          ? "bg-green-500 text-white"
-                                          : "bg-gray-300 text-gray-600"
-                                      }`}
-                                    >
-                                      {step.rejected ? "❌" : step.active && index === steps.length - 1 ? "✅" : index + 1}
-                                    </div>
-                                    <span className="text-[10px] sm:text-xs mt-1 text-center w-12 sm:w-16 md:w-20 break-words leading-tight">{step.label}</span>
-                                  </div>
-                                  {index < steps.length - 1 && (
-                                    <div className="flex-1 h-0.5 sm:h-1 bg-gray-300 w-2 sm:w-4 mx-0.5 sm:mx-1" />
-                                  )}
-                                </React.Fragment>
-                              ))}
-                            </div>
-                            {steps[steps.length - 1].active && (
-                              <p className="mt-4 text-green-600 font-semibold text-center">
-                                Successfully Relieved ✅
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })()}
-
-                      {selectedReleavedEmployee && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                          <h4 className="font-semibold text-red-800 mb-2 flex items-center">
-                            <LogOut className="w-4 h-4 mr-2" />
-                            Termination Details
-                          </h4>
-                          <p className="text-red-700 text-sm">
-                            <strong>Reason:</strong> {selectedReleavedEmployee.description || selectedReleavedEmployee.reason_for_resignation || "Not specified"}
-                          </p>
-                          {selectedReleavedEmployee.releaved && (
-                            <p className="text-red-700 text-sm mt-1">
-                              <strong>Date:</strong> {formatDate(selectedReleavedEmployee.releaved)}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
+            {/* Employee Detail View */}
+            {(selectedEmployee || selectedReleavedEmployee) && (
+              <div className="max-w-4xl mx-auto w-full">
+                <div className="bg-white rounded-2xl shadow-lg overflow-hidden w-full">
+                  <div className="border-b border-gray-200">
+                    <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedEmployee(null);
+                          setSelectedReleavedEmployee(null);
+                        }}
+                        className="flex items-center text-gray-600 hover:text-gray-900 font-medium transition-colors text-sm sm:text-base"
+                      >
+                        <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 mr-1 flex-shrink-0" />
+                        <span className="hidden sm:inline">Back to list</span>
+                        <span className="sm:hidden">Back</span>
+                      </button>
                       {selectedEmployee && (
                         <button
-                          onClick={() =>
-                            generateTerminationPDF(
-                              selectedEmployee,
-                              "Employee details export",
-                              formatDate(new Date().toISOString())
-                            )
-                          }
-                          className="flex items-center text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                          onClick={() => setShowRemoveForm(selectedEmployee)}
+                          className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center text-xs sm:text-sm whitespace-nowrap"
                         >
-                          <Download className="w-4 h-4 mr-2" />
-                          Export Employee Details
+                          <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                          <span className="hidden sm:inline">Remove Employee</span>
+                          <span className="sm:hidden">Remove</span>
                         </button>
                       )}
                     </div>
                   </div>
+
+                  <div className="p-4 sm:p-6 md:p-8 w-full overflow-hidden">
+                    <div className="flex flex-col lg:flex-row items-start space-y-4 sm:space-y-6 lg:space-y-0 lg:space-x-8 w-full">
+                      <div className="flex-shrink-0">
+                        <Image
+                          src={
+                            selectedEmployee?.profile_picture ||
+                            selectedReleavedEmployee?.profile_picture ||
+                            "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face"
+                          }
+                          alt={selectedEmployee?.fullname || selectedReleavedEmployee?.fullname || ""}
+                          width={200}
+                          height={200}
+                          className="w-32 h-32 rounded-2xl object-cover border-4 border-blue-50"
+                        />
+                      </div>
+
+                      <div className="flex-1 grid md:grid-cols-2 gap-4 sm:gap-6 w-full min-w-0">
+                        <div className="space-y-4 sm:space-y-6 min-w-0">
+                          <div className="w-full">
+                            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">
+                              {selectedEmployee?.fullname || selectedReleavedEmployee?.fullname}
+                            </h2>
+                            <p className="text-sm sm:text-base text-gray-600 flex items-center w-full">
+                              <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
+                              <span className="break-all">{selectedEmployee?.email || selectedReleavedEmployee?.email}</span>
+                            </p>
+                          </div>
+
+                          <div className="space-y-3 sm:space-y-4 w-full">
+                            <div className="flex items-center text-sm sm:text-base text-gray-700 w-full">
+                              <Building className="w-4 h-4 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
+                              <span className="font-medium mr-2 flex-shrink-0">Department:</span>
+                              <span className="truncate">{selectedEmployee?.department || selectedReleavedEmployee?.department || "—"}</span>
+                            </div>
+                            <div className="flex items-center text-sm sm:text-base text-gray-700 w-full">
+                              <Briefcase className="w-4 h-4 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
+                              <span className="font-medium mr-2 flex-shrink-0">Designation:</span>
+                              <span className="truncate">{selectedEmployee?.designation || selectedReleavedEmployee?.designation || "—"}</span>
+                            </div>
+                            <div className="flex items-center text-sm sm:text-base text-gray-700 w-full">
+                              <Phone className="w-4 h-4 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
+                              <span className="font-medium mr-2 flex-shrink-0">Phone:</span>
+                              <span className="break-all">{selectedEmployee?.phone || selectedReleavedEmployee?.phone || "—"}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4 sm:space-y-6 min-w-0">
+                          <div className="flex items-center text-sm sm:text-base text-gray-700 w-full">
+                            <Calendar className="w-4 h-4 mr-2 sm:mr-3 text-blue-600 flex-shrink-0" />
+                            <span className="font-medium mr-2 flex-shrink-0">Date Joined:</span>
+                            <span className="truncate">
+                              {formatDate(selectedEmployee?.date_joined || selectedReleavedEmployee?.date_joined)}
+                            </span>
+                          </div>
+
+                          {/* Relief/Approval Progress Steps */}
+                          {(selectedEmployee || selectedReleavedEmployee) && (() => {
+                            // Get the status data from selectedEmployee or selectedReleavedEmployee
+                            const statusData: Employee | Record<string, unknown> = selectedEmployee || selectedReleavedEmployee || {};
+                            const steps = [
+                              { label: "Applied", active: !!statusData },
+                              {
+                                label: "Manager Approved",
+                                active:
+                                  statusData.manager_approved?.toString().toLowerCase() === "approved" ||
+                                  statusData.manager_approved?.toString().toLowerCase() === "yes",
+                                rejected:
+                                  statusData.manager_approved?.toString().toLowerCase() === "rejected" ||
+                                  statusData.manager_approved?.toString().toLowerCase() === "no",
+                              },
+                              {
+                                label: "HR Approved",
+                                active:
+                                  statusData.hr_approved?.toString().toLowerCase() === "approved" ||
+                                  statusData.hr_approved?.toString().toLowerCase() === "yes",
+                                rejected:
+                                  statusData.hr_approved?.toString().toLowerCase() === "rejected" ||
+                                  statusData.hr_approved?.toString().toLowerCase() === "no",
+                              },
+                              {
+                                label: "Relieved",
+                                active:
+                                  // !!statusData.offboarded_at &&
+                                  (statusData.hr_approved?.toString().toLowerCase() === "approved" ||
+                                    statusData.hr_approved?.toString().toLowerCase() === "yes"),
+                              },
+                            ];
+                            return (
+                              <div className="w-full overflow-x-auto relative">
+                                <div className="flex items-center justify-center gap-1 sm:gap-2 md:gap-4 mb-2 mt-2 min-w-max px-2">
+                                  {steps.map((step, index) => (
+                                    <React.Fragment key={step.label}>
+                                      <div 
+                                        className="flex flex-col items-center relative cursor-pointer"
+                                        onMouseEnter={() => setHoveredStep({index, employee: statusData as Employee})}
+                                        onMouseLeave={() => !clickedStep && setHoveredStep(null)}
+                                        onClick={() => {
+                                          if ((index === 1 || index === 2) && (statusData.manager_approved || statusData.hr_approved)) {
+                                            setClickedStep({index, employee: statusData as Employee});
+                                          }
+                                        }}
+                                      >
+                                        <div 
+                                          className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold ${step.rejected
+                                            ? "bg-red-500 text-white"
+                                            : step.active
+                                              ? "bg-green-500 text-white"
+                                              : "bg-gray-300 text-gray-600"
+                                            }`}
+                                        >
+                                          {step.rejected ? "❌" : step.active ? "✅" : index + 1}
+                                        </div>
+                                        <span className="text-[10px] sm:text-xs mt-1 text-center w-12 sm:w-16 md:w-20 break-words leading-tight">{step.label}</span>
+                                      </div>
+                                      {index < steps.length - 1 && (
+                                        <div className="flex-1 h-0.5 sm:h-1 bg-gray-300 w-2 sm:w-4 mx-0.5 sm:mx-1" />
+                                      )}
+                                    </React.Fragment>
+                                  ))}
+                                </div>
+                                
+                                {/* Popup Menu for Manager/HR Comments */}
+                                {hoveredStep && hoveredStep.employee && (
+                                  <div ref={popupRef} className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl p-4 z-10 w-full max-w-md mx-auto animate-fadeIn">
+                                    <div className="text-sm">
+                                      <h4 className="font-bold mb-3 flex items-center justify-between">
+                                        <span>
+                                          {hoveredStep.index === 1 ? 'Manager Decision' : 
+                                           hoveredStep.index === 2 ? 'HR Decision' : 
+                                           'Process Details'}
+                                        </span>
+                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${hoveredStep.index === 1 ? 
+                                          (hoveredStep.employee.manager_approved?.toString().toLowerCase() === 'approved' || hoveredStep.employee.manager_approved?.toString().toLowerCase() === 'yes' ? 'bg-green-100 text-green-800' : 
+                                           hoveredStep.employee.manager_approved?.toString().toLowerCase() === 'rejected' || hoveredStep.employee.manager_approved?.toString().toLowerCase() === 'no' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800') :
+                                         hoveredStep.index === 2 ? 
+                                          (hoveredStep.employee.hr_approved?.toString().toLowerCase() === 'approved' || hoveredStep.employee.hr_approved?.toString().toLowerCase() === 'yes' ? 'bg-green-100 text-green-800' : 
+                                           hoveredStep.employee.hr_approved?.toString().toLowerCase() === 'rejected' || hoveredStep.employee.hr_approved?.toString().toLowerCase() === 'no' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800') :
+                                         'bg-gray-100 text-gray-800'}`}>
+                                          {hoveredStep.index === 1 ? 
+                                            (hoveredStep.employee.manager_approved?.toString().toLowerCase() === 'approved' || hoveredStep.employee.manager_approved?.toString().toLowerCase() === 'yes' ? 'Approved' : 
+                                             hoveredStep.employee.manager_approved?.toString().toLowerCase() === 'rejected' || hoveredStep.employee.manager_approved?.toString().toLowerCase() === 'no' ? 'Rejected' : 'Pending') :
+                                           hoveredStep.index === 2 ? 
+                                            (hoveredStep.employee.hr_approved?.toString().toLowerCase() === 'approved' || hoveredStep.employee.hr_approved?.toString().toLowerCase() === 'yes' ? 'Approved' : 
+                                             hoveredStep.employee.hr_approved?.toString().toLowerCase() === 'rejected' || hoveredStep.employee.hr_approved?.toString().toLowerCase() === 'no' ? 'Rejected' : 'Pending') :
+                                           'Details'}
+                                        </span>
+                                      </h4>
+                                      <div className="mt-2 bg-gray-50 p-3 rounded-lg">
+                                        <p className="font-medium text-gray-700 mb-2 flex items-center">
+                                          <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                                          Reason/Comments:
+                                        </p>
+                                        <p className="text-gray-800 max-h-32 overflow-y-auto pr-2">
+                                          {hoveredStep.index === 1 ? 
+                                            (hoveredStep.employee.reason_for_resignation || hoveredStep.employee.description || 'No specific reason provided') :
+                                           hoveredStep.index === 2 ? 
+                                            (hoveredStep.employee.description || 'No specific reason provided') :
+                                           'No details available'}
+                                        </p>
+                                      </div>
+                                      <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-500 flex justify-between">
+                                        <span>Click anywhere to close</span>
+                                        <span>Hover to keep open</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {steps[steps.length - 1].active && (
+                                  <p className="mt-4 text-green-600 font-semibold text-center">
+                                    Successfully Relieved ✅
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {selectedReleavedEmployee && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                              <h4 className="font-semibold text-red-800 mb-2 flex items-center">
+                                <LogOut className="w-4 h-4 mr-2" />
+                                Termination Details
+                              </h4>
+                              <p className="text-red-700 text-sm">
+                                <strong>Reason:</strong> {selectedReleavedEmployee.description || selectedReleavedEmployee.reason_for_resignation || "Not specified"}
+                              </p>
+                              {selectedReleavedEmployee.releaved && (
+                                <p className="text-red-700 text-sm mt-1">
+                                  <strong>Date:</strong> {formatDate(selectedReleavedEmployee.releaved)}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          {selectedEmployee && (
+                            <button
+                              onClick={() =>
+                                generateTerminationPDF(
+                                  selectedEmployee,
+                                  "Employee details export",
+                                  formatDate(new Date().toISOString())
+                                )
+                              }
+                              className="flex items-center text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Export Employee Details
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* Remove Employee Modal */}
+            {showRemoveForm && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+                <div className="bg-white rounded-2xl p-6 max-w-md w-full relative shadow-2xl border border-red-100">
+                  <button
+                    onClick={() => setShowRemoveForm(null)}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X size={24} />
+                  </button>
+
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <LogOut className="w-8 h-8 text-red-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">Remove Employee</h2>
+                    <p className="text-gray-600">
+                      You are about to remove <strong>{showRemoveForm.fullname}</strong> from the system.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Termination Date <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={terminationDate}
+                        onChange={(e) => setTerminationDate(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Termination Reason <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        value={terminationReason}
+                        onChange={(e) => setTerminationReason(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        rows={4}
+                        placeholder="Please provide the reason for termination..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={() => setShowRemoveForm(null)}
+                      className="flex-1 bg-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleRemoveEmployee}
+                      className="flex-1 bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Confirm Removal
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-
-        {/* Remove Employee Modal */}
-        {showRemoveForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl p-6 max-w-md w-full relative shadow-2xl border border-red-100">
-              <button
-                onClick={() => setShowRemoveForm(null)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X size={24} />
-              </button>
-              
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <LogOut className="w-8 h-8 text-red-600" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Remove Employee</h2>
-                <p className="text-gray-600">
-                  You are about to remove <strong>{showRemoveForm.fullname}</strong> from the system.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Termination Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={terminationDate}
-                    onChange={(e) => setTerminationDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Termination Reason <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={terminationReason}
-                    onChange={(e) => setTerminationReason(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    rows={4}
-                    placeholder="Please provide the reason for termination..."
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setShowRemoveForm(null)}
-                  className="flex-1 bg-gray-300 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-400 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleRemoveEmployee}
-                  className="flex-1 bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Confirm Removal
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-    </DashboardLayout>
+        </div>
+      </DashboardLayout>
     </>
   );
 };

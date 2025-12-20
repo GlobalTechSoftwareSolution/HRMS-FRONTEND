@@ -34,7 +34,6 @@ const HOLIDAY_COLORS: Record<string, string> = {
 
 const HolidayCalendar: React.FC = () => {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   

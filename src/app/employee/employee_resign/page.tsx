@@ -1,7 +1,7 @@
 // Resignation Progress Tracker and Page
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import axios from "axios";
 
@@ -35,21 +35,41 @@ function ResignationStatus({ email }: { email: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Reset loading state when email changes
+    setLoading(true);
+    setStatusData(null);
+    
     const fetchStatus = async () => {
       try {
+        // Add timestamp to prevent caching
+        const timestamp = new Date().getTime();
         const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_releaved/`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_releaved/?t=${timestamp}`
         );
-        const all: ResignationStatusData[] = res.data || [];
+        const all: ResignationStatusData[] = Array.isArray(res.data) ? res.data : (res.data?.releaved_employees || res.data?.resignations || res.data?.data || []);
         const userData = all.find((item: ResignationStatusData) => item.email === email);
         setStatusData(userData || null);
       } catch (err) {
         console.error("Error fetching resignation status:", err);
+        setStatusData(null);
       } finally {
         setLoading(false);
       }
     };
-    fetchStatus();
+    
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (email) {
+      fetchStatus();
+      // Poll for updates every 30 seconds to ensure real-time data
+      interval = setInterval(fetchStatus, 30000);
+    } else {
+      setLoading(false);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [email]);
 
   if (loading)
@@ -99,7 +119,7 @@ function ResignationStatus({ email }: { email: string }) {
         {steps.map((step, index) => (
           <React.Fragment key={index}>
             {/* Circle & Label with Hover Card */}
-            <div className="flex flex-col items-center relative z-10 group">
+            <div className="flex flex-col items-center relative z-10 group cursor-pointer">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold transition-all duration-500 ${
                   step.rejected
@@ -112,48 +132,50 @@ function ResignationStatus({ email }: { email: string }) {
                 {step.rejected ? "❌" : step.active ? "✓" : index + 1}
               </div>
               <p className="text-sm mt-2 font-medium text-gray-700">{step.label}</p>
+                            {(step.rejected || step.active) && (
+                              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                <span className="text-white text-xs">i</span>
+                              </div>
+                            )}
 
               {/* Hover Card: display consistent data for each step */}
               {(step.rejected || step.active) && (
-                <div className="absolute bottom-12 w-64 bg-white shadow-lg border border-gray-200 rounded-lg p-3 text-sm text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                  <p className="font-semibold text-gray-800 mb-1">
-                    {step.label === "Applied" && "Resignation Reason:"}
-                    {step.label === "Manager Approved" && "Manager Response:"}
-                    {step.label === "HR Attested" && "HR Response:"}
-                    {step.label === "Relieved" && "Relieved Details:"}
+                <div className="absolute bottom-12 w-72 bg-white shadow-xl border-2 border-blue-100 rounded-lg p-4 text-sm text-gray-700 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 z-20">
+                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 w-4 h-4 bg-white border-r-2 border-b-2 border-blue-100 rotate-45"></div>
+                  <p className="font-semibold text-gray-800 mb-2 text-center border-b border-gray-100 pb-2">
+                    {step.label === "Applied" && "📝 Resignation Reason"}
+                    {step.label === "Manager Approved" && "👨‍💼 Manager Response"}
+                    {step.label === "HR Attested" && "👥 HR Response"}
+                    {step.label === "Relieved" && "🎉 Relieved Details"}
                   </p>
-                  <p className="text-gray-600">
-                    {step.label === "Applied" &&
-                      (statusData.reason_for_resignation?.trim() || "No reason provided.")}
-                    {step.label === "Manager Approved" &&
-                      (statusData.manager_description?.trim() || "No response provided.")}
-                    {step.label === "HR Attested" &&
-                      (statusData.hr_description?.trim() || "No response provided.")}
+                  <p className="text-gray-700 max-h-32 overflow-y-auto">
+                    {step.label === "Applied" && (
+                      <span className="italic">{statusData.reason_for_resignation?.trim() || "No reason provided."}</span>
+                    )}
+                    {step.label === "Manager Approved" && (
+                      <span className="italic">{statusData.manager_description?.trim() || "No response provided."}</span>
+                    )}
+                    {step.label === "HR Attested" && (
+                      <span className="italic">{statusData.hr_description?.trim() || "No response provided."}</span>
+                    )}
                     {step.label === "Relieved" && (
-                      <>
-                        {(statusData.manager_description?.trim() || statusData.hr_description?.trim())
-                          ? (
-                              <>
-                                {statusData.manager_description?.trim() && (
-                                  <span>
-                                    <span className="font-semibold">Manager: </span>
-                                    {statusData.manager_description.trim()}
-                                  </span>
-                                )}
-                                {statusData.manager_description?.trim() && statusData.hr_description?.trim() && (
-                                  <span> <span className="text-gray-400">|</span> </span>
-                                )}
-                                {statusData.hr_description?.trim() && (
-                                  <span>
-                                    <span className="font-semibold">HR: </span>
-                                    {statusData.hr_description.trim()}
-                                  </span>
-                                )}
-                              </>
-                            )
-                          : "No response provided."
-                        }
-                      </>
+                      <div className="space-y-2">
+                        {statusData.manager_description?.trim() && (
+                          <div>
+                            <span className="font-semibold text-blue-600">Manager: </span>
+                            <span className="italic">{statusData.manager_description.trim()}</span>
+                          </div>
+                        )}
+                        {statusData.hr_description?.trim() && (
+                          <div>
+                            <span className="font-semibold text-blue-600">HR: </span>
+                            <span className="italic">{statusData.hr_description.trim()}</span>
+                          </div>
+                        )}
+                        {!statusData.manager_description?.trim() && !statusData.hr_description?.trim() && (
+                          <span className="italic">No response provided.</span>
+                        )}
+                      </div>
                     )}
                   </p>
                 </div>
@@ -227,6 +249,32 @@ export default function ResignationPage() {
   // Add state to track pending resignation
   const [hasPendingResignation, setHasPendingResignation] = useState(false);
 
+  // Function to check if the user has a pending resignation request
+  const checkExistingResignation = useCallback(async () => {
+    try {
+      console.log('🔍 Checking existing resignation for email:', formData.email);
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_releaved/?t=${timestamp}`
+      );
+
+      const all: ResignationStatusData[] = Array.isArray(res.data) ? res.data : (res.data?.releaved_employees || res.data?.resignations || res.data?.data || []);
+      const existing = all.find(
+        (item: ResignationStatusData) => item.email === formData.email
+      );
+      // Check if user has any resignation record (pending or approved)
+      if (existing) {
+        setHasPendingResignation(true);
+      } else {
+        setHasPendingResignation(false);
+      }
+    } catch (err) {
+      console.error("Error checking existing resignation:", err);
+      setHasPendingResignation(false);
+    }
+  }, [formData.email]);
+
   // 🔹 Fetch employee details from API based on stored email
   useEffect(() => {
     const storedEmail =
@@ -263,32 +311,18 @@ export default function ResignationPage() {
 
   // Effect to check if the user has a pending resignation request
   useEffect(() => {
-    const checkExistingResignation = async () => {
-      try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_releaved/`
-        );
-        const all: ResignationStatusData[] = res.data || [];
-        const existing = all.find(
-          (item: ResignationStatusData) => item.email === formData.email
-        );
-        if (
-          existing &&
-          existing.approved !== "yes" &&
-          existing.manager_approved?.toString().toLowerCase() !== "rejected" &&
-          existing.hr_approved?.toString().toLowerCase() !== "rejected"
-        ) {
-          setHasPendingResignation(true);
-        } else {
-          setHasPendingResignation(false);
+    let interval: NodeJS.Timeout | null = null;
+        
+        if (formData.email) {
+          checkExistingResignation();
+          // Poll for updates every 30 seconds
+          interval = setInterval(checkExistingResignation, 30000);
         }
-      } catch (err) {
-        console.error("Error checking existing resignation:", err);
-        setHasPendingResignation(false);
-      }
-    };
-    if (formData.email) checkExistingResignation();
-  }, [formData.email]);
+        
+        return () => {
+          if (interval) clearInterval(interval);
+        };
+  }, [formData.email, checkExistingResignation]);
 
 
   const handleChange = (
@@ -328,8 +362,6 @@ export default function ResignationPage() {
         }
       );
 
-      console.log("✅ Employee record updated successfully");
-
       // 🔹 Step 2: Submit resignation request to /releaved/
       const resignationPayload = {
         email: formData.email,
@@ -341,38 +373,44 @@ export default function ResignationPage() {
         offboarded_at: new Date().toISOString(),
       };
 
-      console.log("📤 Resignation payload:", resignationPayload);
-
       await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/releaved/`,
         resignationPayload,
         { headers: { "Content-Type": "application/json" } }
       );
-
-      console.log("✅ Resignation submitted successfully!");
       alert("✅ Resignation submitted successfully! Your request has been recorded.");
 
       setShowModal(false);
       setFormData((prev) => ({ ...prev, description: "" }));
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        console.error("💥 Axios error:", error.response?.data || error.message);
+        // Axios error
         if (error.response) {
           const { status, data } = error.response;
-          console.error("🚨 Server response error:", { status, data });
+          // Server response error
           if (status === 400) {
             alert(`Submission failed: ${JSON.stringify(data)}`);
+            // Check for existing resignation when submission fails due to existing record
+            // Check for existing resignation after 400 error
+            setTimeout(() => {
+              checkExistingResignation();
+            }, 1000);
           } else if (status === 404) {
             alert("API endpoint not found. Please contact administrator.");
           } else {
             alert(`Server error (${status}): Please try again.`);
+                    // Even if submission fails, check if there's an existing resignation
+                    // Check for existing resignation after failed submission
+                    setTimeout(() => {
+                      checkExistingResignation();
+                    }, 1000);
           }
         }
       } else if (error instanceof Error) {
-        console.error("💥 General error:", error.message);
+        console.error("General error:", error.message);
         alert(`Error: ${error.message}`);
       } else {
-        console.error("💥 Unknown error:", error);
+        console.error("Unknown error:", error);
         alert("An unknown error occurred. Please try again.");
       }
     } finally {
