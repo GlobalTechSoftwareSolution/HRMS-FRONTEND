@@ -362,7 +362,7 @@ const TermsPrivacy: React.FC = () => {
                 <PhoneCall className="h-5 w-5 text-blue-600 mr-3 mt-1" />
                 <div>
                   <p className="font-medium text-gray-700">Phone number</p>
-                  <p className="text-gray-600">+91 9844281875</p>
+                  <p className="text-gray-600">+91 8495862494</p>
                 </div>
               </div>
             </div>

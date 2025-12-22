@@ -31,7 +31,6 @@ const LoginPage = () => {
     setMessage("");
 
     const endpoint = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/login/`;
-    console.log("Login API:", endpoint);
 
     try {
       const response = await fetch(endpoint, {
@@ -65,13 +64,11 @@ const LoginPage = () => {
         // Store JWT token if backend provides it
         if (data.token) {
           localStorage.setItem("access_token", data.token);
-          console.log("JWT Token stored:", data.token);
         } else {
           console.warn("No JWT token returned from backend");
         }
 
         localStorage.setItem("user_email", data.user.email);
-        console.log("Logged-in user email:", data.user.email);
 
         localStorage.setItem(
           "userInfo",

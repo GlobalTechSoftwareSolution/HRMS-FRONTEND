@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import DashboardLayout from "@/components/DashboardLayout";
 import Calendar from "react-calendar";
@@ -463,8 +463,11 @@ export default function AttendancePortal() {
                 setLoadingAbsences(false);
             }
         };
+
         fetchAbsences();
-    }, [loggedInEmail, fetchedAttendance]);    useEffect(() => {
+    }, [loggedInEmail]);
+
+    useEffect(() => {
         const fetchLeaves = async () => {
             try {
                 const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_leaves/`);
@@ -587,7 +590,6 @@ export default function AttendancePortal() {
                 const shiftRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_shifts/`);
                 if (shiftRes.ok) {
                     const shiftData = await shiftRes.json();
-                    console.log('Shift API Response:', shiftData);
                     const userShifts = (shiftData.shifts || [])
                         .filter((shift: ShiftRecord) =>
                             shift.emp_email === loggedInEmail || shift.employee_email === loggedInEmail
@@ -603,7 +605,6 @@ export default function AttendancePortal() {
                             status: shift.status || 'active',
                             ot_hours: shift.ot_hours
                         }));
-                    console.log('Filtered user shifts:', userShifts);
                     setShifts(userShifts);
                 } else {
                     console.error('Failed to fetch shifts:', shiftRes.status, shiftRes.statusText);
@@ -632,7 +633,6 @@ export default function AttendancePortal() {
                 const breakRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_breaks/`);
                 if (breakRes.ok) {
                     const breakData = await breakRes.json();
-                    console.log('Break data fetched:', breakData);
                     // Handle different response formats
                     let breaksArray = [];
                     if (Array.isArray(breakData)) {
@@ -647,7 +647,6 @@ export default function AttendancePortal() {
                         breaksArray = [];
                     }
 
-                    console.log('Breaks array:', breaksArray);
                     const userBreaks = breaksArray
                         .filter((br: BreakRecord) => br.email === loggedInEmail)
                         .map((br: BreakRecord) => ({
@@ -660,7 +659,6 @@ export default function AttendancePortal() {
                             status: br.status,
                             duration: br.duration
                         }));
-                    console.log('User breaks:', userBreaks);
                     setBreaks(userBreaks);
                 }
             } catch (error) {
@@ -672,90 +670,88 @@ export default function AttendancePortal() {
     }, [loggedInEmail]);
 
     // Merge shifts, OT, and break data into attendance records
-    useEffect(() => {
-        if (fetchedAttendance.length > 0 && shifts.length >= 0) { // Allow merging even if no shifts
-            const mergedAttendance = fetchedAttendance.map(record => {                // Find shift for this date
-                const shiftForDate = shifts.find(shift => shift.date === record.date);
-                const shiftInfo = shiftForDate ? {
-                    shift: shiftForDate.shift,
-                    shiftTime: `${shiftForDate.start_time} - ${shiftForDate.end_time}`
-                } : null;
+    const mergedAttendance = useMemo(() => {
+        if (fetchedAttendance.length === 0) return fetchedAttendance;
 
-                // Calculate OT hours and collect OT periods for this date
-                const otForDate = otRecords.filter(ot => {
-                    const otDate = ot.date || new Date(ot.ot_start).toISOString().split('T')[0];
-                    return otDate === record.date;
-                });
+        return fetchedAttendance.map(record => {                // Find shift for this date
+            const shiftForDate = shifts.find(shift => shift.date === record.date);
+            const shiftInfo = shiftForDate ? {
+                shift: shiftForDate.shift,
+                shiftTime: `${shiftForDate.start_time} - ${shiftForDate.end_time}`
+            } : null;
 
-                const totalOtHours = otForDate.reduce((total, ot) => {
-                    if (ot.hours) return total + ot.hours;
-
-                    // Calculate hours from ot_start and ot_end if hours not provided
-                    if (ot.ot_start && ot.ot_end) {
-                        const start = new Date(ot.ot_start);
-                        const end = new Date(ot.ot_end);
-                        const diffMs = end.getTime() - start.getTime();
-                        const hours = diffMs / (1000 * 60 * 60);
-                        return total + Math.max(0, hours);
-                    }
-
-                    return total;
-                }, 0);
-
-                // Collect OT periods
-                const otPeriods = otForDate.map(ot => ({
-                    start: ot.ot_start,
-                    end: ot.ot_end,
-                    hours: ot.hours || (ot.ot_start && ot.ot_end ? (new Date(ot.ot_end).getTime() - new Date(ot.ot_start).getTime()) / (1000 * 60 * 60) : 0)
-                }));
-
-                // Calculate total break hours and collect break periods for this date
-                const breaksForDate = breaks.filter(br => {
-                    const breakDate = br.date || new Date(br.break_start).toISOString().split('T')[0];
-                    return breakDate === record.date;
-                });
-
-                const totalBreakHours = breaksForDate.reduce((total, br) => {
-                    if (br.duration) return total + br.duration;
-
-                    // Calculate duration from break_start and break_end if duration not provided
-                    if (br.break_start && br.break_end) {
-                        const start = new Date(br.break_start);
-                        const end = new Date(br.break_end);
-                        const diffMs = end.getTime() - start.getTime();
-                        const hours = diffMs / (1000 * 60 * 60);
-                        return total + Math.max(0, hours);
-                    }
-
-                    return total;
-                }, 0);
-
-                // Collect break periods
-                const breakPeriods = breaksForDate.map(br => ({
-                    start: br.break_start,
-                    end: br.break_end,
-                    duration: br.duration || (br.break_start && br.break_end ? (new Date(br.break_end).getTime() - new Date(br.break_start).getTime()) / (1000 * 60 * 60) : 0)
-                }));
-
-                return {
-                    ...record,
-                    shift: shiftInfo?.shift || undefined,
-                    shiftTime: shiftInfo?.shiftTime || undefined,
-                    otHours: totalOtHours > 0 ? totalOtHours : undefined,
-                    otPeriods: otPeriods.length > 0 ? otPeriods : undefined,
-                    breakHours: totalBreakHours > 0 ? totalBreakHours : undefined,
-                    breakPeriods: breakPeriods.length > 0 ? breakPeriods : undefined
-                };
+            // Calculate OT hours and collect OT periods for this date
+            const otForDate = otRecords.filter(ot => {
+                const otDate = ot.date || new Date(ot.ot_start).toISOString().split('T')[0];
+                return otDate === record.date;
             });
 
-            setFetchedAttendance(mergedAttendance);
-        }
-    }, [shifts, otRecords, breaks, fetchedAttendance]);
+            const totalOtHours = otForDate.reduce((total, ot) => {
+                if (ot.hours) return total + ot.hours;
+
+                // Calculate hours from ot_start and ot_end if hours not provided
+                if (ot.ot_start && ot.ot_end) {
+                    const start = new Date(ot.ot_start);
+                    const end = new Date(ot.ot_end);
+                    const diffMs = end.getTime() - start.getTime();
+                    const hours = diffMs / (1000 * 60 * 60);
+                    return total + Math.max(0, hours);
+                }
+
+                return total;
+            }, 0);
+
+            // Collect OT periods
+            const otPeriods = otForDate.map(ot => ({
+                start: ot.ot_start,
+                end: ot.ot_end,
+                hours: ot.hours || (ot.ot_start && ot.ot_end ? (new Date(ot.ot_end).getTime() - new Date(ot.ot_start).getTime()) / (1000 * 60 * 60) : 0)
+            }));
+
+            // Calculate total break hours and collect break periods for this date
+            const breaksForDate = breaks.filter(br => {
+                const breakDate = br.date || new Date(br.break_start).toISOString().split('T')[0];
+                return breakDate === record.date;
+            });
+
+            const totalBreakHours = breaksForDate.reduce((total, br) => {
+                if (br.duration) return total + br.duration;
+
+                // Calculate duration from break_start and break_end if duration not provided
+                if (br.break_start && br.break_end) {
+                    const start = new Date(br.break_start);
+                    const end = new Date(br.break_end);
+                    const diffMs = end.getTime() - start.getTime();
+                    const hours = diffMs / (1000 * 60 * 60);
+                    return total + Math.max(0, hours);
+                }
+
+                return total;
+            }, 0);
+
+            // Collect break periods
+            const breakPeriods = breaksForDate.map(br => ({
+                start: br.break_start,
+                end: br.break_end,
+                duration: br.duration || (br.break_start && br.break_end ? (new Date(br.break_end).getTime() - new Date(br.break_start).getTime()) / (1000 * 60 * 60) : 0)
+            }));
+
+            return {
+                ...record,
+                shift: shiftInfo?.shift || undefined,
+                shiftTime: shiftInfo?.shiftTime || undefined,
+                otHours: totalOtHours > 0 ? totalOtHours : undefined,
+                otPeriods: otPeriods.length > 0 ? otPeriods : undefined,
+                breakHours: totalBreakHours > 0 ? totalBreakHours : undefined,
+                breakPeriods: breakPeriods.length > 0 ? breakPeriods : undefined
+            };
+        });
+    }, [fetchedAttendance, shifts, otRecords, breaks]);
 
     // Update selected date record when selectedDate changes
     useEffect(() => {
         if (selectedDate) {
-            const record = fetchedAttendance.find(rec => {
+            const record = mergedAttendance.find(rec => {
                 const recordEmail = (rec.email || "").trim().toLowerCase();
                 const currentEmail = (loggedInEmail || "").trim().toLowerCase();
                 const recordDate = formatDateForComparison(rec.date);
@@ -765,7 +761,7 @@ export default function AttendancePortal() {
         } else {
             setSelectedDateRecord(null);
         }
-    }, [selectedDate, fetchedAttendance, loggedInEmail]);
+    }, [selectedDate, mergedAttendance, loggedInEmail]);
 
     // Helper function to format dates consistently for comparison
     const formatDateForComparison = (date: Date | string): string => {
@@ -920,7 +916,7 @@ export default function AttendancePortal() {
         if (!isClient || !loggedInEmail) return { present: 0, absent: 0, workingIn: 0, late: 0, halfDay: 0, sunday: 0, leave: 0 };
 
         const normalizedEmail = (loggedInEmail || "").trim().toLowerCase();
-        const filtered = fetchedAttendance.filter(rec => {
+        const filtered = mergedAttendance.filter(rec => {
             const recordEmail = (rec.email || "").trim().toLowerCase();
             const d = new Date(rec.date);
             return (
@@ -1014,7 +1010,7 @@ export default function AttendancePortal() {
     ];
 
     // Enhanced stats calculation
-    const totalPresentDays = fetchedAttendance.filter(record => {
+    const totalPresentDays = mergedAttendance.filter(record => {
         const recordEmail = (record.email || "").trim().toLowerCase();
         const currentEmail = (loggedInEmail || "").trim().toLowerCase();
         return recordEmail === currentEmail &&
@@ -1026,7 +1022,7 @@ export default function AttendancePortal() {
             record.checkOut !== "null";
     }).length;
 
-    const thisMonthPresent = fetchedAttendance.filter(record => {
+    const thisMonthPresent = mergedAttendance.filter(record => {
         const recordEmail = (record.email || "").trim().toLowerCase();
         const currentEmail = (loggedInEmail || "").trim().toLowerCase();
         const recordDate = new Date(record.date);
@@ -1093,7 +1089,7 @@ export default function AttendancePortal() {
         if (absenceMatch) return "calendar-absent";
 
         // Then check attendance
-        const record = fetchedAttendance.find(
+        const record = mergedAttendance.find(
             rec => formatDateForComparison(rec.date) === dateStr &&
                 rec.email?.trim().toLowerCase() === normalizedEmail
         );
@@ -1331,7 +1327,7 @@ export default function AttendancePortal() {
                                             }
 
                                             // Check for attendance record
-                                            const record = fetchedAttendance.find(rec => {
+                                            const record = mergedAttendance.find(rec => {
                                                 const recordDate = formatDateForComparison(new Date(rec.date));
                                                 const recordEmail = (rec.email || "").trim().toLowerCase();
                                                 return recordDate === dateStr && recordEmail === normalizedEmail;
@@ -2059,7 +2055,7 @@ export default function AttendancePortal() {
                     </h2>
 
                     <AttendanceRecordsWithDatePicker
-                        fetchedAttendance={fetchedAttendance}
+                        mergedAttendance={mergedAttendance}
                         loggedInEmail={loggedInEmail}
                         loadingFetchedAttendance={loadingFetchedAttendance}
                         fetchError={fetchError}
@@ -2096,7 +2092,7 @@ export default function AttendancePortal() {
                                     return record.status && record.status !== "-" ? record.status : "-";
                                 };
                                 return (
-                                    fetchedAttendance
+                                    mergedAttendance
                                         .filter(record => {
                                             const recordEmail = (record.email || "").trim().toLowerCase();
                                             const currentEmail = (loggedInEmail || "").trim().toLowerCase();
@@ -2665,14 +2661,92 @@ export default function AttendancePortal() {
                     }
                 }
 
-                /* Medium devices (tablets, 768px and down) */
-                @media (max-width: 768px) {
-                    .lg\\:flex-row {
-                        flex-direction: column;
+                /* Medium devices (tablets, 768px to 1023px) */
+                @media (min-width: 768px) and (max-width: 1023px) {
+                    .react-calendar__tile {
+                        padding: 10px 6px;
+                        font-size: 0.8rem;
+                        min-height: 44px;
                     }
-                    
+
+                    .react-calendar__navigation button {
+                        padding: 7px 10px;
+                        min-width: 42px;
+                        font-size: 0.9rem;
+                    }
+
+                    .react-calendar__month-view__weekdays__weekday {
+                        padding: 10px 6px;
+                        font-size: 0.8rem;
+                    }
+
+                    /* Calendar and pie chart side by side on tablets */
+                    .lg\\:flex-row {
+                        flex-direction: row;
+                    }
+
                     .lg\\:w-80 {
-                        width: 100%;
+                        width: 280px;
+                    }
+
+                    /* Adjust grid layouts for tablets */
+                    .grid-cols-1 {
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                    }
+
+                    .md\\:grid-cols-3 {
+                        grid-template-columns: repeat(2, minmax(0, 1fr));
+                    }
+
+                    /* Adjust card spacing */
+                    .gap-4 {
+                        gap: 1rem;
+                    }
+
+                    .sm\\:gap-6 {
+                        gap: 1.25rem;
+                    }
+                }
+
+                /* Large devices (desktops, 1024px and up) */
+                @media (min-width: 1024px) {
+                    .react-calendar__tile {
+                        padding: 12px 8px;
+                        font-size: 0.875rem;
+                        min-height: 48px;
+                    }
+
+                    .react-calendar__navigation button {
+                        padding: 8px 12px;
+                        min-width: 44px;
+                        font-size: 1rem;
+                    }
+
+                    .react-calendar__month-view__weekdays__weekday {
+                        padding: 12px 8px;
+                        font-size: 0.875rem;
+                    }
+
+                    /* Calendar and pie chart side by side on large screens */
+                    .lg\\:flex-row {
+                        flex-direction: row;
+                    }
+
+                    .lg\\:w-80 {
+                        width: 320px;
+                    }
+
+                    /* Full grid layouts on large screens */
+                    .grid-cols-1 {
+                        grid-template-columns: repeat(4, minmax(0, 1fr));
+                    }
+
+                    .md\\:grid-cols-3 {
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
+                    }
+
+                    .lg\\:grid-cols-4 {
+                        grid-template-columns: repeat(4, minmax(0, 1fr));
                     }
                 }
 
@@ -2696,7 +2770,7 @@ export default function AttendancePortal() {
 }
 
 function AttendanceRecordsWithDatePicker({
-    fetchedAttendance,
+    mergedAttendance,
     loggedInEmail,
     loadingFetchedAttendance,
     fetchError,
@@ -2709,7 +2783,7 @@ function AttendanceRecordsWithDatePicker({
     currentMonth,
     breaks,
 }: {
-    fetchedAttendance: AttendanceRecord[];
+    mergedAttendance: AttendanceRecord[];
     loggedInEmail: string | null;
     loadingFetchedAttendance: boolean;
     fetchError: string | null;
@@ -2742,8 +2816,8 @@ function AttendanceRecordsWithDatePicker({
 
     const normalizedEmail = (loggedInEmail || "").trim().toLowerCase();
 
-    const filteredRecords = fetchedAttendance
-        .filter(record => {
+    const filteredRecords = mergedAttendance
+        .filter((record: AttendanceRecord) => {
             const recordEmail = (record.email || "").trim().toLowerCase();
             if (recordEmail !== normalizedEmail) return false;
             if (selectedDate) {
@@ -2754,7 +2828,7 @@ function AttendanceRecordsWithDatePicker({
             return recordDate.getMonth() === currentMonth.getMonth() &&
                    recordDate.getFullYear() === currentMonth.getFullYear();
         })
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        .sort((a: AttendanceRecord, b: AttendanceRecord) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     if (filteredRecords.length === 0) {
         // If there are no attendance records for the selected day, but the day is marked absent, show an absence info card
@@ -2893,8 +2967,6 @@ function AttendanceRecordsWithDatePicker({
                                             return false;
                                         }
                                     });
-                                    console.log(`Breaks for ${record.date}:`, dateBreaks);
-
                                     if (dateShifts.length === 0 && dateOT.length === 0 && dateBreaks.length === 0) {
                                         return (
                                             <div className="text-xs text-gray-500 italic">No scheduled shifts, overtime or breaks</div>

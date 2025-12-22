@@ -4,6 +4,7 @@ import { Navbar } from "@/components/Navbar";
 import  Mainpage  from "@/app/mainpage/page";
 import  Footer  from "@/components/footer";
 import Chatbot from '@/components/chatbot'
+import WhatsAppContact from '@/components/whatsapp-contact'
 import Services from '@/app/services/page'
 import Hrstandout from '@/app/hrstandout/page'
 import Hrmodules from '@/app/hrmodules/page'
@@ -26,6 +27,7 @@ export default function HomePage() {
       <Goodwill />
       <Modules />
       <Faqs />
+      <WhatsAppContact />
       <Chatbot />
       <Footer />
     </div>

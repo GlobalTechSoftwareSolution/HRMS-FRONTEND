@@ -25,7 +25,7 @@ const HRModulesCarousel: React.FC = () => {
   const modules = [
     {
       label: "Attendance",
-      link: "/docs/attendance/",
+      link: "/contact/",
       icon: UserCheck,
       color: "from-blue-500 to-cyan-500",
       features: [
@@ -46,7 +46,7 @@ const HRModulesCarousel: React.FC = () => {
     },
     {
       label: "Recruitment",
-      link: "/docs/recruitment/",
+      link: "/contact/",
       icon: Search,
       color: "from-green-500 to-emerald-500",
       features: [
@@ -67,7 +67,7 @@ const HRModulesCarousel: React.FC = () => {
     },
     {
       label: "Employee",
-      link: "/docs/employee/",
+      link: "/contact/",
       icon: Users,
       color: "from-purple-500 to-pink-500",
       features: [
@@ -88,7 +88,7 @@ const HRModulesCarousel: React.FC = () => {
     },
     {
       label: "Payroll",
-      link: "/docs/payroll/",
+      link: "/contact/",
       icon: DollarSign,
       color: "from-orange-500 to-red-500",
       features: [
@@ -109,7 +109,7 @@ const HRModulesCarousel: React.FC = () => {
     },
     {
       label: "Performance",
-      link: "/docs/performance/",
+      link: "/contact/",
       icon: TrendingUp,
       color: "from-indigo-500 to-blue-500",
       features: [
@@ -130,7 +130,7 @@ const HRModulesCarousel: React.FC = () => {
     },
     {
       label: "Training",
-      link: "/docs/training/",
+      link: "/contact/",
       icon: GraduationCap,
       color: "from-teal-500 to-green-500",
       features: [
@@ -246,7 +246,7 @@ const HRModulesCarousel: React.FC = () => {
             className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-6 py-3 shadow-lg border border-gray-200 mb-6"
           >
             <Sparkles className="w-5 h-5 text-yellow-500" />
-            <span className="text-sm font-semibold text-gray-700">Complete HR Solution</span>
+            <span className="text-sm font-semibold text-gray-700">Complee HR Solution</span>
           </motion.div>
           
           <h4 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-purple-900 bg-clip-text text-transparent mb-4">
