@@ -36,7 +36,6 @@ const HolidayCalendar: React.FC = () => {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (notification) {
@@ -73,7 +72,6 @@ const HolidayCalendar: React.FC = () => {
 
   const fetchHolidays = async () => {
     try {
-      setLoading(true);
       setError(null);
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/holidays/`

@@ -111,19 +111,9 @@ interface OvertimeRecord {
   emp_name?: string;
 }
 
-interface BreakRecord {
-  start: string;
-  end: string;
-  duration: number; // in minutes
-}
 
-interface DailyRecord {
-  date: string;
-  shifts: ShiftRecord[];
-  overtime: OvertimeRecord[];
-  breaks: BreakRecord[];
-  attendance?: Attendance;
-}
+
+
 
 interface MonthlyReportData {
   employees: Employee[];
@@ -213,6 +203,7 @@ const holidays = Array.isArray(holidaysRaw)
         if (Array.isArray(shiftsRaw)) {
           shifts = shiftsRaw;
         } else if (shiftsRaw.shifts && Array.isArray(shiftsRaw.shifts)) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           shifts = shiftsRaw.shifts.map((shift: any) => ({
             id: shift.shift_id || shift.id,
             employee_email: shift.emp_email || shift.employee_email,
@@ -240,9 +231,10 @@ const holidays = Array.isArray(holidaysRaw)
         if (Array.isArray(overtimeRaw)) {
           overtime = overtimeRaw;
         } else if (overtimeRaw.ot_records && Array.isArray(overtimeRaw.ot_records)) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           overtime = overtimeRaw.ot_records.map((ot: any) => ({
             id: ot.id,
-            employee_email: ot.email || '',
+            employee_email: ot.employee_email || ot.email || '',
             date: ot.ot_start ? new Date(ot.ot_start).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             hours: ot.ot_start && ot.ot_end ? (new Date(ot.ot_end).getTime() - new Date(ot.ot_start).getTime()) / (1000 * 60 * 60) : 0,
             approved: ot.approved || false,
@@ -1063,7 +1055,7 @@ const holidays = Array.isArray(holidaysRaw)
                               duration: 60
                             });
                           }
-                        } catch (error) {
+                        } catch {
                           console.warn('Error calculating break for attendance:', attendance);
                         }
                       }

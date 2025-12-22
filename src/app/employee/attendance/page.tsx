@@ -750,7 +750,7 @@ export default function AttendancePortal() {
 
             setFetchedAttendance(mergedAttendance);
         }
-    }, [shifts, otRecords, breaks, fetchedAttendance.length]);
+    }, [shifts, otRecords, breaks, fetchedAttendance]);
 
     // Update selected date record when selectedDate changes
     useEffect(() => {

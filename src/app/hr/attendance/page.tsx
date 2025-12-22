@@ -41,6 +41,28 @@ type Employee = {
   department: string;
 };
 
+type Shift = {
+  date: string;
+  emp_email?: string;
+  employee_email?: string;
+  shift?: string;
+  shift_type?: string;
+  start_time: string;
+  end_time: string;
+};
+
+type OT = {
+  ot_start: string;
+  ot_end: string;
+  email: string;
+};
+
+type Break = {
+  break_start: string;
+  break_end?: string;
+  email: string;
+};
+
 export default function HrAttendencePage() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,12 +72,9 @@ export default function HrAttendencePage() {
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
 
   // Shift, OT, and Break data
-  const [shifts, setShifts] = useState<any[]>([]);
-  const [otRecords, setOtRecords] = useState<any[]>([]);
-  const [breaks, setBreaks] = useState<any[]>([]);
-  const [loadingShifts, setLoadingShifts] = useState(true);
-  const [loadingOT, setLoadingOT] = useState(true);
-  const [loadingBreaks, setLoadingBreaks] = useState(true);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [otRecords, setOtRecords] = useState<OT[]>([]);
+  const [breaks, setBreaks] = useState<Break[]>([]);
 
 
   // Utility function to normalize date format for comparison
@@ -179,7 +198,6 @@ export default function HrAttendencePage() {
   useEffect(() => {
     const fetchShifts = async () => {
       try {
-        setLoadingShifts(true);
         const res = await fetch(
           `https://hrms.globaltechsoftwaresolutions.cloud/api/accounts/list_shifts/`
         );
@@ -188,8 +206,6 @@ export default function HrAttendencePage() {
         setShifts(Array.isArray(data) ? data : (data.shifts || []));
       } catch (err) {
         console.error("Error fetching shifts:", err);
-      } finally {
-        setLoadingShifts(false);
       }
     };
     fetchShifts();
@@ -199,7 +215,6 @@ export default function HrAttendencePage() {
   useEffect(() => {
     const fetchOT = async () => {
       try {
-        setLoadingOT(true);
         const res = await fetch(
           `https://hrms.globaltechsoftwaresolutions.cloud/api/accounts/list_ot/`
         );
@@ -208,8 +223,6 @@ export default function HrAttendencePage() {
         setOtRecords(Array.isArray(data) ? data : (data.ot_records || []));
       } catch (err) {
         console.error("Error fetching OT records:", err);
-      } finally {
-        setLoadingOT(false);
       }
     };
     fetchOT();
@@ -219,7 +232,6 @@ export default function HrAttendencePage() {
   useEffect(() => {
     const fetchBreaks = async () => {
       try {
-        setLoadingBreaks(true);
         const res = await fetch(
           `https://hrms.globaltechsoftwaresolutions.cloud/api/accounts/list_breaks/`
         );
@@ -228,8 +240,6 @@ export default function HrAttendencePage() {
         setBreaks(Array.isArray(data) ? data : (data.breaks || data.break_records || []));
       } catch (err) {
         console.error("Error fetching breaks:", err);
-      } finally {
-        setLoadingBreaks(false);
       }
     };
     fetchBreaks();
