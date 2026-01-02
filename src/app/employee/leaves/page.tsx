@@ -91,8 +91,8 @@ export default function LeaveSection() {
 
       const leavesArray: LeaveApiResponse[] = Array.isArray(data.leaves)
         ? (data.leaves as LeaveApiResponse[]).filter(
-            (leave: LeaveApiResponse) => leave.email === email
-          )
+          (leave: LeaveApiResponse) => leave.email === email
+        )
         : [];
 
       const mappedLeaves: Leave[] = leavesArray.map((leave: LeaveApiResponse, idx: number) => ({
@@ -106,7 +106,7 @@ export default function LeaveSection() {
           Math.ceil(
             (new Date(leave.end_date).getTime() -
               new Date(leave.start_date).getTime()) /
-              (1000 * 60 * 60 * 24)
+            (1000 * 60 * 60 * 24)
           ) + 1,
         submittedDate: leave.applied_on,
         department: leave.department || "",
@@ -154,26 +154,26 @@ export default function LeaveSection() {
 
     try {
       const appliedOnDate = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-      
+
       // Calculate total approved leaves for the current year
       const currentYear = new Date().getFullYear();
       const approvedLeaves = leaves.filter(leave => {
         const leaveYear = new Date(leave.startDate).getFullYear();
         return leave.status === "Approved" && leaveYear === currentYear;
       });
-      
+
       const totalApprovedDays = approvedLeaves.reduce((sum, leave) => sum + leave.daysRequested, 0);
-      
+
       // Calculate days for current leave request
       const start = new Date(startDate);
       const end = new Date(endDate);
       const diffTime = Math.abs(end.getTime() - start.getTime());
       const requestedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-      
+
       // Determine if this leave should be paid or unpaid
       // If total approved days + requested days > 15, it's unpaid
       const paidStatus = (totalApprovedDays + requestedDays) > 15 ? "Unpaid" : "Paid";
-      
+
       // Only send valid backend fields; do not send _lte/_gte fields
       const payload = {
         email: userEmail,
@@ -250,13 +250,17 @@ export default function LeaveSection() {
             {
               15 -
               leaves
-                .filter((l) => l.status.toLowerCase() === "approved")
+                .filter((l) => {
+                  const isApproved = l.status.toLowerCase() === "approved";
+                  const isCurrentYear = new Date(l.startDate).getFullYear() === new Date().getFullYear();
+                  return isApproved && isCurrentYear;
+                })
                 .reduce((total, l) => {
                   const days = Math.max(
                     1,
                     Math.ceil(
                       (new Date(l.endDate).getTime() - new Date(l.startDate).getTime()) /
-                        (1000 * 60 * 60 * 24)
+                      (1000 * 60 * 60 * 24)
                     ) + 1
                   );
                   return total + days;
@@ -328,7 +332,7 @@ export default function LeaveSection() {
                   {Math.ceil(
                     (new Date(endDate).getTime() -
                       new Date(startDate).getTime()) /
-                      (1000 * 60 * 60 * 24)
+                    (1000 * 60 * 60 * 24)
                   ) + 1}{" "}
                   day(s)
                 </span>
@@ -401,13 +405,12 @@ export default function LeaveSection() {
                           <td className="py-4 pr-4">{formatDate(leave.submittedDate)}</td>
                           <td className="py-4">
                             <div
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                leave.status.toLowerCase() === "pending"
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${leave.status.toLowerCase() === "pending"
                                   ? "bg-yellow-100 text-yellow-800"
                                   : leave.status.toLowerCase() === "approved"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
-                              }`}
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
                             >
                               <span className="mr-1.5">{getStatusIcon(leave.status)}</span>
                               {leave.status}
@@ -429,19 +432,18 @@ export default function LeaveSection() {
                       <div className="flex justify-between items-start mb-3">
                         <h4 className="font-semibold text-gray-800 text-lg">{leave.reason}</h4>
                         <div
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                            leave.status.toLowerCase() === "pending"
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${leave.status.toLowerCase() === "pending"
                               ? "bg-yellow-100 text-yellow-800"
                               : leave.status.toLowerCase() === "approved"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
                         >
                           <span className="mr-1.5">{getStatusIcon(leave.status)}</span>
                           {leave.status}
                         </div>
                       </div>
-                      
+
                       <div className="space-y-2 text-sm text-gray-600">
                         <div className="flex justify-between">
                           <span className="font-medium">Period:</span>

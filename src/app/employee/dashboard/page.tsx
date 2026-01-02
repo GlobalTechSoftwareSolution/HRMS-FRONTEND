@@ -271,22 +271,22 @@ export default function DashboardOverview() {
   const getCurrentWorkHours = () => {
     // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
-    
+
     // Find today's record
     const todayRecord = attendanceRecords.find(record => record.date === today);
-    
+
     // If there's a completed session, calculate actual worked hours
     if (todayRecord && todayRecord.checkIn && todayRecord.checkOut) {
       try {
         const checkInTime = new Date(`${today}T${todayRecord.checkIn}`);
         const checkOutTime = new Date(`${today}T${todayRecord.checkOut}`);
-        
+
         // Calculate difference in milliseconds
         const diffMs = checkOutTime.getTime() - checkInTime.getTime();
-        
+
         // Convert to hours
         const diffHours = diffMs / (1000 * 60 * 60);
-        
+
         // Return positive hours worked, capped at 8 hours
         return Math.min(8, Math.max(0, diffHours));
       } catch (error) {
@@ -294,19 +294,19 @@ export default function DashboardOverview() {
         return 0;
       }
     }
-    
+
     // If there's a check-in but no check-out, calculate elapsed time
     if (todayRecord && todayRecord.checkIn && !todayRecord.checkOut) {
       try {
         const checkInTime = new Date(`${today}T${todayRecord.checkIn}`);
         const currentTime = new Date();
-        
+
         // Calculate difference in milliseconds
         const diffMs = currentTime.getTime() - checkInTime.getTime();
-        
+
         // Convert to hours
         const diffHours = diffMs / (1000 * 60 * 60);
-        
+
         // Return positive hours worked, capped at 8 hours
         return Math.min(8, Math.max(0, diffHours));
       } catch (error) {
@@ -314,7 +314,7 @@ export default function DashboardOverview() {
         return 0;
       }
     }
-    
+
     return 0;
   };
 
@@ -351,8 +351,17 @@ export default function DashboardOverview() {
   const getLeaveBalance = () => {
     const totalLeaves = 15;
     const userEmail = localStorage.getItem("user_email") || "";
+    const currentYear = new Date().getFullYear();
+
     const taken = leaveData
-      .filter((l) => l.email === userEmail && l.status?.toLowerCase() === "approved")
+      .filter((l) => {
+        const leaveDate = new Date(l.start_date);
+        return (
+          l.email === userEmail &&
+          l.status?.toLowerCase() === "approved" &&
+          leaveDate.getFullYear() === currentYear
+        );
+      })
       .reduce((total, l) => {
         const start = new Date(l.start_date);
         const end = new Date(l.end_date);
@@ -385,12 +394,12 @@ export default function DashboardOverview() {
 
     console.log('Starting break timer');
     const now = Date.now();
-    
+
     // Just start the timer locally, no API call
     setIsOnBreak(true);
     setBreakStartTime(now);
     setBreakElapsed(0);
-    
+
     // Store in localStorage to persist across refresh
     localStorage.setItem('activeBreakStart', now.toString());
   };
@@ -405,9 +414,9 @@ export default function DashboardOverview() {
 
       const breakStart = new Date(breakStartTime).toISOString();
       const breakEnd = new Date().toISOString();
-      
+
       console.log('Saving break to database');
-      
+
       // Send POST request with both start and end times
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/create_break/`,
@@ -428,7 +437,7 @@ export default function DashboardOverview() {
         setIsOnBreak(false);
         setBreakStartTime(null);
         setBreakElapsed(0);
-        
+
         // Clear localStorage
         localStorage.removeItem('activeBreakStart');
       } else {
@@ -564,11 +573,10 @@ export default function DashboardOverview() {
             </div>
             <button
               onClick={isOnBreak ? handleStopBreak : handleStartBreak}
-              className={`px-6 py-3 rounded-lg font-semibold transition-all transform hover:scale-105 ${
-                isOnBreak
+              className={`px-6 py-3 rounded-lg font-semibold transition-all transform hover:scale-105 ${isOnBreak
                   ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg'
                   : 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg'
-              }`}
+                }`}
             >
               {isOnBreak ? 'End Break' : 'Start Break'}
             </button>
@@ -697,19 +705,19 @@ export default function DashboardOverview() {
                                     <span className="text-gray-600">{formatTime(shift.start_time)} - {formatTime(shift.end_time)}</span>
                                   </div>
                                 ))}
-                                  {dateOT.map((ot) => {
-                                    const startTime = new Date(ot.ot_start);
-                                    const endTime = new Date(ot.ot_end);
-                                    const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+                                {dateOT.map((ot) => {
+                                  const startTime = new Date(ot.ot_start);
+                                  const endTime = new Date(ot.ot_end);
+                                  const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
 
-                                    return (
-                                      <div key={`ot-${ot.id}`} className="flex items-center gap-2 text-sm">
-                                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                                        <span className="text-orange-700 font-medium">Overtime:</span>
-                                        <span className="text-gray-600">{startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })} - {endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })} ({Math.abs(hours).toFixed(1)}h)</span>
-                                      </div>
-                                    );
-                                  })}
+                                  return (
+                                    <div key={`ot-${ot.id}`} className="flex items-center gap-2 text-sm">
+                                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                                      <span className="text-orange-700 font-medium">Overtime:</span>
+                                      <span className="text-gray-600">{startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })} - {endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })} ({Math.abs(hours).toFixed(1)}h)</span>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
@@ -925,8 +933,8 @@ export default function DashboardOverview() {
                   <div key={leave.start_date} className="flex flex-col gap-1 pb-3 border-b border-gray-50 last:border-0 last:pb-0">
                     <div className="flex justify-between items-center">
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-md border ${leave.status.toLowerCase() == 'approved' ? 'bg-green-50 text-green-700 border-green-100' :
-                          leave.status.toLowerCase() == 'rejected' ? 'bg-red-50 text-red-700 border-red-100' :
-                            'bg-yellow-50 text-yellow-700 border-yellow-100'
+                        leave.status.toLowerCase() == 'rejected' ? 'bg-red-50 text-red-700 border-red-100' :
+                          'bg-yellow-50 text-yellow-700 border-yellow-100'
                         }`}>
                         {leave.status}
                       </span>
