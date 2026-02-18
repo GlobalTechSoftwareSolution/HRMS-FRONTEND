@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image"; 
+import Image from "next/image";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/footer";
 
@@ -90,7 +90,7 @@ export default function AboutPage() {
                   <h3 className="text-xl font-semibold text-black">Sharan Patil</h3>
                   <p className="text-blue-600 mb-3">CEO & Founder</p>
                   <p className="text-gray-600">
-                    With over 8 years in HR technology, HR Global Tech bridges the gap 
+                    With over 8 years in HR technology, HR Global Tech bridges the gap
                     between HR needs and technological solutions.
                   </p>
                 </div>
@@ -99,18 +99,50 @@ export default function AboutPage() {
               {/* Tech Lead */}
               <div className="flex flex-col md:flex-row items-center md:items-start">
                 <Image
-                  src="/team/manii.jpg"
-                  alt="Mani Bharadwaj"
+                  src="/team/rohini.png"
+                  alt="Rohini Hatti"
                   width={128}
                   height={128}
                   className="rounded-full object-cover mb-4 md:mb-0 md:mr-6"
                 />
                 <div className="text-center md:text-left">
-                  <h3 className="text-xl font-semibold text-black">Mani Bharadwaj</h3>
+                  <h3 className="text-xl font-semibold text-black">Rohini Hatti</h3>
                   <p className="text-blue-600 mb-3">Tech Lead</p>
                   <p className="text-gray-600">
-                    Mani Bharadwaj leads our technical vision, ensuring our platforms 
+                    Rohini leads our technical vision, ensuring our platforms
                     remain at the forefront of innovation, security, and scalability.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col md:flex-row items-center md:items-start">
+                <Image
+                  src="/team/kaushik.jpg"
+                  alt="J G Kaushik"
+                  width={128}
+                  height={128}
+                  className="rounded-full object-cover mb-4 md:mb-0 md:mr-6"
+                />
+                <div className="text-center md:text-left">
+                  <h3 className="text-xl font-semibold text-black">JG Kaushik</h3>
+                  <p className="text-blue-600 mb-3">Developer</p>
+                  <p className="text-gray-600">
+                    Kaushik transforms ideas into powerful digital solutions, modern technologies, and problem-solving expertise to deliver impactful results.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col md:flex-row items-center md:items-start">
+                <Image
+                  src="/team/nithyaaa.png"
+                  alt="Nithya M S"
+                  width={128}
+                  height={128}
+                  className="rounded-full object-cover mb-4 md:mb-0 md:mr-6"
+                />
+                <div className="text-center md:text-left">
+                  <h3 className="text-xl font-semibold text-black">Nithya M S</h3>
+                  <p className="text-blue-600 mb-3">Developer</p>
+                  <p className="text-gray-600">
+                    Nithya contributes to our technical efforts, helping ensure our platforms remain efficient, secure, and scalable.
                   </p>
                 </div>
               </div>

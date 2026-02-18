@@ -39,6 +39,10 @@ export default function AttendancePage() {
 
     const startCamera = async () => {
       try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          showMessage("Camera API not available. Ensure you are using HTTPS or localhost.", "error");
+          return;
+        }
         const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) videoRef.current.srcObject = mediaStream;
         setStream(mediaStream);
@@ -57,7 +61,7 @@ export default function AttendancePage() {
 
     const getLocation = () => {
       if (!navigator.geolocation) {
-        showMessage("Geolocation not supported", "error");
+        showMessage("Geolocation is not supported or restricted. Use HTTPS.", "error");
         return;
       }
       navigator.geolocation.getCurrentPosition(
@@ -167,13 +171,14 @@ export default function AttendancePage() {
         formData.append("longitude", longitude.toString());
       }
 
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
       let endpoint = "";
       if (attendanceType === "office") {
-        endpoint = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/office_attendance/`;
+        endpoint = `${apiUrl}/api/accounts/office_attendance/`;
       } else if (attendanceType === "work") {
-        endpoint = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/work_attendance/`;
+        endpoint = `${apiUrl}/api/accounts/work_attendance/`;
       } else {
-        endpoint = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/mark_attendance/`;
+        endpoint = `${apiUrl}/api/accounts/mark_attendance/`;
       }
 
       const token = localStorage.getItem("access_token");
@@ -187,12 +192,12 @@ export default function AttendancePage() {
 
       // --- Handle non-JSON ---
       if (!res.ok) {
-        console.error("Server responded with error:", res.status, text.slice(0, 200));
+        console.error("Server responded with error:", res.status, text ? text.slice(0, 200) : "Empty response");
         showMessage("Time up — marked absent. You can contact your manager for clarification.", "warning");
         return;
       }
 
-      if (text.trim().startsWith("<")) {
+      if (text && text.trim().startsWith("<")) {
         console.error("HTML response (likely 404/500 from backend):", text.slice(0, 200));
         showMessage("Time up — marked absent. You can contact your manager for clarification.", "warning");
         return;
@@ -221,53 +226,71 @@ export default function AttendancePage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 p-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Face Recognition Attendance</h1>
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Face Recognition Attendance</h1>
         </div>
 
         {attendanceType === null ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh]">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 w-full max-w-2xl">
-              {/* Office Attendance button */}
-              <button
-                className="flex flex-col items-center justify-center rounded-2xl shadow-lg px-10 py-12 bg-gradient-to-br from-purple-600 to-blue-500 text-white hover:scale-105 transition-all duration-200"
-                onClick={() => setAttendanceType("office")}
-                style={{ minHeight: 200, fontSize: "1.35rem" }}
-              >
-                <span className="font-bold text-2xl mb-2">Office Attendance</span>
-                <span className="text-base font-normal opacity-90 mt-2 text-center w-4/5">
-                  Mark your attendance at your company office using face recognition and location.
-                </span>
-              </button>
-              {/* Workplace Attendance button */}
-              <button
-                className="flex flex-col items-center justify-center rounded-2xl shadow-lg px-10 py-12 bg-gradient-to-br from-green-500 to-teal-400 text-white hover:scale-105 transition-all duration-200"
-                onClick={() => setAttendanceType("work")}
-                style={{ minHeight: 200, fontSize: "1.35rem" }}
-              >
-                <span className="font-bold text-2xl mb-2">Workplace Attendance</span>
-                <span className="text-base font-normal opacity-90 mt-2 text-center w-4/5">
-                  Mark attendance when working remotely, in the field, or at a client location.
-                </span>
-              </button>
-            </div>
-            <div className="mt-10 text-gray-500 text-center text-lg max-w-xl">
-              Please select your attendance type to continue.
+            <div className="w-full max-w-2xl">
+              {/* Back button aligned with boxes */}
+              <div className="mb-6 flex justify-start">
+                <button
+                  className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md transition-all duration-200 transform hover:-translate-y-0.5"
+                  onClick={() => window.location.href = '/'}
+                  type="button"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back to Home
+                </button>
+              </div>
+
+              <div className="bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-white/50">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+                  {/* Office Attendance button */}
+                  <button
+                    className="flex flex-col items-center justify-center rounded-2xl shadow-lg px-10 py-12 bg-gradient-to-br from-purple-600 to-blue-500 text-white hover:scale-105 transition-all duration-200"
+                    onClick={() => setAttendanceType("office")}
+                    style={{ minHeight: 200, fontSize: "1.35rem" }}
+                  >
+                    <span className="font-bold text-2xl mb-2">Office Attendance</span>
+                    <span className="text-base font-normal opacity-90 mt-2 text-center w-4/5">
+                      Mark your attendance at your company office using face recognition and location.
+                    </span>
+                  </button>
+                  {/* Workplace Attendance button */}
+                  <button
+                    className="flex flex-col items-center justify-center rounded-2xl shadow-lg px-10 py-12 bg-gradient-to-br from-green-500 to-teal-400 text-white hover:scale-105 transition-all duration-200"
+                    onClick={() => setAttendanceType("work")}
+                    style={{ minHeight: 200, fontSize: "1.35rem" }}
+                  >
+                    <span className="font-bold text-2xl mb-2">Workplace Attendance</span>
+                    <span className="text-base font-normal opacity-90 mt-2 text-center w-4/5">
+                      Mark attendance when working remotely, in the field, or at a client location.
+                    </span>
+                  </button>
+                </div>
+                <div className="mt-8 text-gray-600 text-center text-lg font-medium">
+                  Please select your attendance type to continue.
+                </div>
+              </div>
             </div>
           </div>
         ) : (
           <div>
-            {/* Back button */}
+            {/* Back button for camera screen - kept for usability */}
             <div className="mb-4">
               <button
-                className="inline-flex items-center px-3 py-1.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium text-sm shadow transition"
+                className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md transition-all duration-200"
                 onClick={() => setAttendanceType(null)}
                 type="button"
               >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                 </svg>
-                Back
+                Change Type
               </button>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -290,7 +313,7 @@ export default function AttendancePage() {
                   />
                   {(!scanning && !canvasVisible) && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="w-48 h-48 rounded-full border-2 border-white/30 shadow-[0_0_40px_rgba(255,255,255,0.15)]" style={{boxShadow:"0 0 60px rgba(59,130,246,0.25) inset"}}></div>
+                      <div className="w-48 h-48 rounded-full border-2 border-white/30 shadow-[0_0_40px_rgba(255,255,255,0.15)]" style={{ boxShadow: "0 0 60px rgba(59,130,246,0.25) inset" }}></div>
                     </div>
                   )}
                   {/* Facial scan overlay */}
@@ -302,8 +325,8 @@ export default function AttendancePage() {
                         transition: "transform 1s ease-in-out",
                       }}
                     >
-                      <div className="absolute inset-0" style={{background:"radial-gradient(ellipse at center, rgba(59,130,246,0.20) 0%, rgba(0,0,0,0.0) 60%)"}}></div>
-                      <div className="absolute inset-0" style={{boxShadow:"inset 0 0 120px rgba(0,0,0,0.35)"}}></div>
+                      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, rgba(59,130,246,0.20) 0%, rgba(0,0,0,0.0) 60%)" }}></div>
+                      <div className="absolute inset-0" style={{ boxShadow: "inset 0 0 120px rgba(0,0,0,0.35)" }}></div>
                       {/* Hexagonal wireframe with smooth opacity animation */}
                       <svg
                         viewBox="0 0 200 200"
@@ -316,7 +339,7 @@ export default function AttendancePage() {
                       >
                         <polygon points="100,15 155,50 155,120 100,155 45,120 45,50" />
                       </svg>
-                      <svg viewBox="0 0 200 200" className="absolute w-60 h-60" style={{animation:"rotate-ring 6s linear infinite"}}>
+                      <svg viewBox="0 0 200 200" className="absolute w-60 h-60" style={{ animation: "rotate-ring 6s linear infinite" }}>
                         <defs>
                           <linearGradient id="grad">
                             <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.9" />
@@ -455,7 +478,7 @@ export default function AttendancePage() {
                           100% { transform: rotate(360deg); }
                         }
                       `}</style>
-                      <div className="absolute top-3 right-3 px-2.5 py-1.5 rounded-full bg-black/50 text-white text-xs font-semibold backdrop-blur" style={{boxShadow:"0 0 10px rgba(99,102,241,0.5)"}}>
+                      <div className="absolute top-3 right-3 px-2.5 py-1.5 rounded-full bg-black/50 text-white text-xs font-semibold backdrop-blur" style={{ boxShadow: "0 0 10px rgba(99,102,241,0.5)" }}>
                         {`${Math.min(100, Math.max(0, scanLine))}%`}
                       </div>
                     </div>
@@ -470,11 +493,10 @@ export default function AttendancePage() {
                 </button>
                 {/* Status Message */}
                 {message && (
-                  <div className={`mt-4 p-3 rounded-lg font-medium text-center ${
-                    message.type === "success" ? "bg-green-100 text-green-800 border border-green-200" :
-                      message.type === "error" ? "bg-red-100 text-red-800 border border-red-200" :
-                        "bg-yellow-100 text-yellow-800 border border-yellow-200"
-                  }`}>
+                  <div className={`mt-4 p-3 rounded-lg font-medium text-center ${message.type === "success" ? "bg-green-100 text-green-800 border border-green-200" :
+                    message.type === "error" ? "bg-red-100 text-red-800 border border-red-200" :
+                      "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                    }`}>
                     <div className="font-bold">{message.type.toUpperCase()}</div>
                     <div>{message.text}</div>
                     {/* Show time below status when confirmation exists */}

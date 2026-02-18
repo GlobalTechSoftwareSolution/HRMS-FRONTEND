@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 const Chatbot: React.FC = () => {
+  const [isHovered, setIsHovered] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [messages, setMessages] = useState<{ text: string; user: boolean }[]>([]);
   const [input, setInput] = useState("");
@@ -64,9 +65,9 @@ const Chatbot: React.FC = () => {
       setTimeout(() => {
         setMessages((prev) => [
           ...prev,
-          { 
-            text: "I'd be happy to help you get in touch with our support team! 🤝\n\nYou can either:\n1. Fill out our contact form right here in the chat\n2. Call us directly\n\nWhat would you prefer?", 
-            user: false 
+          {
+            text: "I'd be happy to help you get in touch with our support team! 🤝\n\nYou can either:\n1. Fill out our contact form right here in the chat\n2. Call us directly\n\nWhat would you prefer?",
+            user: false
           }
         ]);
         setIsTyping(false);
@@ -84,9 +85,9 @@ const Chatbot: React.FC = () => {
       setTimeout(() => {
         setMessages((prev) => [
           ...prev,
-          { 
-            text: "Hello there! 👋\n\nI'm your HRMS Assistant, here to help you with:\n• HRMS features and functionalities\n• Employee management tools\n• Payroll and attendance systems\n• Support and troubleshooting\n\nHow can I assist you today?", 
-            user: false 
+          {
+            text: "Hello there! 👋\n\nI'm your HRMS Assistant, here to help you with:\n• HRMS features and functionalities\n• Employee management tools\n• Payroll and attendance systems\n• Support and troubleshooting\n\nHow can I assist you today?",
+            user: false
           }
         ]);
         setIsTyping(false);
@@ -103,9 +104,9 @@ const Chatbot: React.FC = () => {
       setTimeout(() => {
         setMessages((prev) => [
           ...prev,
-          { 
-            text: "You're very welcome! 😊\n\nI'm glad I could help. Is there anything else I can assist you with today?\n\nRemember, I'm here 24/7 to help with any HRMS related questions!", 
-            user: false 
+          {
+            text: "You're very welcome! 😊\n\nI'm glad I could help. Is there anything else I can assist you with today?\n\nRemember, I'm here 24/7 to help with any HRMS related questions!",
+            user: false
           }
         ]);
         setIsTyping(false);
@@ -125,67 +126,67 @@ const Chatbot: React.FC = () => {
       });
 
       const data = await res.json();
-    
-    // Show bot response
-    setTimeout(() => {
-      // Make the response more engaging
-      let responseText = data.reply;
-      
-      // Add emojis for common topics
-      if (responseText.toLowerCase().includes("hrms")) {
-        responseText = responseText.replace(/hrms/gi, "HRMS 📊");
-      }
-      
-      if (responseText.toLowerCase().includes("employee")) {
-        responseText = responseText.replace(/employee/gi, "employee 👥");
-      }
-      
-      if (responseText.toLowerCase().includes("payroll")) {
-        responseText = responseText.replace(/payroll/gi, "payroll 💰");
-      }
-      
-      if (responseText.toLowerCase().includes("attendance")) {
-        responseText = responseText.replace(/attendance/gi, "attendance 📅");
-      }
-      
-      setMessages((prev) => [...prev, { text: responseText, user: false }]);
-      setIsTyping(false);
-      // Scroll to the user's message after bot response
-      setTimeout(() => {
-        scrollToUserMessage(userMessageIndex);
-      }, 100);
-    }, 800);
-    
-  } catch {
-    setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        { text: "Oops! I'm having trouble connecting right now. 😅\n\nPlease try again in a moment.", user: false },
-      ]);
-      setIsTyping(false);
-      // Scroll to the user's message after bot response
-      setTimeout(() => {
-        scrollToUserMessage(userMessageIndex);
-      }, 100);
-    }, 800);
-  }
-};
 
-// New function to scroll to the user's message
-const scrollToUserMessage = (index: number) => {
-  if (messagesEndRef.current && index >= 0) {
-    const chatContainer = messagesEndRef.current.parentElement;
-    if (chatContainer) {
-      const messageElements = chatContainer.querySelectorAll('.animate-message-in');
-      if (messageElements[index]) {
-        messageElements[index].scrollIntoView({ behavior: "smooth", block: "start" });
-      } else {
-        // Fallback to scrolling to top if specific message not found
-        chatContainer.scrollTo({ top: 0, behavior: "smooth" });
+      // Show bot response
+      setTimeout(() => {
+        // Make the response more engaging
+        let responseText = data.reply;
+
+        // Add emojis for common topics
+        if (responseText.toLowerCase().includes("hrms")) {
+          responseText = responseText.replace(/hrms/gi, "HRMS 📊");
+        }
+
+        if (responseText.toLowerCase().includes("employee")) {
+          responseText = responseText.replace(/employee/gi, "employee 👥");
+        }
+
+        if (responseText.toLowerCase().includes("payroll")) {
+          responseText = responseText.replace(/payroll/gi, "payroll 💰");
+        }
+
+        if (responseText.toLowerCase().includes("attendance")) {
+          responseText = responseText.replace(/attendance/gi, "attendance 📅");
+        }
+
+        setMessages((prev) => [...prev, { text: responseText, user: false }]);
+        setIsTyping(false);
+        // Scroll to the user's message after bot response
+        setTimeout(() => {
+          scrollToUserMessage(userMessageIndex);
+        }, 100);
+      }, 800);
+
+    } catch {
+      setTimeout(() => {
+        setMessages((prev) => [
+          ...prev,
+          { text: "Oops! I'm having trouble connecting right now. 😅\n\nPlease try again in a moment.", user: false },
+        ]);
+        setIsTyping(false);
+        // Scroll to the user's message after bot response
+        setTimeout(() => {
+          scrollToUserMessage(userMessageIndex);
+        }, 100);
+      }, 800);
+    }
+  };
+
+  // New function to scroll to the user's message
+  const scrollToUserMessage = (index: number) => {
+    if (messagesEndRef.current && index >= 0) {
+      const chatContainer = messagesEndRef.current.parentElement;
+      if (chatContainer) {
+        const messageElements = chatContainer.querySelectorAll('.animate-message-in');
+        if (messageElements[index]) {
+          messageElements[index].scrollIntoView({ behavior: "smooth", block: "start" });
+        } else {
+          // Fallback to scrolling to top if specific message not found
+          chatContainer.scrollTo({ top: 0, behavior: "smooth" });
+        }
       }
     }
-  }
-};
+  };
 
   const handleQuickButton = (query: string) => {
     if (query === "contact") {
@@ -195,9 +196,9 @@ const scrollToUserMessage = (index: number) => {
       // Add a message to the chat to inform the user
       setMessages((prev) => [
         ...prev,
-        { 
-          text: "Sure, I can help you with that. Please fill out the form below and I'll get your message to our team.", 
-          user: false 
+        {
+          text: "Sure, I can help you with that. Please fill out the form below and I'll get your message to our team.",
+          user: false
         }
       ]);
       // Scroll to bottom to show the message
@@ -220,7 +221,7 @@ const scrollToUserMessage = (index: number) => {
 
   const submitContactForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Redirect to contact page with form data as query parameters
     const queryParams = new URLSearchParams({
       name: contactForm.name,
@@ -228,7 +229,7 @@ const scrollToUserMessage = (index: number) => {
       phone: contactForm.phone,
       message: contactForm.message
     }).toString();
-    
+
     router.push(`/contact?${queryParams}`);
   };
 
@@ -258,31 +259,60 @@ const scrollToUserMessage = (index: number) => {
       {/* Enhanced Floating Button with Bot Icon */}
       <button
         onClick={toggleChat}
-        className={`fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full bg-blue-600 shadow-2xl flex items-center justify-center text-white transition-all duration-500 ${isChatOpen ? 'scale-0 rotate-90' : 'scale-100 hover:scale-110'} group backdrop-blur-sm border-2 border-white/30`}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-blue-600 shadow-2xl flex items-center justify-center text-white transition-all duration-500 hover:scale-110 group backdrop-blur-sm border-2 border-white/30 ${isChatOpen ? 'rotate-180' : 'rotate-0'}`}
       >
         {/* Pulsing ring effect */}
         <div className="absolute inset-0 rounded-full bg-blue-600 animate-ping opacity-20"></div>
-        
-        {/* Main button content with Bot Icon */}
+
+        {/* Main button content with Toggling Icon */}
         <div className="relative z-10 flex items-center justify-center">
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            viewBox="0 0 24 24" 
-            fill="white" 
-            className="w-10 h-10 transition-transform duration-500 group-hover:rotate-12"
-          >
-            {/* Realistic Bot Icon */}
-            <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.9 1 3 1.9 3 3V7H1V9H3V15C3 16.1 3.9 17 5 17H7V21H9V17H11V21H13V17H15V21H17V17H19C20.1 17 21 16.1 21 15V9H21ZM5 15V7H11V9H13V7H19V15H5Z" />
-            {/* Additional bot details */}
-            <circle cx="12" cy="12" r="1.5" fill="#3B82F6" />
-            <path d="M9 11h1v2H9zM14 11h1v2h-1z" fill="#3B82F6" />
-          </svg>
+          {isChatOpen ? (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-6 h-6"
+            >
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-8 h-8 transition-transform duration-500 group-hover:scale-110"
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              <circle cx="9" cy="9" r="1" fill="currentColor" />
+              <circle cx="15" cy="9" r="1" fill="currentColor" />
+              <path d="M9 13h6" />
+            </svg>
+          )}
         </div>
+
+        {/* Hover tooltip */}
+        {isHovered && !isChatOpen && (
+          <div className="absolute right-full mr-3 px-3 py-2 bg-gray-800 text-white text-sm rounded-lg whitespace-nowrap opacity-90 shadow-lg">
+            Chat with HR Assistant
+            <div className="absolute left-full top-1/2 transform -translate-y-1/2 border-4 border-transparent border-l-gray-800"></div>
+          </div>
+        )}
       </button>
 
       {/* Advanced Chat Window with Glassmorphism */}
       {isChatOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-[calc(100%-2rem)] sm:w-80 h-[500px] bg-white backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden transform transition-all duration-500 animate-slide-up">
+        <div className="fixed bottom-22 right-6 z-50 w-[calc(100%-2rem)] sm:w-80 h-[500px] bg-white backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden transform transition-all duration-500 animate-slide-up">
           {/* Header with Glass Effect */}
           <div className="bg-blue-600 backdrop-blur-md text-white p-4 flex justify-between items-center border-b border-gray-200 shadow-lg">
             <div className="flex items-center space-x-3">
@@ -297,7 +327,7 @@ const scrollToUserMessage = (index: number) => {
             <div className="flex items-center space-x-2">
               {/* Clear Conversation Button */}
               {conversationStarted && (
-                <button 
+                <button
                   onClick={clearConversation}
                   className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
                   title="Clear Conversation"
@@ -307,7 +337,7 @@ const scrollToUserMessage = (index: number) => {
                   </svg>
                 </button>
               )}
-              
+
               {/* Close Button */}
               <button
                 onClick={toggleChat}
@@ -327,14 +357,16 @@ const scrollToUserMessage = (index: number) => {
                 <div className="text-center py-6">
                   <div className="inline-flex flex-col items-center p-5 bg-white rounded-2xl shadow-xl border border-gray-200 mb-5 backdrop-blur-sm">
                     <div className="w-16 h-16 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-lg">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-                        {/* Bot Icon */}
-                        <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.9 1 3 1.9 3 3V7H1V9H3V15C3 16.1 3.9 17 5 17H7V21H9V17H11V21H13V17H15V21H17V17H19C20.1 17 21 16.1 21 15V9H21ZM5 15V7H11V9H13V7H19V15H5Z" />
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        <circle cx="9" cy="9" r="1" fill="currentColor" />
+                        <circle cx="15" cy="9" r="1" fill="currentColor" />
+                        <path d="M9 13h6" />
                       </svg>
                     </div>
                     <h3 className="text-lg font-bold text-gray-800 mb-2">HRMS Assistant</h3>
                     <p className="text-gray-600 mb-5 text-sm">Ask me about HRMS features or support</p>
-                    
+
                     {/* Quick Action Grid */}
                     <div className="grid grid-cols-2 gap-2 w-full max-w-[250px]">
                       {suggestedQuestions.map((item, index) => (
@@ -360,11 +392,10 @@ const scrollToUserMessage = (index: number) => {
                 className={`flex ${msg.user ? 'justify-end' : 'justify-start'} animate-message-in`}
               >
                 <div
-                  className={`max-w-[85%] rounded-2xl p-3 shadow-lg backdrop-blur-sm ${
-                    msg.user
-                      ? "bg-blue-600 text-white rounded-br-md"
-                      : "bg-white text-gray-800 border border-gray-200 rounded-bl-md"
-                  }`}
+                  className={`max-w-[85%] rounded-2xl p-3 shadow-lg backdrop-blur-sm ${msg.user
+                    ? "bg-blue-600 text-white rounded-br-md"
+                    : "bg-white text-gray-800 border border-gray-200 rounded-bl-md"
+                    }`}
                 >
                   <div className="flex items-center space-x-2 mb-1">
                     <div className={`w-2 h-2 rounded-full ${msg.user ? 'bg-blue-300' : 'bg-blue-400'}`}></div>
@@ -403,7 +434,7 @@ const scrollToUserMessage = (index: number) => {
                         placeholder="Your name"
                       />
                     </div>
-                    
+
                     <div>
                       <label htmlFor="email" className="block text-xs font-medium text-gray-700 mb-1">
                         Email Address *
@@ -419,7 +450,7 @@ const scrollToUserMessage = (index: number) => {
                         placeholder="Your email"
                       />
                     </div>
-                    
+
                     <div>
                       <label htmlFor="phone" className="block text-xs font-medium text-gray-700 mb-1">
                         Phone Number *
@@ -434,7 +465,7 @@ const scrollToUserMessage = (index: number) => {
                         placeholder="Your phone"
                       />
                     </div>
-                    
+
                     <div>
                       <label htmlFor="message" className="block text-xs font-medium text-gray-700 mb-1">
                         Message *
@@ -450,7 +481,7 @@ const scrollToUserMessage = (index: number) => {
                         placeholder="Your message..."
                       />
                     </div>
-                    
+
                     <div className="flex space-x-2">
                       <button
                         type="submit"
@@ -525,7 +556,7 @@ const scrollToUserMessage = (index: number) => {
                   </svg>
                 </button>
               </div>
-              
+
               <button
                 onClick={() => sendMessage(input)}
                 className={`w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all duration-300 ${!input.trim() ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 hover:bg-blue-700'}`}
@@ -536,7 +567,7 @@ const scrollToUserMessage = (index: number) => {
                 </svg>
               </button>
             </div>
-            
+
             {/* Input Hint */}
             <div className="text-xs text-gray-500 text-center mt-2">
               Press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded border border-gray-300 text-xs">Enter</kbd> to send
@@ -547,7 +578,7 @@ const scrollToUserMessage = (index: number) => {
 
       {/* Enhanced Background Overlay */}
       {isChatOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 animate-fade-in"
           onClick={toggleChat}
         ></div>

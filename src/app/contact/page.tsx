@@ -17,7 +17,7 @@ export default function ContactPage() {
     phone: "",
     message: "",
   });
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [popupMessage, setPopupMessage] = useState<string | null>(null);
 
@@ -30,7 +30,7 @@ export default function ContactPage() {
       try {
         // Dynamically import the hook to avoid SSR issues
         // const { useSearchParams } = await import('next/navigation'); // Not used in this component
-        
+
         // Since we can't use the hook directly in this async context,
         // we'll access the URL directly through window.location
         if (typeof window !== 'undefined' && window.location.search) {
@@ -39,7 +39,7 @@ export default function ContactPage() {
           const email = urlParams.get('email') || "";
           const phone = urlParams.get('phone') || "";
           const message = urlParams.get('message') || "";
-          
+
           if (name || email || phone || message) {
             setFormData({
               name,
@@ -69,32 +69,32 @@ export default function ContactPage() {
     e.preventDefault();
     setIsSubmitting(true);
     setPopupMessage(null); // Clear any previous messages
-    
+
     try {
       // Send data directly to the backend API
       const apiBase = process.env.NEXT_PUBLIC_API_URL || "https://hrms.globaltechsoftwaresolutions.cloud";
-      
+
       if (!apiBase || apiBase === "undefined") {
         throw new Error("API configuration error. Please contact support.");
       }
-      
+
       // Validate form data
       if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim() || !formData.message.trim()) {
         throw new Error("All fields are required. Please fill in all fields.");
       }
-      
+
       // Simple email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
         throw new Error("Please enter a valid email address.");
       }
-      
+
       // Simple phone validation (at least 10 digits)
       const phoneRegex = /^\+?[0-9\s\-()]{10,}$/;
       if (!phoneRegex.test(formData.phone)) {
         throw new Error("Please enter a valid phone number.");
       }
-      
+
       // Remove the problematic ngrok header that causes CORS issues
       const response = await fetch(`${apiBase}/api/accounts/contact/`, {
         method: "POST",
@@ -104,37 +104,37 @@ export default function ContactPage() {
         },
         body: JSON.stringify(formData),
       });
-      
+
       // Check if the response is ok
       if (!response.ok) {
         let errorMessage = "Failed to send message. ";
-        
+
         try {
           const errorData = await response.json();
           errorMessage += errorData.error || `Server responded with status ${response.status}`;
         } catch {
           errorMessage += `Server responded with status ${response.status}`;
         }
-        
+
         throw new Error(errorMessage);
       }
-      
+
       // Success
       setPopupMessage("Thank you for your message! We'll get back to you soon.");
       setFormData({ name: "", email: "", phone: "", message: "" });
     } catch (error) {
       console.error("Contact form error:", error);
-      
+
       // Handle different types of errors
       let errorMessage = "There was an error sending your message. Please try again.";
-      
+
       if (error instanceof TypeError) {
         // Network error (e.g., CORS, offline)
         errorMessage = "Network error. Please check your internet connection and try again.";
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
-      
+
       setPopupMessage(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -171,7 +171,7 @@ export default function ContactPage() {
               <div className="flex items-start space-x-4">
                 <div className="bg-blue-100 p-3 rounded-full flex-shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
                 <div>
@@ -186,13 +186,13 @@ export default function ContactPage() {
               <div className="flex items-start space-x-4">
                 <div className="bg-green-100 p-3 rounded-full flex-shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                   </svg>
                 </div>
                 <div>
                   <h3 className="text-gray-700 font-semibold">Phone</h3>
-                  <a href="tel:+919844281875" className="text-green-600 hover:underline">
-                    +91 98442 81875
+                  <a href="tel:+918495862494" className="text-green-600 hover:underline">
+                    +91 8495862494
                   </a>
                 </div>
               </div>
@@ -201,8 +201,8 @@ export default function ContactPage() {
               <div className="flex items-start space-x-4">
                 <div className="bg-purple-100 p-3 rounded-full flex-shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
                 <div>
@@ -296,7 +296,7 @@ export default function ContactPage() {
           </section>
         </div>
       </main>
-      
+
       {/* Popup Modal */}
       {popupMessage && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
@@ -311,7 +311,7 @@ export default function ContactPage() {
           </div>
         </div>
       )}
-      
+
       <Footer />
     </>
   );

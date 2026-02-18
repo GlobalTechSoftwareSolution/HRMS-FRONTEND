@@ -29,37 +29,31 @@ export const Navbar: React.FC = () => {
       >
         <div className="container mx-auto px-6 py-3 flex items-center justify-between">
           {/* Logo */}
-          <motion.div
-            className="flex items-center space-x-3 cursor-pointer ml-8 lg:ml-28"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
+          <Link href="/" className="flex items-center space-x-3 cursor-pointer ml-2 lg:ml-4 flex-shrink-0">
             <motion.div
-              whileHover={{
-                rotate: [0, -5, 5, -5, 0],
-                transition: { duration: 0.5 },
-              }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
             >
-              <Image
+              <img
                 src="/logo/Global.jpg"
                 alt="HRMS Logo"
-                width={68}
-                height={68}
-                className="rounded-full shadow-lg border-2 border-white/20"
+                width={70}
+                height={70}
+                className="rounded-full shadow-lg border-2 border-white/20 object-cover"
               />
             </motion.div>
             <motion.span
-              className="text-white text-3xl font-bold bg-gradient-to-r from-white to-indigo-100 bg-clip-text text-transparent"
+              className="text-white text-2xl font-bold bg-gradient-to-r from-white to-indigo-100 bg-clip-text text-transparent leading-tight"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
             >
-              HRMS 
+              HRMS
             </motion.span>
-          </motion.div>
+          </Link>
 
           {/* Desktop Menu - Only show on lg screens and above */}
-          <div className="hidden lg:flex items-center space-x-4 mr-24">
+          <div className="hidden lg:flex items-center justify-end flex-1 mr-8">
             <ul className="flex space-x-1">
               {navLinks.map((link) => {
                 const isActive = pathname === link.href;
