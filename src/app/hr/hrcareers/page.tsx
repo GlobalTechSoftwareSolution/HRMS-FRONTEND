@@ -30,10 +30,10 @@ interface Career {
   title: string;
   department: string;
   description: string;
-  responsibilities: string[];
-  requirements: string[];
-  benefits: string[];
-  skills: string[];
+  responsibilities: string | string[];
+  requirements: string | string[];
+  benefits: string | string[];
+  skills: string | string[];
   location: string;
   type: string;
   experience: string;
@@ -203,10 +203,11 @@ export default function AdminDashboard() {
   ) => {
     const { name, value } = e.target;
     
+    // Store raw input for comma-separated fields to allow spaces during typing
     if (["responsibilities", "requirements", "benefits", "skills"].includes(name)) {
       setNewCareer((prev) => ({ 
         ...prev, 
-        [name]: value.split(",").map((s) => s.trim()).filter(Boolean) 
+        [name]: value 
       }));
     } else {
       setNewCareer((prev) => ({ ...prev, [name]: value }));
@@ -222,13 +223,20 @@ export default function AdminDashboard() {
 
     setLoading(true);
     try {
-      // Prepare payload - convert arrays to strings for API
+      // Prepare payload - process comma-separated fields and convert to strings for API
+      const processCommaField = (field: string | string[]): string => {
+        if (Array.isArray(field)) {
+          return field.join(", ");
+        }
+        return field.split(",").map((s) => s.trim()).filter(Boolean).join(", ");
+      };
+
       const payload = {
         ...newCareer,
-        responsibilities: newCareer.responsibilities.join(", "),
-        requirements: newCareer.requirements.join(", "),
-        benefits: newCareer.benefits.join(", "),
-        skills: newCareer.skills.join(", "),
+        responsibilities: processCommaField(newCareer.responsibilities),
+        requirements: processCommaField(newCareer.requirements),
+        benefits: processCommaField(newCareer.benefits),
+        skills: processCommaField(newCareer.skills),
         posted_date: new Date().toISOString().split('T')[0],
         category: newCareer.department,
         apply_link: `${process.env.NEXT_PUBLIC_API_URL}/careers/apply`
