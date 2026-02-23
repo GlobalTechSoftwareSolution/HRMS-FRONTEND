@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import Image from "next/image";
+import { CheckCircle, XCircle, Clock } from "lucide-react";
 
 type LeaveStatus = "Pending" | "Approved" | "Rejected";
 
@@ -37,33 +38,43 @@ type LeaveApiResponseItem = {
   submitted_date?: string;
 };
 
+type EmployeeMap = {
+  name: string;
+  pic: string;
+  phone?: string;
+  mobile?: string;
+  department?: string;
+  designation?: string;
+  reports_to?: string;
+  skills?: string;
+  date_joined?: string;
+  gender?: string;
+  marital_status?: string;
+  nationality?: string;
+  residential_address?: string;
+  permanent_address?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  emergency_contact_relation?: string;
+  personal_email?: string;
+  linkedin_profile?: string;
+  pan_number?: string;
+  aadhar_number?: string;
+  bank_account?: string;
+  bank_ifsc?: string;
+  date_of_birth?: string;
+  blood_group?: string;
+  work_location?: string;
+};
+
 export default function HRLeavePage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
-  const [employeeMap, setEmployeeMap] = useState<
-    Record<
-      string,
-      {
-        name: string;
-        pic: string;
-        phone?: string;
-        department?: string;
-        designation?: string;
-        reports_to?: string;
-        skills?: string;
-        date_joined?: string;
-        gender?: string;
-        marital_status?: string;
-        nationality?: string;
-        residential_address?: string;
-        permanent_address?: string;
-        emergency_contact_name?: string;
-        emergency_contact_phone?: string;
-      }
-    >
-  >({});
+  const [employeeMap, setEmployeeMap] = useState<Record<string, EmployeeMap>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"All" | LeaveStatus>("All");
   const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
 
   // Helper function to calculate days between start and end date
   const calculateDays = (start: string, end: string) => {
@@ -189,75 +200,69 @@ export default function HRLeavePage() {
     fetchLeaves();
   }, [employeeMap]);
 
-  if (loading)
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        <span className="ml-3 text-gray-600">Loading leave requests...</span>
-      </div>
-    );
-
   const filteredLeaves =
     filter === "All" ? leaves : leaves.filter((l) => l.status === filter);
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredLeaves.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedLeaves = filteredLeaves.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
   return (
-    <>
-      <style jsx global>{`
-        body {
-          overflow-x: hidden;
-        }
-        * {
-          max-width: 100%;
-        }
-        
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        @keyframes scaleIn {
-          from {
-            transform: scale(0.95);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-
-        .animate-fadeIn {
-          animation: fadeIn 0.2s ease-out;
-        }
-
-        .animate-scaleIn {
-          animation: scaleIn 0.2s ease-out;
-        }
-      `}</style>
     <DashboardLayout role="hr">
       <div className="max-w-7xl mx-auto bg-white shadow-xl rounded-xl p-3 sm:p-4 md:p-5 lg:p-6 overflow-x-hidden w-full">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 sm:mb-6 md:mb-8 w-full">
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-3 md:mb-0">
-            Employee Leave Requests
-          </h2>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 sm:mb-8 w-full">
+          <div>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+              Employee Leave Requests
+            </h2>
+            <p className="text-gray-600 text-sm sm:text-base">
+              Manage and review leave requests from employees
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2 sm:gap-3 md:gap-5 w-full md:w-auto">
-            {["All", "Pending", "Approved", "Rejected"].map((tab) => (
-              <button
-                key={tab}
-                className={`px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 ${
-                  filter === tab
-                    ? "bg-blue-600 text-white shadow-md"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
-                onClick={() => setFilter(tab as "All" | LeaveStatus)}
-              >
-                {tab}
-              </button>
-            ))}
+            {["All", "Pending", "Approved", "Rejected"].map((tab) => {
+              const count = tab === "All" 
+                ? leaves.length 
+                : leaves.filter(l => l.status === tab).length;
+              return (
+                <button
+                  key={tab}
+                  className={`px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium transition-all duration-200 flex items-center gap-2 ${
+                    filter === tab
+                      ? "bg-blue-600 text-white shadow-md transform scale-105"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                  onClick={() => setFilter(tab as "All" | LeaveStatus)}
+                >
+                  {tab}
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                    filter === tab 
+                      ? "bg-white text-blue-600" 
+                      : "bg-gray-200 text-gray-600"
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -284,135 +289,202 @@ export default function HRLeavePage() {
             </p>
           </div>
         ) : (
-          <>
-            {/* Table for larger screens */}
-            <div className="hidden sm:block overflow-x-auto rounded-xl shadow-md border border-gray-200 w-full">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr className="text-left text-sm text-gray-600 uppercase">
-                    <th className="p-4 font-medium">Employee ID</th>
-                    <th className="p-4 font-medium">Reason</th>
-                    <th className="p-4 font-medium">Period</th>
-                    <th className="p-4 font-medium">Days</th>
-                    <th className="p-4 font-medium">Submitted</th>
-                    <th className="p-4 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredLeaves.map((leave) => (
-                    <tr
-                      key={leave.id}
-                      className="text-sm text-gray-700 hover:bg-blue-50 transition-colors duration-150 cursor-pointer"
-                      onClick={() => setSelectedLeave(leave)}
-                    >
-                      <td className="p-4 font-medium">
-                        <div className="flex items-center gap-3">
-                          {leave.profilePic ? (
-                            <Image
-                              src={leave.profilePic}
-                              alt={leave.name}
-                              width={40}
-                              height={40}
-                              className="rounded-full object-cover border"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
-                              {leave.name?.[0]?.toUpperCase() || "?"}
-                            </div>
-                          )}
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-semibold text-gray-800 break-words">{leave.name || "Unknown"}</span>
-                            <span className="text-sm text-gray-500 break-all">{leave.email}</span>
-                          </div>
+          <div className="overflow-x-auto rounded-lg shadow-sm border border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Employee
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Reason
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Period
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Days
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paginatedLeaves.map((leave) => (
+                  <tr key={leave.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        {leave.profilePic && (
+                          <Image
+                            src={leave.profilePic}
+                            alt={leave.name}
+                            width={40}
+                            height={40}
+                            className="rounded-full"
+                          />
+                        )}
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{leave.name}</div>
+                          <div className="text-sm text-gray-500">{leave.email}</div>
                         </div>
-                      </td>
-                      <td className="p-4 max-w-xs truncate">{leave.reason}</td>
-                      <td className="p-4">
-                        {new Date(leave.startDate).toLocaleDateString("en-GB")} → {new Date(leave.endDate).toLocaleDateString("en-GB")}
-                      </td>
-                      <td className="p-4 text-center">
-                        {calculateDays(leave.startDate, leave.endDate)}
-                      </td>
-                      <td className="p-4">{new Date(leave.submittedDate).toLocaleDateString("en-GB")}</td>
-                      <td className="p-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            leave.status === "Approved"
-                              ? "bg-green-100 text-green-800"
-                              : leave.status === "Rejected"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {leave.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Cards for mobile */}
-            <div className="sm:hidden space-y-3 sm:space-y-4 w-full">
-              {filteredLeaves.map((leave) => (
-                <div
-                  key={leave.id}
-                  className="bg-white shadow-md rounded-lg p-3 sm:p-4 space-y-2 border border-gray-100 hover:shadow-lg transition-shadow duration-200 w-full overflow-hidden"
-                  onClick={() => setSelectedLeave(leave)}
-                >
-                  <div className="flex justify-between items-start gap-2 w-full">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                      {leave.profilePic ? (
-                        <Image
-                          src={leave.profilePic}
-                          alt={leave.name}
-                          width={40}
-                          height={40}
-                          className="rounded-full object-cover border"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
-                          {leave.name?.[0]?.toUpperCase() || "?"}
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm sm:text-base font-semibold text-gray-800 break-words">{leave.name || "Unknown"}</h3>
-                        <p className="text-xs text-gray-500 break-all">{leave.email}</p>
                       </div>
-                    </div>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-semibold flex-shrink-0 ${
-                        leave.status === "Approved"
-                          ? "bg-green-100 text-green-800"
-                          : leave.status === "Rejected"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {leave.status}
-                    </span>
-                  </div>
-
-                  <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 break-words">{leave.reason}</p>
-
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>
-                      {new Date(leave.startDate).toLocaleDateString("en-GB")} →{" "}
-                      {new Date(leave.endDate).toLocaleDateString("en-GB")}
-                    </span>
-                    <span>{calculateDays(leave.startDate, leave.endDate)} days</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{leave.reason}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{leave.startDate}</div>
+                      <div className="text-sm text-gray-500">{leave.endDate}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="text-sm text-gray-900">{leave.daysRequested}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {leave.status === "Approved" && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Approved
+                        </span>
+                      )}
+                      {leave.status === "Rejected" && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          Rejected
+                        </span>
+                      )}
+                      {leave.status === "Pending" && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Pending
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => setSelectedLeave(leave)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
+                        View
+                      </button>
+                      {leave.status === "Pending" && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setLeaves(prev => prev.map(l => 
+                                l.id === leave.id ? {...l, status: "Approved"} : l
+                              ));
+                            }}
+                            className="text-green-600 hover:text-green-900 mr-3"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => {
+                              setLeaves(prev => prev.map(l => 
+                                l.id === leave.id ? {...l, status: "Rejected"} : l
+                              ));
+                            }}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6">
+            <div className="text-sm text-gray-600">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredLeaves.length)} of {filteredLeaves.length} results
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              
+              <div className="flex space-x-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`px-3 py-2 text-sm font-medium rounded-md ${
+                      currentPage === page
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between mt-6">
+            <div className="text-sm text-gray-600">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredLeaves.length)} of {filteredLeaves.length} results
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              
+              <div className="flex space-x-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`px-3 py-2 text-sm font-medium rounded-md ${
+                      currentPage === page
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
 
         {/* Leave Details Modal */}
         {selectedLeave && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50 p-4 animate-fadeIn">
-            <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg relative animate-scaleIn max-h-[80vh] overflow-y-auto space-y-4">
+            <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-6xl relative animate-scaleIn max-h-[90vh] overflow-y-auto space-y-6">
               <button
                 className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors duration-200 bg-gray-100 hover:bg-gray-200 rounded-full p-1"
                 onClick={() => setSelectedLeave(null)}
@@ -431,126 +503,189 @@ export default function HRLeavePage() {
                   />
                 </svg>
               </button>
-
-              <div className="mb-6 pb-4 border-b border-gray-200">
-                <h3 className="text-xl font-bold text-blue-700">Leave Request Details</h3>
-                <p className="text-gray-500 text-sm mt-1">ID: {selectedLeave.id}</p>
+              
+              <div className="text-center border-b pb-6">
+                <h3 className="text-3xl font-bold text-gray-800 mb-2">Leave Request Details</h3>
               </div>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500 leading-snug">Employee ID</p>
-                    <p className="font-medium break-words leading-relaxed text-gray-800 truncate max-w-[200px]" title={selectedLeave.employeeId}>
-                      {selectedLeave.employeeId || "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 leading-snug">Name</p>
-                    <p className="font-medium break-words leading-relaxed text-gray-800">{selectedLeave.name || "Unknown"}</p>
+              
+              <div className="space-y-6">
+                {/* Employee Details */}
+                <div className="bg-gray-50 p-6 rounded-xl space-y-4">
+                  <h5 className="font-semibold text-gray-800 mb-4 text-xl flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 011 8 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Employee Information
+                  </h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Employee ID:</span>
+                      <p className="text-gray-900 font-medium break-all">{selectedLeave.employeeId}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Name:</span>
+                      <p className="text-gray-900 font-medium break-all">{selectedLeave.name}</p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <span className="font-medium text-gray-700 text-sm">Email:</span>
+                      <p className="text-gray-900 font-medium break-all">{selectedLeave.email}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Phone:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Mobile:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Department:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.department || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Designation:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.designation || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Reports To:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.reports_to || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Manager Email:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.reports_to || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Skills:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.skills || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Date Joined:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.date_joined || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Work Location:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.department || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Gender:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.gender || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Marital Status:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.marital_status || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Nationality:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.nationality || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Date of Birth:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.date_of_birth || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Blood Group:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.blood_group || 'N/A'}</p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <span className="font-medium text-gray-700 text-sm">Residential Address:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.residential_address || 'N/A'}</p>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <span className="font-medium text-gray-700 text-sm">Permanent Address:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.permanent_address || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Emergency Contact Name:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.emergency_contact_name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Emergency Contact Phone:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.emergency_contact_phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Emergency Contact Relation:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.emergency_contact_relation || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Personal Email:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.personal_email || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">LinkedIn Profile:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.linkedin_profile || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">PAN Number:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.pan_number || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Aadhar Number:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.aadhar_number || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Bank Account:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.bank_account || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Bank IFSC:</span>
+                      <p className="text-gray-900 font-medium break-all">{employeeMap[selectedLeave.email]?.bank_ifsc || 'N/A'}</p>
+                    </div>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500 leading-snug">Email</p>
-                    <p className="font-medium break-words leading-relaxed text-gray-800">{selectedLeave.email}</p>
+                
+                {/* Leave Details */}
+                <div className="bg-blue-50 p-6 rounded-xl space-y-4">
+                  <h5 className="font-semibold text-gray-800 mb-4 text-xl flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 0V3m0 4h.01M12 21l-4-4m4 4l-4-4M3 3h18M3 7h18" />
+                    </svg>
+                    Leave Information
+                  </h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Reason:</span>
+                      <p className="text-gray-900 font-medium bg-white p-3 rounded-lg">{selectedLeave.reason}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Start Date:</span>
+                      <p className="text-gray-900 font-medium">{selectedLeave.startDate}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">End Date:</span>
+                      <p className="text-gray-900 font-medium">{selectedLeave.endDate}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Days Requested:</span>
+                      <p className="text-gray-900 font-medium text-lg">{selectedLeave.daysRequested}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Submitted Date:</span>
+                      <p className="text-gray-900 font-medium">{selectedLeave.submittedDate}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700 text-sm">Status:</span>
+                      <div className="mt-2">
+                        {selectedLeave.status === "Approved" && (
+                          <span className="inline-flex items-center space-x-2 text-green-700 bg-green-100 px-4 py-2 rounded-full text-sm font-medium">
+                            <CheckCircle className="h-5 w-5" />
+                            <span>Approved</span>
+                          </span>
+                        )}
+                        {selectedLeave.status === "Rejected" && (
+                          <span className="inline-flex items-center space-x-2 text-red-700 bg-red-100 px-4 py-2 rounded-full text-sm font-medium">
+                            <XCircle className="h-5 w-5" />
+                            <span>Rejected</span>
+                          </span>
+                        )}
+                        {selectedLeave.status === "Pending" && (
+                          <span className="inline-flex items-center space-x-2 text-yellow-700 bg-yellow-100 px-4 py-2 rounded-full text-sm font-medium">
+                            <Clock className="h-5 w-5" />
+                            <span>Pending</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 leading-snug">Phone</p>
-                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.phone || "N/A"}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500 leading-snug">Department</p>
-                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.department || "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 leading-snug">Designation</p>
-                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.designation || "N/A"}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500 leading-snug">Skills</p>
-                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.skills || "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 leading-snug">Date Joined</p>
-                    <p className="font-medium break-words leading-relaxed text-gray-800">
-                      {employeeMap[selectedLeave.email]?.date_joined
-                        ? new Date(employeeMap[selectedLeave.email]?.date_joined ?? "").toLocaleDateString("en-GB")
-                        : "N/A"}
-                    </p>
-                  </div>
-                </div>
-
-                <hr className="border-gray-200 my-2" />
-
-                {/* Enhanced Employee Info */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500 leading-snug">Gender</p>
-                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.gender || "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 leading-snug">Marital Status</p>
-                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.marital_status || "N/A"}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500 leading-snug">Nationality</p>
-                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.nationality || "N/A"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 leading-snug">Reporting Manager</p>
-                    <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.reports_to || "N/A"}</p>
-                  </div>
-                </div>
-
-                <hr className="border-gray-200 my-2" />
-
-                <div>
-                  <p className="text-sm text-gray-500 leading-snug">Residential Address</p>
-                  <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.residential_address || "N/A"}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-500 leading-snug">Permanent Address</p>
-                  <p className="font-medium break-words leading-relaxed text-gray-800">{employeeMap[selectedLeave.email]?.permanent_address || "N/A"}</p>
-                </div>
-
-                <hr className="border-gray-200 my-2" />
-
-                <div>
-                  <p className="text-sm text-gray-500 leading-snug">Emergency Contact</p>
-                  <p className="font-medium break-words leading-relaxed text-gray-800">
-                    {employeeMap[selectedLeave.email]?.emergency_contact_name
-                      ? `${employeeMap[selectedLeave.email]?.emergency_contact_name} (${employeeMap[selectedLeave.email]?.emergency_contact_phone || "N/A"})`
-                      : "N/A"}
-                  </p>
-                </div>
-
-                <hr className="border-gray-200 my-2" />
-
-                <div>
-                  <p className="text-sm text-gray-500 leading-snug">Status</p>
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                      selectedLeave.status === "Approved"
-                        ? "bg-green-100 text-green-800"
-                        : selectedLeave.status === "Rejected"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {selectedLeave.status}
-                  </span>
                 </div>
               </div>
             </div>
@@ -558,6 +693,5 @@ export default function HRLeavePage() {
         )}
       </div>
     </DashboardLayout>
-    </>
   );
 }

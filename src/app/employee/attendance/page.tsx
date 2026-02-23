@@ -1710,7 +1710,7 @@ export default function AttendancePortal() {
                                                                 <div className="mt-6 text-center">
                                                                     <div className="flex justify-center mb-3">
                                                                         <Image
-                                                                            src={profileData?.profile_picture || "/default-avatar.png"}
+                                                                            src={profileData?.profile_picture && profileData?.profile_picture !== 'https://via.placeholder.com/150?text=User' && !profileData?.profile_picture?.includes('minio.globaltechsoftwaresolutions.cloud') ? profileData.profile_picture : "https://via.placeholder.com/150?text=User"}
                                                                             alt="Profile"
                                                                             width={64}
                                                                             height={64}
@@ -1741,7 +1741,7 @@ export default function AttendancePortal() {
                                                             <div className="mt-6 text-center">
                                                                 <div className="flex justify-center mb-3">
                                                                     <Image
-                                                                        src={profileData?.profile_picture || "/default-avatar.png"}
+                                                                        src={profileData?.profile_picture && profileData?.profile_picture !== 'https://via.placeholder.com/150?text=User' && !profileData?.profile_picture?.includes('minio.globaltechsoftwaresolutions.cloud') ? profileData.profile_picture : "https://via.placeholder.com/150?text=User"}
                                                                         alt="Profile"
                                                                         width={64}
                                                                         height={64}
@@ -1778,7 +1778,7 @@ export default function AttendancePortal() {
                                                             <div className="mt-6 text-center">
                                                                 <div className="flex justify-center mb-3">
                                                                     <Image
-                                                                        src={profileData?.profile_picture || "/default-avatar.png"}
+                                                                        src={profileData?.profile_picture && profileData?.profile_picture !== 'https://via.placeholder.com/150?text=User' && !profileData?.profile_picture?.includes('minio.globaltechsoftwaresolutions.cloud') ? profileData.profile_picture : "https://via.placeholder.com/150?text=User"}
                                                                         alt="Profile"
                                                                         width={64}
                                                                         height={64}

@@ -63,22 +63,22 @@ const Ticket: React.FC<TicketProps> = ({
 
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [editFields, setEditFields] = useState<{ 
-    status: Ticket['status']; 
+  const [editFields, setEditFields] = useState<{
+    status: Ticket['status'];
     closed_description: string;
     showClosureInput: boolean;
-  }>({ 
-    status: 'open', 
+  }>({
+    status: 'open',
     closed_description: '',
-    showClosureInput: false 
+    showClosureInput: false
   });
 
   const openModal = (ticket: Ticket) => {
     setSelectedTicket(ticket);
-    setEditFields({ 
-      status: ticket.status, 
+    setEditFields({
+      status: ticket.status,
       closed_description: ticket.closed_description || '',
-      showClosureInput: false 
+      showClosureInput: false
     });
     setShowModal(true);
   };
@@ -198,7 +198,7 @@ const Ticket: React.FC<TicketProps> = ({
   const updateTicketStatus = async (ticketId: string, newStatus: Ticket['status'], closedDescription?: string) => {
     try {
       const userEmail = (localStorage.getItem('user_email') || '').toLowerCase();
-      
+
       // Find the selected ticket in state
       const ticket = tickets.allTickets.find(t => t.id === ticketId);
       if (!ticket) {
@@ -229,12 +229,12 @@ const Ticket: React.FC<TicketProps> = ({
         newStatus === 'closed'
           ? 'Closed'
           : newStatus === 'open'
-          ? 'Open'
-          : newStatus === 'in-progress'
-          ? 'In Progress'
-          : newStatus;
+            ? 'Open'
+            : newStatus === 'in-progress'
+              ? 'In Progress'
+              : newStatus;
 
-      const patchPayload: Partial<Pick<Ticket, 'status' | 'closed_description' | 'closed_by' | 'closed_to'>> = { 
+      const patchPayload: Partial<Pick<Ticket, 'status' | 'closed_description' | 'closed_by' | 'closed_to'>> = {
         status: apiStatus as Ticket['status']
       };
 
@@ -251,9 +251,9 @@ const Ticket: React.FC<TicketProps> = ({
 
       const patchUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/tickets/${ticketId}/`;
 
-      const response = await fetch(patchUrl, { 
-        method: 'PATCH', 
-        headers: { 'Content-Type': 'application/json' }, 
+      const response = await fetch(patchUrl, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patchPayload)
       });
 
@@ -311,11 +311,11 @@ const Ticket: React.FC<TicketProps> = ({
   };
 
   const getPriorityBadge = (priority: string) => {
-    const styles = { 
-      low: 'bg-green-100 text-green-800 border border-green-200', 
-      medium: 'bg-yellow-100 text-yellow-800 border border-yellow-200', 
-      high: 'bg-orange-100 text-orange-800 border border-orange-200', 
-      urgent: 'bg-red-100 text-red-800 border border-red-200' 
+    const styles = {
+      low: 'bg-green-100 text-green-800 border border-green-200',
+      medium: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
+      high: 'bg-orange-100 text-orange-800 border border-orange-200',
+      urgent: 'bg-red-100 text-red-800 border border-red-200'
     };
     return <span className={`px-3 py-1 rounded-full text-xs font-medium ${styles[priority as keyof typeof styles] || 'bg-gray-100 text-gray-800'}`}>
       {priority.toUpperCase()}
@@ -330,9 +330,8 @@ const Ticket: React.FC<TicketProps> = ({
     };
     return (
       <span
-        className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
-          styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800'
-        }`}
+        className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800'
+          }`}
       >
         {status.replace('-', ' ')}
       </span>
@@ -382,16 +381,16 @@ const Ticket: React.FC<TicketProps> = ({
     const showClosed =
       ticket.status === 'closed' || ticket.status === 'in-progress';
     return (
-      <div 
-        className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 p-4 sm:p-6 cursor-pointer hover:border-blue-300"
+      <div
+        className="bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 transition-all duration-300 p-5 sm:p-6 cursor-pointer hover:border-slate-300"
         onClick={() => openModal(ticket)}
       >
-        <div className="flex flex-col space-y-3 sm:space-y-4">
+        <div className="flex flex-col space-y-4">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
             <div className="flex-1">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 line-clamp-1">{ticket.subject}</h3>
-              <p className="text-gray-600 text-sm line-clamp-2">{ticket.description}</p>
+              <h3 className="text-lg sm:text-xl font-bold text-slate-800 mb-1.5 leading-tight">{ticket.subject}</h3>
+              <p className="text-slate-600 text-sm line-clamp-2 leading-relaxed">{ticket.description}</p>
             </div>
             <div className="flex items-center gap-1 sm:gap-2">
               {getStatusIcon(ticket.status)}
@@ -428,22 +427,22 @@ const Ticket: React.FC<TicketProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-2 border-t border-gray-100 gap-3">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-slate-100 gap-3 mt-2">
+            <div className="flex flex-wrap items-center gap-3">
               {getPriorityBadge(ticket.priority)}
               {ticket.closed_description && (
-                <div className="flex items-center gap-1 text-xs text-gray-500" title={ticket.closed_description}>
-                  <MessageCircle className="w-3 h-3" />
+                <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium" title={ticket.closed_description}>
+                  <MessageCircle className="w-3.5 h-3.5 text-slate-400" />
                   <span className="hidden sm:inline">Closure note added</span>
                   <span className="sm:hidden">Note</span>
                 </div>
               )}
             </div>
-            <button 
-              className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium w-full sm:w-auto"
-              onClick={(e) => { 
+            <button
+              className="px-4 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-100 font-semibold transition-colors w-full sm:w-auto shadow-sm"
+              onClick={(e) => {
                 e.stopPropagation();
-                openModal(ticket); 
+                openModal(ticket);
               }}
             >
               View Details
@@ -455,20 +454,20 @@ const Ticket: React.FC<TicketProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-8 text-black">
+    <div className="min-h-screen bg-slate-50 text-slate-800 py-8 w-full relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Tickets</h1>
-            <p className="text-gray-600 text-base sm:text-lg">Manage and track all your tickets</p>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-800 tracking-tight mb-2">Tickets</h1>
+            <p className="text-slate-500 text-base sm:text-lg font-medium tracking-wide">Manage and track all your tickets</p>
           </div>
           {showCreateButton && (
-            <button 
-              onClick={openCreateModal} 
-              className="bg-blue-600 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-xl w-full sm:w-auto justify-center"
+            <button
+              onClick={openCreateModal}
+              className="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-all shadow-sm font-semibold flex items-center gap-2 w-full sm:w-auto justify-center"
             >
-              <Plus className="w-4 h-4 sm:w-5 sm:h-5" /> 
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="text-sm sm:text-base">Create New Ticket</span>
             </button>
           )}
@@ -476,86 +475,86 @@ const Ticket: React.FC<TicketProps> = ({
 
         {/* Stats Dashboard */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Total Tickets</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-1">Total Tickets</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-slate-800">{stats.total}</p>
               </div>
-              <div className="p-2 sm:p-3 bg-blue-50 rounded-lg">
-                <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+              <div className="p-2.5 sm:p-3.5 bg-indigo-50 rounded-xl">
+                <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Open Tickets</p>
-                <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.open}</p>
+                <p className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-1">Open Tickets</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-rose-600">{stats.open}</p>
               </div>
-              <div className="p-2 sm:p-3 bg-red-50 rounded-lg">
-                <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
+              <div className="p-2.5 sm:p-3.5 bg-rose-50 rounded-xl">
+                <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-rose-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs sm:text-sm font-medium text-gray-600">In Progress</p>
-                <p className="text-xl sm:text-2xl font-bold text-blue-600">{tickets.allTickets.filter(t => t.status === 'in-progress').length}</p>
+                <p className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-1">In Progress</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-blue-600">{tickets.allTickets.filter(t => t.status === 'in-progress').length}</p>
               </div>
-              <div className="p-2 sm:p-3 bg-blue-50 rounded-lg">
+              <div className="p-2.5 sm:p-3.5 bg-blue-50 rounded-xl">
                 <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm border border-gray-200">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 hover:shadow-md hover:-translate-y-1 transition-all">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Assigned to Me</p>
-                <p className="text-xl sm:text-2xl font-bold text-orange-600">{stats.assigned}</p>
+                <p className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-1">Assigned to Me</p>
+                <p className="text-2xl sm:text-3xl font-extrabold text-orange-600">{stats.assigned}</p>
               </div>
-              <div className="p-2 sm:p-3 bg-orange-50 rounded-lg">
-                <User className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
+              <div className="p-2.5 sm:p-3.5 bg-amber-50 rounded-xl">
+                <User className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
               </div>
             </div>
           </div>
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 mb-6">
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
-              <input 
-                type="text" 
-                placeholder="Search tickets by subject or description..." 
-                value={searchTerm} 
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4 sm:w-5 sm:h-5" />
+              <input
+                type="text"
+                placeholder="Search tickets by subject or description..."
+                value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm sm:text-base"
+                className="w-full pl-11 pr-4 py-2.5 sm:py-3 border border-slate-200 bg-slate-50 focus:bg-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all focus:outline-none text-sm font-medium"
               />
             </div>
-            <button 
-              onClick={() => setShowFilters(!showFilters)} 
-              className="px-4 py-2 sm:px-6 sm:py-3 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors text-sm sm:text-base"
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="px-5 py-2.5 sm:py-3 border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-700 font-semibold flex items-center gap-2 transition-colors shadow-sm text-sm"
             >
-              <Filter className="w-4 h-4 sm:w-5 sm:h-5" /> 
+              <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="hidden sm:inline">Filters</span>
               {(filters.status || filters.priority || filters.email) && (
-                <span className="bg-blue-500 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 text-xs flex items-center justify-center">
+                <span className="bg-slate-800 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center -mr-1">
                   {[filters.status, filters.priority, filters.email].filter(Boolean).length}
                 </span>
               )}
             </button>
           </div>
-          
+
           {showFilters && (
             <div className="mt-4 sm:mt-6 p-3 sm:p-6 border border-gray-200 rounded-lg bg-gray-50">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Status</label>
-                  <select 
-                    value={filters.status} 
+                  <select
+                    value={filters.status}
                     onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
                     className="w-full border border-gray-300 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                   >
@@ -566,8 +565,8 @@ const Ticket: React.FC<TicketProps> = ({
                 </div>
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Priority</label>
-                  <select 
-                    value={filters.priority} 
+                  <select
+                    value={filters.priority}
                     onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
                     className="w-full border border-gray-300 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                   >
@@ -580,22 +579,22 @@ const Ticket: React.FC<TicketProps> = ({
                 </div>
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Email</label>
-                  <input 
-                    type="email" 
-                    value={filters.email} 
+                  <input
+                    type="email"
+                    value={filters.email}
                     onChange={(e) => setFilters(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="Filter by email..." 
+                    placeholder="Filter by email..."
                     className="w-full border border-gray-300 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 focus:ring-2 focus:ring-blue-500 transition-all text-sm"
                   />
                 </div>
               </div>
               {(filters.status || filters.priority || filters.email || searchTerm) && (
                 <div className="mt-3 sm:mt-4 flex justify-end">
-                  <button 
-                    onClick={clearFilters} 
+                  <button
+                    onClick={clearFilters}
                     className="text-xs sm:text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1 sm:gap-2 transition-colors"
                   >
-                    <X className="w-3 h-3 sm:w-4 sm:h-4" /> 
+                    <X className="w-3 h-3 sm:w-4 sm:h-4" />
                     Clear all filters
                   </button>
                 </div>
@@ -605,45 +604,41 @@ const Ticket: React.FC<TicketProps> = ({
         </div>
 
         {/* Section Tabs */}
-        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-2 mb-6">
-          <div className="flex flex-wrap gap-1 sm:gap-2">
+        <div className="bg-slate-100/50 rounded-2xl p-1.5 mb-8 inline-flex max-w-full overflow-x-auto shadow-sm border border-slate-200/60">
+          <div className="flex gap-1 whitespace-nowrap">
             <button
               onClick={() => setActiveSection('all')}
-              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
-                activeSection === 'all' 
-                  ? 'bg-blue-600 text-white shadow-md' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`px-5 py-2 rounded-xl font-semibold transition-all text-sm ${activeSection === 'all'
+                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                }`}
             >
               All ({tickets.allTickets.length})
             </button>
             <button
               onClick={() => setActiveSection('assigned')}
-              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
-                activeSection === 'assigned' 
-                  ? 'bg-orange-600 text-white shadow-md' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`px-5 py-2 rounded-xl font-semibold transition-all text-sm ${activeSection === 'assigned'
+                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                }`}
             >
               Assigned ({tickets.assignedToMe.length})
             </button>
             <button
               onClick={() => setActiveSection('raised')}
-              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
-                activeSection === 'raised' 
-                  ? 'bg-green-600 text-white shadow-md' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`px-5 py-2 rounded-xl font-semibold transition-all text-sm ${activeSection === 'raised'
+                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                }`}
             >
               Raised ({tickets.raisedByMe.length})
             </button>
             <button
               onClick={() => setActiveSection('closed')}
-              className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-medium transition-all text-xs sm:text-sm ${
-                activeSection === 'closed' 
-                  ? 'bg-gray-600 text-white shadow-md' 
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
+              className={`px-5 py-2 rounded-xl font-semibold transition-all text-sm ${activeSection === 'closed'
+                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                }`}
             >
               Closed ({tickets.closedByMe.length})
             </button>
@@ -662,7 +657,7 @@ const Ticket: React.FC<TicketProps> = ({
               <h3 className="text-xl font-medium text-gray-900 mb-2">No tickets found</h3>
               <p className="text-gray-600 mb-6">Try adjusting your search criteria or create a new ticket</p>
               {showCreateButton && (
-                <button 
+                <button
                   onClick={openCreateModal}
                   className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
                 >
@@ -686,15 +681,15 @@ const Ticket: React.FC<TicketProps> = ({
                 <div className="p-4 sm:p-6 border-b border-gray-200">
                   <div className="flex items-start justify-between">
                     <h2 className="text-xl sm:text-2xl font-bold text-gray-900 pr-4">{selectedTicket.subject}</h2>
-                    <button 
-                      className="text-gray-500 hover:text-gray-700 transition-colors p-1" 
+                    <button
+                      className="text-gray-500 hover:text-gray-700 transition-colors p-1"
                       onClick={closeModal}
                     >
                       <X className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
                   {/* Description */}
                   <div>
@@ -753,7 +748,7 @@ const Ticket: React.FC<TicketProps> = ({
                   {(isAssignedUser || isTicketCreator) && (
                     <div className="border-t pt-4 sm:pt-6">
                       <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Update Status</h3>
-                      
+
                       {/* Status Selector */}
                       <div className="mb-3 sm:mb-4">
                         <select
@@ -761,8 +756,8 @@ const Ticket: React.FC<TicketProps> = ({
                           value={editFields.status}
                           onChange={(e) => {
                             const newStatus = e.target.value as Ticket['status'];
-                            setEditFields(prev => ({ 
-                              ...prev, 
+                            setEditFields(prev => ({
+                              ...prev,
                               status: newStatus,
                               showClosureInput: newStatus === 'closed'
                             }));
@@ -788,9 +783,9 @@ const Ticket: React.FC<TicketProps> = ({
                                 : "Please provide an update about the progress made so far..."
                             }
                             value={editFields.closed_description}
-                            onChange={(e) => setEditFields(prev => ({ 
-                              ...prev, 
-                              closed_description: e.target.value 
+                            onChange={(e) => setEditFields(prev => ({
+                              ...prev,
+                              closed_description: e.target.value
                             }))}
                             required
                           />
@@ -811,8 +806,8 @@ const Ticket: React.FC<TicketProps> = ({
                             return;
                           }
                           updateTicketStatus(
-                            selectedTicket.id, 
-                            editFields.status, 
+                            selectedTicket.id,
+                            editFields.status,
                             editFields.closed_description
                           );
                         }}
@@ -823,11 +818,11 @@ const Ticket: React.FC<TicketProps> = ({
                     </div>
                   )}
                 </div>
-                
+
                 <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50 rounded-b-lg sm:rounded-b-xl">
                   <div className="flex justify-end gap-2 sm:gap-3">
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="px-4 py-2 sm:px-6 sm:py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm sm:text-base"
                       onClick={closeModal}
                     >
@@ -847,8 +842,8 @@ const Ticket: React.FC<TicketProps> = ({
               <div className="p-4 sm:p-6 border-b border-gray-200">
                 <div className="flex items-start justify-between">
                   <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Create New Ticket</h2>
-                  <button 
-                    className="text-gray-500 hover:text-gray-700 transition-colors p-1" 
+                  <button
+                    className="text-gray-500 hover:text-gray-700 transition-colors p-1"
                     onClick={closeCreateModal}
                     disabled={creating}
                   >
@@ -856,34 +851,34 @@ const Ticket: React.FC<TicketProps> = ({
                   </button>
                 </div>
               </div>
-              
+
               <form onSubmit={submitCreateTicket} className="p-4 sm:p-6 space-y-3 sm:space-y-4">
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Subject</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all text-sm sm:text-base"
-                    value={createFields.subject} 
-                    onChange={e => handleCreateFieldChange('subject', e.target.value)} 
-                    required 
+                    value={createFields.subject}
+                    onChange={e => handleCreateFieldChange('subject', e.target.value)}
+                    required
                     placeholder="Brief subject of your issue"
                   />
                 </div>
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Description</label>
-                  <textarea 
+                  <textarea
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all min-h-[100px] sm:min-h-[120px] text-sm sm:text-base"
-                    value={createFields.description} 
-                    onChange={e => handleCreateFieldChange('description', e.target.value)} 
-                    required 
+                    value={createFields.description}
+                    onChange={e => handleCreateFieldChange('description', e.target.value)}
+                    required
                     placeholder="Detailed description of the issue"
                   />
                 </div>
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Priority</label>
-                  <select 
+                  <select
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 transition-all text-sm sm:text-base"
-                    value={createFields.priority} 
+                    value={createFields.priority}
                     onChange={e => handleCreateFieldChange('priority', e.target.value)}
                   >
                     <option value="low">Low</option>
@@ -896,18 +891,18 @@ const Ticket: React.FC<TicketProps> = ({
                   selectedEmail={createFields.assigned_to}
                   onSelect={email => handleCreateFieldChange('assigned_to', email)}
                 />
-                
+
                 <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="px-4 py-2 sm:px-6 sm:py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm sm:text-base"
                     onClick={closeCreateModal}
                     disabled={creating}
                   >
                     Cancel
                   </button>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="px-4 py-2 sm:px-6 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
                     disabled={creating}
                   >
@@ -1021,7 +1016,7 @@ const UserDropdown: React.FC<{
           <span className="text-gray-400 text-xs sm:text-sm">Select a user to assign (optional)</span>
         )}
         <svg className="ml-auto w-3 h-3 sm:w-4 sm:h-4 text-gray-400" fill="none" viewBox="0 0 20 20">
-          <path d="M7 8l3 3 3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M7 8l3 3 3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
       {open && (
@@ -1051,15 +1046,15 @@ const UserDropdown: React.FC<{
               >
                 <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-bold text-xs">
                   <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" viewBox="0 0 20 20">
-                    <path d="M10 4v8m0 0l-4-4m4 4l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M10 4v8m0 0l-4-4m4 4l4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
                 <span>Unassigned</span>
               </button>
               {Object.entries(grouped).map(([role, list]) => {
                 const filtered = list.filter(u =>
-                  ((u.fullname?.toLowerCase() || '').includes(search.toLowerCase()) ||
-                   u.email.toLowerCase().includes(search.toLowerCase()))
+                ((u.fullname?.toLowerCase() || '').includes(search.toLowerCase()) ||
+                  u.email.toLowerCase().includes(search.toLowerCase()))
                 );
                 if (!filtered.length) return null;
                 return (

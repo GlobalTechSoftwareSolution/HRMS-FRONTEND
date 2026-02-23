@@ -103,8 +103,8 @@ export default function Profile() {
             currentUser.profile_picture?.startsWith("http")
               ? currentUser.profile_picture
               : currentUser.profile_picture
-              ? `${API_BASE}/${currentUser.profile_picture}`
-              : "/default-profile.png",
+                ? `${API_BASE}/${currentUser.profile_picture}`
+                : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+",
           role: currentUser.role || "",
           phone: currentUser.phone || "",
           department: currentUser.department || "",
@@ -215,8 +215,8 @@ export default function Profile() {
           updatedUser.profile_picture?.startsWith("http")
             ? updatedUser.profile_picture
             : updatedUser.profile_picture
-            ? `${API_BASE}/${updatedUser.profile_picture}`
-            : user.picture,
+              ? `${API_BASE}/${updatedUser.profile_picture}`
+              : user.picture,
         role: updatedUser.role || user.role,
         phone: updatedUser.phone || user.phone,
         department: updatedUser.department || user.department,
@@ -260,11 +260,10 @@ export default function Profile() {
 
         {saveMessage.text && (
           <div
-            className={`mb-6 p-3 rounded-md text-sm sm:text-base ${
-              saveMessage.type === "success"
+            className={`mb-6 p-3 rounded-md text-sm sm:text-base ${saveMessage.type === "success"
                 ? "bg-green-100 text-green-700"
                 : "bg-red-100 text-red-700"
-            }`}
+              }`}
           >
             {saveMessage.text}
           </div>
@@ -274,7 +273,7 @@ export default function Profile() {
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
           <div className="relative flex-shrink-0">
             <Image
-              src={user.picture || "/default-profile.png"}
+              src={user.picture || "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+"}
               alt={user.name || "Profile"}
               width={96}
               height={96}
@@ -426,34 +425,34 @@ export default function Profile() {
               value={
                 user.date_joined
                   ? (() => {
-                      const joinedDate = new Date(user.date_joined as string);
-                      const now = new Date();
-                      if (isNaN(joinedDate.getTime())) return "N/A";
-                      // Calculate difference in total milliseconds
-                      const diff = now.getTime() - joinedDate.getTime();
-                      if (diff < 0) return "N/A";
-                      // Create a temp date for calculation
-                      let years = now.getFullYear() - joinedDate.getFullYear();
-                      let months = now.getMonth() - joinedDate.getMonth();
-                      let days = now.getDate() - joinedDate.getDate();
-                      if (days < 0) {
-                        // borrow days from previous month
-                        months -= 1;
-                        // Get days in the previous month
-                        const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-                        days += prevMonth.getDate();
-                      }
-                      if (months < 0) {
-                        years -= 1;
-                        months += 12;
-                      }
-                      if (years < 0) return "N/A";
-                      let result = "";
-                      result += `${years} year${years === 1 ? "" : "s"} `;
-                      result += `${months} month${months === 1 ? "" : "s"} `;
-                      result += `${days} day${days === 1 ? "" : "s"}`;
-                      return result.trim();
-                    })()
+                    const joinedDate = new Date(user.date_joined as string);
+                    const now = new Date();
+                    if (isNaN(joinedDate.getTime())) return "N/A";
+                    // Calculate difference in total milliseconds
+                    const diff = now.getTime() - joinedDate.getTime();
+                    if (diff < 0) return "N/A";
+                    // Create a temp date for calculation
+                    let years = now.getFullYear() - joinedDate.getFullYear();
+                    let months = now.getMonth() - joinedDate.getMonth();
+                    let days = now.getDate() - joinedDate.getDate();
+                    if (days < 0) {
+                      // borrow days from previous month
+                      months -= 1;
+                      // Get days in the previous month
+                      const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                      days += prevMonth.getDate();
+                    }
+                    if (months < 0) {
+                      years -= 1;
+                      months += 12;
+                    }
+                    if (years < 0) return "N/A";
+                    let result = "";
+                    result += `${years} year${years === 1 ? "" : "s"} `;
+                    result += `${months} month${months === 1 ? "" : "s"} `;
+                    result += `${days} day${days === 1 ? "" : "s"}`;
+                    return result.trim();
+                  })()
                   : "N/A"
               }
               disabled

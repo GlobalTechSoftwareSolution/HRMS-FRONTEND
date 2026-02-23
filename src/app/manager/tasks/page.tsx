@@ -88,47 +88,47 @@ export default function ManagerTasks() {
   }, [scrollToForm]);
 
   // Assign Task
-const handleSendTask = async () => {
-  if (!assignedTo) return toast.error("Please select an employee to assign the task.");
-  if (!title.trim()) return toast.error("Please enter a task title.");
+  const handleSendTask = async () => {
+    if (!assignedTo) return toast.error("Please select an employee to assign the task.");
+    if (!title.trim()) return toast.error("Please enter a task title.");
 
-  setSending(true);
+    setSending(true);
 
-  try {
-    const loggedInEmail = localStorage.getItem("user_email"); // <-- get logged-in email
+    try {
+      const loggedInEmail = localStorage.getItem("user_email"); // <-- get logged-in email
 
-    const res = await fetch(`${API_BASE}/api/accounts/create_task/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: assignedTo,          // employee who will do the task
-        title,
-        description,
-        due_date: dueDate || null,
-        priority,
-        assigned_by: loggedInEmail  // <-- pass logged-in email
-      }),
-    });
+      const res = await fetch(`${API_BASE}/api/accounts/create_task/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: assignedTo,          // employee who will do the task
+          title,
+          description,
+          due_date: dueDate || null,
+          priority,
+          assigned_by: loggedInEmail  // <-- pass logged-in email
+        }),
+      });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(`Failed: ${res.status} → ${JSON.stringify(data)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(`Failed: ${res.status} → ${JSON.stringify(data)}`);
 
-    toast.success("Task assigned successfully!");
-    setTitle("");
-    setDescription("");
-    setDueDate("");
-    setAssignedTo("");
-    setPriority("MEDIUM");
+      toast.success("Task assigned successfully!");
+      setTitle("");
+      setDescription("");
+      setDueDate("");
+      setAssignedTo("");
+      setPriority("MEDIUM");
 
-    fetchTasks(); // refresh tasks
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to assign task";
-    console.error(err);
-    toast.error(message);
-  } finally {
-    setSending(false);
-  }
-};
+      fetchTasks(); // refresh tasks
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to assign task";
+      console.error(err);
+      toast.error(message);
+    } finally {
+      setSending(false);
+    }
+  };
 
   const getPriorityClass = (priority: Task["priority"]) => {
     switch (priority) {
@@ -187,13 +187,16 @@ const handleSendTask = async () => {
                 >
                   <div className="relative w-12 h-12 flex-shrink-0">
                     <Image
-                      src={emp.profile_picture || "/default-avatar.png"}
+                      src={emp.profile_picture && emp.profile_picture !== 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+' && !emp.profile_picture?.includes('minio.globaltechsoftwaresolutions.cloud') && !emp.profile_picture?.includes('default-avatar.png') && !emp.profile_picture?.includes('default-profile.png') ? emp.profile_picture : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+"}
                       alt={emp.fullname}
                       fill
                       className="rounded-full object-cover border border-gray-300"
-                      onError={(e) =>
-                        ((e.target as HTMLImageElement).src = "/default-avatar.png")
-                      }
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (target.src.includes('minio.globaltechsoftwaresolutions.cloud') || target.src.includes('/default-avatar.png') || target.src.includes('/default-profile.png')) {
+                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+';
+                        }
+                      }}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -275,11 +278,10 @@ const handleSendTask = async () => {
             <button
               onClick={handleSendTask}
               disabled={sending}
-              className={`flex items-center justify-center px-6 py-3 rounded-lg text-white font-medium transition-all ${
-                sending
+              className={`flex items-center justify-center px-6 py-3 rounded-lg text-white font-medium transition-all ${sending
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700"
-              }`}
+                }`}
             >
               <FiSend className="mr-2" />
               {sending ? "Assigning Task..." : "Assign Task"}

@@ -19,8 +19,12 @@
     "@fullcalendar/timegrid": "^6.1.19",
     "@nhost/nextjs": "^2.3.1",
     "@nhost/nhost-js": "^3.3.1",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-table-devtools": "^8.21.3",
     "axios": "^1.12.2",
     "chart.js": "^4.5.0",
+    "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.12",
     "jspdf": "^3.0.3",
@@ -42,7 +46,8 @@
     "react-toastify": "^11.0.5",
     "react-webcam": "^7.2.0",
     "recharts": "^3.2.1",
-    "resend": "^6.5.2"
+    "resend": "^6.5.2",
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -10,6 +10,10 @@ import {
   FiChevronDown,
   FiFileText,
   FiAward,
+  FiChevronLeft,
+  FiChevronRight,
+  FiUsers,
+  FiBriefcase,
 } from "react-icons/fi";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -53,7 +57,7 @@ type SortConfig = {
 
 export default function HrEmployee() {
   const [employees, setEmployees] = useState<Employee[]>([]);
-const [error, setError] = useState<string>("");
+  const [error, setError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
@@ -82,7 +86,7 @@ const [error, setError] = useState<string>("");
         console.error("Failed to fetch payroll for", employee.email, err);
         // Set empty object on error to avoid undefined state
         setPayrollData((prev) => ({ ...prev, [employee.email]: {} }));
-        
+
         // Show user-friendly error message
         if (axios.isAxiosError(err)) {
           if (err.response?.status === 404) {
@@ -145,7 +149,7 @@ const [error, setError] = useState<string>("");
         console.error("Failed to fetch documents for", employee.email, err);
         // Set empty array on error to avoid undefined state
         setDocumentData((prev) => ({ ...prev, [employee.email]: [] }));
-        
+
         // Show user-friendly error message
         if (axios.isAxiosError(err)) {
           if (err.response?.status === 404) {
@@ -188,7 +192,7 @@ const [error, setError] = useState<string>("");
       console.error("Failed to fetch awards", err);
       // Set empty object on error to avoid undefined state
       setAwardData({});
-      
+
       // Show user-friendly error message
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 404) {
@@ -204,14 +208,14 @@ const [error, setError] = useState<string>("");
 
   const handleViewDetails = async (employee: Employee) => {
     setSelectedEmployee(employee);
-    
+
     try {
       // Fetch data for the selected employee
       await Promise.all([
         fetchPayrollForEmployee(employee),
         fetchDocumentsForEmployee(employee),
       ]);
-      
+
       // Fetch awards only if not already loaded
       if (Object.keys(awardData).length === 0) {
         await fetchAllAwards();
@@ -351,280 +355,353 @@ const [error, setError] = useState<string>("");
           }
         }
       `}</style>
-    <DashboardLayout role="hr">
-      <ToastContainer position="top-right" autoClose={3000} />
-      <div className="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-3 sm:p-4 md:p-6 overflow-x-hidden w-full">
-        <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 mb-3 sm:mb-4 md:mb-6">Employee Management</h2>
+      <DashboardLayout role="hr">
+        <ToastContainer position="top-right" autoClose={3000} />
 
-        {/* Search & Filter */}
-        <div className="bg-gray-50 p-3 sm:p-4 rounded-md border mb-3 sm:mb-4 md:mb-6 w-full">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 w-full">
-            <div className="relative w-full">
-              <FiSearch className="absolute left-3 top-3 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search employees..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border rounded-md w-full focus:ring-2 focus:ring-blue-500 text-sm sm:text-base min-w-0"
-              />
-            </div>
-            <select
-              value={filterDepartment}
-              onChange={(e) => setFilterDepartment(e.target.value)}
-              className="px-4 py-2 border rounded-md w-full focus:ring-2 focus:ring-blue-500 text-sm sm:text-base"
-            >
-              <option value="all">All Departments</option>
-              {departments.map((d) => (
-                <option key={d}>{d}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Employee Modal */}
+        {/* ===== EMPLOYEE DETAILS MODAL ===== */}
         {selectedEmployee && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
-            <div className="bg-white p-4 sm:p-6 rounded-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto overflow-x-hidden my-auto">
-              <div className="flex justify-between items-center mb-3 sm:mb-4 w-full">
-                <h3 className="text-lg sm:text-xl font-semibold break-words flex-1 mr-2">Employee Details</h3>
-                <button onClick={() => setSelectedEmployee(null)} className="text-gray-500 hover:text-gray-700 flex-shrink-0">
-                  <FiX size={20} />
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center p-2 sm:p-4 z-50 backdrop-blur-sm">
+            <div className="bg-white rounded-xl sm:rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-y-auto m-2 shadow-2xl">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 rounded-t-xl sm:rounded-t-2xl shadow-sm z-10 flex justify-between items-center">
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">Employee Profile</h3>
+                <button
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1 sm:p-2 hover:bg-gray-100 rounded-lg flex-shrink-0 ml-2"
+                  onClick={() => setSelectedEmployee(null)}
+                >
+                  <FiX className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               </div>
 
-              {/* Profile */}
-              <div className="flex items-center mb-4 sm:mb-6 w-full overflow-hidden">
-                <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center text-blue-600 font-bold text-lg sm:text-xl">
-                  {selectedEmployee.profile_picture ? (
-                    <Image
-                      src={selectedEmployee.profile_picture}
-                      alt={selectedEmployee.fullname}
-                      width={64}
-                      height={64}
-                      className="object-cover rounded-full"
-                    />
-                  ) : (
-                    selectedEmployee.fullname.charAt(0)
-                  )}
+              <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
+                {/* Header Info */}
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center text-blue-600 font-bold text-3xl shadow-sm border-4 border-white flex-shrink-0">
+                    {selectedEmployee.profile_picture ? (
+                      <Image
+                        src={selectedEmployee.profile_picture}
+                        alt={selectedEmployee.fullname}
+                        width={96}
+                        height={96}
+                        className="object-cover w-full h-full"
+                      />
+                    ) : (
+                      selectedEmployee.fullname.charAt(0)
+                    )}
+                  </div>
+                  <div className="flex-1 text-center sm:text-left min-w-0">
+                    <h4 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight break-words">{selectedEmployee.fullname}</h4>
+                    <p className="text-blue-600 font-semibold text-sm sm:text-base mt-1">{selectedEmployee.designation || "No Designation"}</p>
+                    <p className="text-slate-500 font-medium text-sm break-words mt-1">{selectedEmployee.email}</p>
+
+                    <div className="inline-flex mt-3 bg-white border border-slate-200 rounded-lg p-1.5 shadow-sm">
+                      <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-bold uppercase tracking-wider">
+                        {selectedEmployee.department || "No Department"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="ml-3 sm:ml-4 min-w-0 flex-1">
-                  <h4 className="text-base sm:text-lg font-medium break-words">{selectedEmployee.fullname}</h4>
-                  <p className="text-gray-500 text-sm sm:text-base break-all">{selectedEmployee.email}</p>
+
+                {/* Data Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                  {[
+                    { label: "Phone", value: selectedEmployee.phone || "N/A", icon: FiSearch },
+                    { label: "Date Joined", value: formatDate(selectedEmployee.date_joined), icon: FiBriefcase },
+                    { label: "Date of Birth", value: formatDate(selectedEmployee.date_of_birth), icon: FiUsers },
+                    { label: "Basic Salary", value: formatSalary(payrollData[selectedEmployee.email]?.basic_salary), icon: FiFileText }
+                  ].map((item, idx) => (
+                    <div key={idx} className="bg-white border border-slate-200 rounded-xl p-3 sm:p-4 text-center shadow-sm">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">{item.label}</p>
+                      <p className="text-sm sm:text-base font-bold text-slate-800 truncate">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Documents Column */}
+                  <div>
+                    <h4 className="flex items-center gap-2 text-lg font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                        <FiFileText className="text-blue-600" />
+                      </div>
+                      Documents
+                    </h4>
+                    {documentData[selectedEmployee.email] && documentData[selectedEmployee.email].length > 0 ? (
+                      <div className="space-y-2">
+                        {documentData[selectedEmployee.email].map((doc, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-100 rounded-xl hover:border-blue-200 hover:bg-blue-50/50 transition-colors">
+                            <span className="text-sm font-medium text-slate-700 truncate min-w-0 pr-2">{doc.document_name}</span>
+                            <button
+                              onClick={() => window.open(doc.document_file, "_blank")}
+                              className="flex-shrink-0 px-3 py-1.5 bg-white text-blue-600 border border-blue-200 text-xs font-semibold rounded-lg hover:bg-blue-600 hover:text-white transition-colors shadow-sm"
+                            >
+                              View
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-xl">
+                        <p className="text-sm text-slate-500 font-medium">No documents uploaded</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Awards Column */}
+                  <div>
+                    <h4 className="flex items-center gap-2 text-lg font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">
+                      <div className="w-8 h-8 rounded-lg bg-yellow-50 flex items-center justify-center">
+                        <FiAward className="text-yellow-600" />
+                      </div>
+                      Awards & Recognition
+                    </h4>
+                    {awardData[selectedEmployee.email] && awardData[selectedEmployee.email].length > 0 ? (
+                      <div className="space-y-3">
+                        {awardData[selectedEmployee.email].map((award, idx) => (
+                          <div key={idx} className="flex gap-3 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+                            <div className="w-10 h-10 rounded-lg bg-yellow-100 overflow-hidden flex items-center justify-center text-yellow-600 flex-shrink-0 shadow-sm">
+                              {award.photo ? (
+                                <Image src={award.photo} alt={award.title} width={40} height={40} className="w-full h-full object-cover" />
+                              ) : (
+                                <FiAward className="w-5 h-5" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-slate-800 truncate">{award.title}</p>
+                              <p className="text-xs text-slate-500 mt-0.5 truncate">{formatDate(award.date)}</p>
+                              {award.description && <p className="text-xs text-slate-600 mt-1 line-clamp-2">{award.description}</p>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-xl">
+                        <p className="text-sm text-slate-500 font-medium">No awards granted yet</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Details */}
-              <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 text-xs sm:text-sm w-full overflow-hidden">
-                <p className="break-words"><strong>Designation:</strong> {selectedEmployee.designation || "N/A"}</p>
-                <p className="break-words"><strong>Department:</strong> {selectedEmployee.department || "N/A"}</p>
-                <p className="break-words"><strong>Phone:</strong> {selectedEmployee.phone || "N/A"}</p>
-                <p className="break-words"><strong>Joined:</strong> {formatDate(selectedEmployee.date_joined)}</p>
-                <p className="break-words"><strong>Salary:</strong> {formatSalary(payrollData[selectedEmployee.email]?.basic_salary)}</p>
-              </div>
-
-              {/* Documents */}
-              <div className="mb-4 sm:mb-6 w-full overflow-hidden">
-                <h4 className="text-base sm:text-lg font-semibold flex items-center mb-2">
-                  <FiFileText className="mr-2 text-blue-600" /> Documents
-                </h4>
-                {documentData[selectedEmployee.email] && documentData[selectedEmployee.email].length > 0 ? (
-                  <ul className="list-disc pl-4 sm:pl-5 space-y-1 sm:space-y-2">
-                    {documentData[selectedEmployee.email].map((doc, index) => (
-                      <li key={`${doc.id}-${doc.document_name}-${index}`} className="flex justify-between items-center text-xs sm:text-sm gap-2">
-                        <span className="truncate mr-2 flex-1 min-w-0">{doc.document_name}</span>
-                        <button
-                          onClick={() => window.open(doc.document_file, "_blank")}
-                          className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 whitespace-nowrap"
-                        >
-                          View
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-500 text-xs sm:text-sm">No documents found.</p>
-                )}
-              </div>
-
-              {/* Awards */}
-              <div className="mb-4 sm:mb-6">
-                <h4 className="text-base sm:text-lg font-semibold flex items-center mb-2">
-                  <FiAward className="mr-2 text-yellow-600" /> Awards
-                </h4>
-                {awardData[selectedEmployee.email] && awardData[selectedEmployee.email].length > 0 ? (
-                  <ul className="list-disc pl-4 sm:pl-5 space-y-2">
-                    {awardData[selectedEmployee.email].map((award, index) => (
-                      <li key={`${award.id}-${award.title}-${index}`} className="flex items-center space-x-2 sm:space-x-3">
-                        {award.photo && (
-                          <Image
-                            src={award.photo}
-                            alt={award.title}
-                            width={32}
-                            height={32}
-                            className="rounded-full object-cover"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-xs sm:text-sm truncate">{award.title}</p>
-                          <p className="text-gray-600 text-xs truncate">{award.description || "No description"}</p>
-                          <p className="text-gray-400 text-xs">{formatDate(award.date)}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-500 text-xs sm:text-sm">No awards found.</p>
-                )}
-              </div>
-
-              <div className="text-right">
+              <div className="p-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl text-right">
                 <button
                   onClick={() => setSelectedEmployee(null)}
-                  className="px-3 sm:px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition text-sm sm:text-base"
+                  className="px-6 py-2 bg-white border border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm"
                 >
-                  Close
+                  Close Profile
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Employee Table - Hidden on small screens */}
-        {isLoading ? (
-          <div className="text-center py-6 sm:py-8">
-            <div className="animate-spin h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600 mx-auto rounded-full"></div>
-            <p className="mt-2 text-gray-600 text-sm sm:text-base">Loading employees...</p>
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 p-3 sm:p-4 rounded-md text-red-700 text-sm sm:text-base">{error}</div>
-        ) : (
-          <>
-            {/* Desktop Table View */}
-            <div className="hidden md:block overflow-x-auto border rounded-lg">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th
-                      onClick={() => requestSort("fullname")}
-                      className="p-3 text-left font-medium cursor-pointer"
-                    >
-                      Employee{" "}
-                      {sortConfig?.key === "fullname" &&
-                        (sortConfig.direction === "ascending" ? <FiChevronUp className="inline" /> : <FiChevronDown className="inline" />)}
-                    </th>
-                    <th className="p-3 text-left font-medium">Designation</th>
-                    <th className="p-3 text-left font-medium">Department</th>
-                    <th className="p-3 text-left font-medium">Salary</th>
-                    <th className="p-3 text-left font-medium">Join Date</th>
-                    <th className="p-3 text-left font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedData.map((emp) => (
-                    <tr key={emp.email} className="hover:bg-gray-50">
-                      <td className="p-3 flex items-center space-x-3">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center text-blue-600 font-bold">
-                          {emp.profile_picture ? (
-                            <Image
-                              src={emp.profile_picture}
-                              alt={emp.fullname}
-                              width={40}
-                              height={40}
-                              className="object-cover rounded-full"
-                            />
-                          ) : (
-                            emp.fullname.charAt(0)
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium">{emp.fullname}</div>
-                          <div className="text-xs text-gray-500">{emp.email}</div>
-                        </div>
-                      </td>
-                      <td className="p-3">{emp.designation || "N/A"}</td>
-                      <td className="p-3">{emp.department || "N/A"}</td>
-                      <td className="p-3 font-medium">{formatSalary(payrollData[emp.email]?.basic_salary)}</td>
-                      <td className="p-3">{formatDate(emp.date_joined)}</td>
-                      <td className="p-3">
-                        <button
-                          onClick={() => handleViewDetails(emp)}
-                          className="text-blue-600 hover:text-blue-800 flex items-center"
-                        >
-                          <FiEye className="mr-1" /> View
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div className="min-h-[calc(100vh-80px)] bg-slate-50 p-4 sm:p-6 md:p-8 w-full relative">
+          <div className="max-w-7xl mx-auto w-full">
+            {/* Dashboard Header */}
+            <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">
+                  Employee Management
+                </h1>
+                <p className="text-slate-500 font-medium tracking-wide text-sm sm:text-base">
+                  View, manage, and track all your team members
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm">
+                <div className="p-1.5 bg-blue-50 rounded-lg">
+                  <FiUsers className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <span className="block text-xs font-semibold uppercase text-slate-400 tracking-wider leading-none mb-1">Total Team</span>
+                  <span className="block text-lg font-bold text-slate-800 leading-none">{employees.length}</span>
+                </div>
+              </div>
             </div>
 
-            {/* Mobile Cards View */}
-            <div className="md:hidden space-y-4">
-              {sortedData.map((emp) => (
-                <div key={emp.email} className="bg-white border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="h-12 w-12 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center text-blue-600 font-bold text-lg">
-                      {emp.profile_picture ? (
-                        <Image
-                          src={emp.profile_picture}
-                          alt={emp.fullname}
-                          width={48}
-                          height={48}
-                          className="object-cover rounded-full"
-                        />
-                      ) : (
-                        emp.fullname.charAt(0)
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-800 truncate">{emp.fullname}</h3>
-                      <p className="text-gray-500 text-sm truncate">{emp.email}</p>
-                    </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              {/* Top Bar with Search & Filters */}
+              <div className="p-5 sm:p-6 border-b border-slate-100">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                    <input
+                      type="text"
+                      placeholder="Search employees by name, email, or designation..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-11 pr-4 py-2.5 bg-slate-50 focus:bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-sm font-medium outline-none placeholder:text-slate-400 text-slate-900"
+                    />
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                    <div>
-                      <span className="text-gray-600">Designation:</span>
-                      <p className="font-medium truncate">{emp.designation || "N/A"}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Department:</span>
-                      <p className="font-medium truncate">{emp.department || "N/A"}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Salary:</span>
-                      <p className="font-medium">{formatSalary(payrollData[emp.email]?.basic_salary)}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Joined:</span>
-                      <p className="font-medium">{formatDate(emp.date_joined)}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => handleViewDetails(emp)}
-                      className="text-blue-600 hover:text-blue-800 flex items-center text-sm font-medium"
+                  <div className="relative">
+                    <select
+                      value={filterDepartment}
+                      onChange={(e) => setFilterDepartment(e.target.value)}
+                      className="w-full md:w-56 pl-4 pr-10 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm appearance-none bg-slate-50 focus:bg-white outline-none font-semibold text-slate-700 cursor-pointer"
                     >
-                      <FiEye className="mr-1" /> View Details
-                    </button>
+                      <option value="all">All Departments</option>
+                      {departments.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                    <FiChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                   </div>
                 </div>
-              ))}
-            </div>
-          </>
-        )}
+              </div>
 
-        {/* No Results Message */}
-        {!isLoading && !error && sortedData.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            No employees found matching your criteria.
+              {/* Content Area */}
+              {isLoading ? (
+                <div className="py-20 text-center">
+                  <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 animate-spin rounded-full mx-auto mb-4"></div>
+                  <p className="text-slate-500 font-medium">Loading workforce data...</p>
+                </div>
+              ) : error ? (
+                <div className="py-12 px-6">
+                  <div className="bg-red-50 text-red-600 p-4 rounded-xl text-center font-medium border border-red-100">
+                    {error}
+                  </div>
+                </div>
+              ) : Object.keys(sortedData).length === 0 ? (
+                <div className="py-20 text-center px-4">
+                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                    <FiUsers className="w-10 h-10 text-slate-300" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 mb-1">No employees found</h3>
+                  <p className="text-slate-500 text-sm">Try adjusting your search criteria or department filter.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                          {[
+                            { key: 'fullname', label: 'Employee Profile' },
+                            { key: 'designation', label: 'Designation' },
+                            { key: 'department', label: 'Department' },
+                            { key: 'date_joined', label: 'Join Date' }
+                          ].map((col) => (
+                            <th
+                              key={col.key}
+                              onClick={() => requestSort(col.key as keyof Employee)}
+                              className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors select-none group"
+                            >
+                              <div className="flex items-center gap-2">
+                                {col.label}
+                                <span className="text-slate-300 group-hover:text-slate-400 transition-colors">
+                                  {sortConfig?.key === col.key ? (
+                                    sortConfig.direction === "ascending" ? <FiChevronUp className="w-4 h-4 text-slate-600" /> : <FiChevronDown className="w-4 h-4 text-slate-600" />
+                                  ) : (
+                                    <FiChevronDown className="w-4 h-4 opacity-0 group-hover:opacity-100" />
+                                  )}
+                                </span>
+                              </div>
+                            </th>
+                          ))}
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Salary</th>
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {sortedData.map((emp) => (
+                          <tr key={emp.email} className="hover:bg-slate-50/80 transition-colors group">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden border border-slate-200">
+                                  {emp.profile_picture ? (
+                                    <Image src={emp.profile_picture} alt={emp.fullname} width={40} height={40} className="object-cover w-full h-full" />
+                                  ) : (
+                                    emp.fullname.charAt(0)
+                                  )}
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-slate-800 text-sm group-hover:text-blue-600 transition-colors">{emp.fullname}</h4>
+                                  <p className="text-xs text-slate-500 mt-0.5">{emp.email}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="text-sm font-medium text-slate-700">{emp.designation || "N/A"}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="inline-flex px-2.5 py-1 rounded-md text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200 uppercase tracking-wide">
+                                {emp.department || "N/A"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
+                              {formatDate(emp.date_joined)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800">
+                              {formatSalary(payrollData[emp.email]?.basic_salary)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                              <button
+                                onClick={() => handleViewDetails(emp)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-blue-600 font-semibold hover:bg-blue-50 hover:border-blue-200 transition-all shadow-sm"
+                              >
+                                <FiEye className="w-4 h-4" /> View
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile Cards View */}
+                  <div className="md:hidden p-4 space-y-4 bg-slate-50 border-t border-slate-200">
+                    {sortedData.map((emp) => (
+                      <div key={emp.email} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:border-blue-200 transition-colors">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden shrink-0 border border-slate-200">
+                            {emp.profile_picture ? (
+                              <Image src={emp.profile_picture} alt={emp.fullname} width={48} height={48} className="object-cover w-full h-full" />
+                            ) : (
+                              emp.fullname.charAt(0)
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-slate-800 truncate text-base">{emp.fullname}</h4>
+                            <p className="text-sm text-slate-500 truncate">{emp.email}</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm bg-slate-50 p-3 rounded-lg border border-slate-100 mb-4">
+                          <div>
+                            <p className="text-xs text-slate-400 font-semibold uppercase mb-0.5">Designation</p>
+                            <p className="font-medium text-slate-800 truncate">{emp.designation || "N/A"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400 font-semibold uppercase mb-0.5">Department</p>
+                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 uppercase tracking-wide truncate max-w-full">
+                              {emp.department || "N/A"}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400 font-semibold uppercase mb-0.5">Salary</p>
+                            <p className="font-bold text-slate-800">{formatSalary(payrollData[emp.email]?.basic_salary)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-400 font-semibold uppercase mb-0.5">Join Date</p>
+                            <p className="font-medium text-slate-800">{formatDate(emp.date_joined)}</p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleViewDetails(emp)}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg hover:bg-blue-600 hover:text-white transition-all font-semibold shadow-sm text-sm"
+                        >
+                          <FiEye className="w-4 h-4" /> View Full Profile
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-    </DashboardLayout>
+        </div>
+      </DashboardLayout>
     </>
   );
 }

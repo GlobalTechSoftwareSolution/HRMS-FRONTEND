@@ -18,7 +18,7 @@ export default function Profile() {
     email: "",
     phone: "",
     office_address: "",
-    profile_picture: "/default-profile.png",
+    profile_picture: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+",
   });
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -46,7 +46,7 @@ export default function Profile() {
           email: adminData.email || userEmail,
           phone: adminData.phone || "",
           office_address: adminData.office_address || "",
-          profile_picture: adminData.profile_picture || "/default-profile.png",
+          profile_picture: adminData.profile_picture || "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+",
         });
       } catch (error) {
         console.error(error);
@@ -118,11 +118,10 @@ export default function Profile() {
 
         {message.text && (
           <div
-            className={`p-3 mb-6 rounded-md ${
-              message.type === "success"
+            className={`p-3 mb-6 rounded-md ${message.type === "success"
                 ? "bg-green-100 text-green-700"
                 : "bg-red-100 text-red-700"
-            }`}
+              }`}
           >
             {message.text}
           </div>
@@ -131,7 +130,7 @@ export default function Profile() {
         <div className="flex flex-col items-center gap-4 mb-8">
           <div className="relative">
             <Image
-              src={admin.profile_picture || "/default-profile.png"}
+              src={admin.profile_picture || "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+"}
               alt={admin.fullname}
               width={120}
               height={120}

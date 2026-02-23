@@ -129,25 +129,25 @@ export default function Profile() {
         if (!email || !email.includes('@')) {
           throw new Error("Invalid email format");
         }
-        
+
         console.log("Fetching user data for email:", email);
-        
+
         const response = await fetch(
           `${API_BASE}/api/accounts/hrs/${encodeURIComponent(email)}/`,
           { headers: { "Content-Type": "application/json" } }
         );
-        
+
         console.log("User data response status:", response.status);
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           console.log("Error response:", errorText);
           throw new Error(`Failed to fetch user data: ${response.status} ${errorText}`);
         }
-        
+
         const currentUser: FetchUserResponse = await response.json();
         console.log("Received user data:", currentUser);
-        
+
         // Sanitize the data to handle null/undefined values
         const sanitizedData = {
           fullname: currentUser.fullname || "",
@@ -162,11 +162,11 @@ export default function Profile() {
           qualification: currentUser.qualification || "",
           skills: currentUser.skills || ""
         };
-        
+
         const dob = sanitizedData.date_of_birth;
         const dateJoined = sanitizedData.date_joined;
         const calculatedAge = dob ? calculateAge(dob) : undefined;
-        
+
         setUser({
           name: sanitizedData.fullname,
           email: sanitizedData.email,
@@ -174,8 +174,8 @@ export default function Profile() {
             sanitizedData.profile_picture?.startsWith("http")
               ? sanitizedData.profile_picture
               : sanitizedData.profile_picture
-              ? `${API_BASE}/${sanitizedData.profile_picture}`
-              : "/default-profile.png",
+                ? `${API_BASE}/${sanitizedData.profile_picture}`
+                : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+",
           role: sanitizedData.role,
           phone: sanitizedData.phone,
           department: sanitizedData.department,
@@ -187,7 +187,7 @@ export default function Profile() {
           skills: sanitizedData.skills,
           vintage: dateJoined ? calculateVintage(dateJoined) : ""
         });
-        
+
         // Update localStorage with sanitized data
         localStorage.setItem("userInfo", JSON.stringify(sanitizedData));
       } catch (error) {
@@ -256,12 +256,12 @@ export default function Profile() {
     setIsSaving(true);
     try {
       const fileInput = fileInputRef.current?.files?.[0];
-      
+
       // For HR role, we might need to use a different endpoint or method
       // Let's first try to get the actual email from localStorage to ensure we're using the correct one
       const storedUser = localStorage.getItem("userInfo");
       const actualEmail = storedUser ? JSON.parse(storedUser).email : user.email;
-      
+
       // Validate required fields
       if (!user.name.trim()) {
         throw new Error("Full name is required");
@@ -289,10 +289,10 @@ export default function Profile() {
 
       // Even if we get an error response, try to parse and continue
       const text = await response.text();
-      
+
       // Log the response for debugging
       console.log("Profile update response:", text);
-      
+
       // Try to parse the response regardless of status
       let updatedUser: FetchUserResponse;
       try {
@@ -332,7 +332,7 @@ export default function Profile() {
       const dob = sanitizedUpdatedData.date_of_birth;
       const dateJoined = sanitizedUpdatedData.date_joined;
       const calculatedAge = user.ageManual ? user.age : (dob ? calculateAge(dob) : undefined);
-      
+
       setUser({
         name: sanitizedUpdatedData.fullname,
         email: sanitizedUpdatedData.email,
@@ -340,8 +340,8 @@ export default function Profile() {
           sanitizedUpdatedData.profile_picture?.startsWith("http")
             ? sanitizedUpdatedData.profile_picture
             : sanitizedUpdatedData.profile_picture
-            ? `${API_BASE}/${sanitizedUpdatedData.profile_picture}`
-            : user.picture,
+              ? `${API_BASE}/${sanitizedUpdatedData.profile_picture}`
+              : user.picture,
         role: sanitizedUpdatedData.role,
         phone: sanitizedUpdatedData.phone,
         department: sanitizedUpdatedData.department,
@@ -383,11 +383,10 @@ export default function Profile() {
 
         {saveMessage.text && (
           <div
-            className={`mb-6 p-3 rounded-md text-sm sm:text-base ${
-              saveMessage.type === "success"
+            className={`mb-6 p-3 rounded-md text-sm sm:text-base ${saveMessage.type === "success"
                 ? "bg-green-100 text-green-700 border border-green-200"
                 : "bg-red-100 text-red-700 border border-red-200"
-            }`}
+              }`}
           >
             <div className="flex items-center">
               {saveMessage.type === "success" ? (
@@ -408,7 +407,7 @@ export default function Profile() {
         <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
           <div className="relative flex-shrink-0">
             <Image
-              src={user.picture || "/default-profile.png"}
+              src={user.picture || "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+"}
               alt={user.name || "Profile"}
               width={96}
               height={96}

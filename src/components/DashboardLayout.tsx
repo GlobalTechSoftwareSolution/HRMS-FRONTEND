@@ -24,7 +24,7 @@ type UserInfo = {
 
 const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
   ceo: [
-   { name: "Dashboard", path: "/ceo/dashboard" },
+    { name: "Dashboard", path: "/ceo/dashboard" },
     { name: "Reports", path: "/ceo/reports" },
     { name: "Employees", path: "/ceo/employees" },
     { name: "Shift & OT", path: "/ceo/shift&ot" },
@@ -83,7 +83,7 @@ const roleLinksMap: Record<Role, { name: string; path: string }[]> = {
     { name: "Projects", path: "/employee/employee_projects" },
     { name: "Resign", path: "/employee/employee_resign" },
     { name: "Profile", path: "/employee/profile" },
-    
+
   ],
   admin: [
     { name: "Attendence", path: "/admin/attendence" },
@@ -129,8 +129,8 @@ export default function DashboardLayout({ children, role }: Props) {
         setUserInfo({
           name: parsedUser.name || "Guest User",
           email: parsedUser.email || "",
-          picture: parsedUser.picture || "/default-profile.png",
-          profile_profile_picture: parsedUser.profile_profile_picture || "",
+          picture: parsedUser.picture || "",
+          profile_profile_picture: parsedUser.profile_picture || parsedUser.profile_profile_picture || "",
           role: parsedUser.role || role.toUpperCase(),
         });
       } catch (error) {
@@ -190,39 +190,63 @@ export default function DashboardLayout({ children, role }: Props) {
     router.replace("/");
   }, [router]);
 
-  const roleLinks = roleLinksMap[role];
-  const profilePic =
-    userInfo?.profile_profile_picture || userInfo?.picture || "/default-profile.png";
+  const roleLinks = roleLinksMap[role as keyof typeof roleLinksMap] || [];
+  const getProfilePic = () => {
+    const backendPic = userInfo?.profile_profile_picture;
+    const googlePic = userInfo?.picture;
+
+    // Check if backend picture is from MinIO (which is down)
+    if (backendPic && backendPic !== 'https://via.placeholder.com/150?text=User') {
+      // Block MinIO URLs since MinIO is down
+      if (backendPic.includes('minio.globaltechsoftwaresolutions.cloud')) {
+        // Use local SVG data URL instead of external service
+        return `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+`;
+      }
+
+      if (backendPic.startsWith('http')) return backendPic;
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, '') || 'http://127.0.0.1:8000';
+      const picPath = backendPic.startsWith('/') ? backendPic : `/${backendPic}`;
+      return `${baseUrl}${picPath}`;
+    }
+
+    if (googlePic && googlePic !== '/default-profile.png') return googlePic;
+
+    // Use local SVG data URL instead of external service
+    return `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZmNmZmYiPlVzZXI8L3RleHQ+PC9zdmc+`;
+  };
+
+  const profilePic = getProfilePic();
 
   return (
-    <div className="flex min-h-screen bg-gray-100 font-sans text-gray-800 overflow-x-hidden">
+    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-800 overflow-x-hidden">
       {/* Sidebar (desktop) */}
-      <aside className="hidden md:flex fixed top-0 left-0 bottom-0 w-72 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex-col z-20">
-        <div className="p-6 flex items-center gap-4 border-b border-blue-700 min-w-0">
+      <aside className="hidden md:flex fixed top-0 left-0 bottom-0 w-72 bg-slate-900 text-slate-300 border-r border-slate-800 shadow-sm flex-col z-20">
+        <div className="p-6 flex items-center gap-4 border-b border-slate-700 min-w-0">
           <Image
             src={profilePic}
             alt={userInfo?.name || "Profile"}
             width={64}
             height={64}
             unoptimized
-            className="rounded-full border-2 border-white shadow-md object-cover w-16 h-16 flex-shrink-0"
+            className="rounded-full border-2 border-slate-300 shadow-md object-cover w-16 h-16 flex-shrink-0"
           />
           <div className="flex flex-col min-w-0 flex-1">
-            <p className="text-lg font-semibold text-white truncate" title={userInfo?.name || "Guest User"}>
-              {userInfo?.name || "Guest User"}
+            <p className="text-lg font-semibold text-white break-words whitespace-normal leading-tight" title={userInfo?.name?.replace(/SOLUTIONSS/gi, "SOLUTIONS") || "Guest User"}>
+              {userInfo?.name?.replace(/SOLUTIONSS/gi, "SOLUTIONS") || "Guest User"}
             </p>
-            <p className="text-sm text-blue-200 truncate">{role.toUpperCase()}</p>
+            <p className="text-sm text-slate-300 mt-1 truncate">{role.toUpperCase()}</p>
           </div>
         </div>
 
-        <nav className={`flex-1 overflow-y-auto flex flex-col p-4 space-y-2 ${role === 'hr' ? 'scrollbar-thin scrollbar-thumb-blue-700 scrollbar-track-blue-800 scrollbar-thumb-rounded-full' : ''}`}>
+        <nav className={`flex-1 overflow-y-auto flex flex-col p-4 space-y-1 ${role === 'hr' ? 'scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 scrollbar-thumb-rounded-full' : ''}`}>
           {roleLinks?.map((link) => (
             <Link
               href={link.path}
               key={link.name}
-              className={`px-4 py-2 rounded-lg transition-all font-medium truncate ${
-                currentPath.startsWith(link.path) ? "bg-blue-500 shadow-md" : "hover:bg-blue-500 hover:shadow-md"
-              }`}
+              className={`px-4 py-3 rounded-r-lg rounded-l-none transition-all duration-150 font-medium truncate text-base flex items-center ${currentPath.startsWith(link.path)
+                ? "bg-slate-800 text-white border-l-4 border-blue-500"
+                : "hover:bg-slate-800/50 hover:text-white border-l-4 border-transparent text-slate-300"
+                }`}
               title={link.name}
             >
               {link.name}
@@ -230,10 +254,10 @@ export default function DashboardLayout({ children, role }: Props) {
           ))}
         </nav>
 
-        <div className="sticky bottom-0 p-4 bg-gradient-to-t from-blue-800">
+        <div className="sticky bottom-0 p-4 bg-slate-900 border-t border-slate-800">
           <button
             onClick={() => setLogoutModalOpen(true)}
-            className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg font-semibold transition-all"
+            className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg font-semibold transition-all duration-200 border border-slate-600"
           >
             <FiLogOut /> Logout
           </button>
@@ -247,7 +271,7 @@ export default function DashboardLayout({ children, role }: Props) {
             className="fixed inset-0 bg-black bg-opacity-40"
             onClick={() => setMenuOpen(false)}
           />
-          <div className="relative w-64 bg-gradient-to-b from-blue-600 to-blue-800 text-white shadow-lg flex flex-col z-40">
+          <div className="relative w-64 bg-slate-900 text-slate-300 shadow-xl flex flex-col z-40">
             <button
               onClick={() => setMenuOpen(false)}
               className="absolute top-3 right-3 text-white"
@@ -255,30 +279,31 @@ export default function DashboardLayout({ children, role }: Props) {
               <FiX size={24} />
             </button>
 
-            <div className="p-4 flex flex-col items-center gap-2 border-b border-blue-700 min-w-0">
+            <div className="p-4 flex flex-col items-center gap-2 border-b border-slate-700 min-w-0">
               <Image
                 src={profilePic}
                 alt={userInfo?.name || "Profile"}
                 width={56}
                 height={56}
                 unoptimized
-                className="rounded-full border-2 border-white shadow-md object-cover w-14 h-14 flex-shrink-0"
+                className="rounded-full border-2 border-slate-300 shadow-md object-cover w-14 h-14 flex-shrink-0"
               />
               <div className="text-center min-w-0 w-full px-2">
-                <p className="text-md font-semibold text-white truncate" title={userInfo?.name || "Guest"}>{userInfo?.name || "Guest"}</p>
-                <p className="text-xs text-blue-200 uppercase truncate">{role.toUpperCase()}</p>
+                <p className="text-md font-semibold text-white break-words whitespace-normal leading-tight" title={userInfo?.name?.replace(/SOLUTIONSS/gi, "SOLUTIONS") || "Guest"}>{userInfo?.name?.replace(/SOLUTIONSS/gi, "SOLUTIONS") || "Guest"}</p>
+                <p className="text-xs text-slate-300 uppercase mt-1 truncate">{role.toUpperCase()}</p>
               </div>
             </div>
 
-            <nav className={`flex-1 overflow-y-auto flex flex-col p-2 space-y-1 ${role === 'hr' ? 'scrollbar-thin scrollbar-thumb-blue-700 scrollbar-track-blue-800 scrollbar-thumb-rounded-full' : ''}`}>
+            <nav className={`flex-1 overflow-y-auto flex flex-col p-2 space-y-1 ${role === 'hr' ? 'scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 scrollbar-thumb-rounded-full' : ''}`}>
               {roleLinks?.map((link) => (
                 <Link
                   href={link.path}
                   key={link.name}
                   onClick={() => setMenuOpen(false)}
-                  className={`px-3 py-2 rounded-lg transition-all font-medium text-sm truncate ${
-                    currentPath.startsWith(link.path) ? "bg-blue-500 shadow-md" : "hover:bg-blue-500 hover:shadow-md"
-                  }`}
+                  className={`px-3 py-3 transition-all duration-150 font-medium text-base truncate flex items-center ${currentPath.startsWith(link.path)
+                    ? "bg-slate-800 text-white border-l-4 border-blue-500"
+                    : "hover:bg-slate-800/50 hover:text-white border-l-4 border-transparent text-slate-300"
+                    }`}
                   title={link.name}
                 >
                   {link.name}
@@ -286,13 +311,13 @@ export default function DashboardLayout({ children, role }: Props) {
               ))}
             </nav>
 
-            <div className="sticky bottom-0 p-3 bg-gradient-to-t from-blue-800">
+            <div className="sticky bottom-0 p-3 bg-slate-900 border-t border-slate-800">
               <button
                 onClick={() => {
                   setLogoutModalOpen(true);
                   setMenuOpen(false);
                 }}
-                className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 px-3 py-2 rounded-lg font-semibold text-sm transition-all"
+                className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg font-semibold text-sm transition-all duration-200 border border-slate-600"
               >
                 <FiLogOut /> Logout
               </button>
@@ -309,7 +334,7 @@ export default function DashboardLayout({ children, role }: Props) {
             <div className="flex justify-end gap-4">
               <button
                 onClick={() => setLogoutModalOpen(false)}
-                className="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 transition"
+                className="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 transition-all duration-200 font-medium"
               >
                 Cancel
               </button>
@@ -318,7 +343,7 @@ export default function DashboardLayout({ children, role }: Props) {
                   setLogoutModalOpen(false);
                   handleLogout();
                 }}
-                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 transition"
+                className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-all duration-200 font-medium"
               >
                 Logout
               </button>
@@ -328,16 +353,16 @@ export default function DashboardLayout({ children, role }: Props) {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col ml-0 md:ml-72 w-full md:w-[calc(100%-18rem)] overflow-x-hidden">
-        <header className="sticky top-0 left-0 right-0 bg-white shadow-md p-2 sm:p-4 flex justify-between items-center border-b border-gray-200 z-30">
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+      <main className="flex-1 flex flex-col ml-0 md:ml-72 w-full md:w-[calc(100%-18rem)] overflow-x-hidden bg-[#f8fafc]">
+        <header className="sticky top-0 left-0 right-0 bg-white/95 backdrop-blur shadow-sm px-4 py-3 sm:px-6 sm:py-4 flex justify-between items-center border-b border-slate-200 z-30">
+          <div className="flex items-center gap-3 sm:gap-5 min-w-0 flex-1">
             <button
               onClick={() => setMenuOpen(prev => !prev)}
-              className="md:hidden text-blue-700 flex-shrink-0"
+              className="md:hidden text-slate-600 flex-shrink-0 hover:text-slate-900 transition-colors"
             >
               <FiMenu size={24} />
             </button>
-            <h2 className="text-lg sm:text-2xl font-semibold text-blue-700 tracking-wide truncate">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-800 tracking-tight truncate">
               {role.toUpperCase()} Dashboard
             </h2>
           </div>
@@ -353,7 +378,7 @@ export default function DashboardLayout({ children, role }: Props) {
                 width={40}
                 height={40}
                 unoptimized
-                className="rounded-full border border-gray-300 shadow-md object-cover w-10 h-10 cursor-pointer"
+                className="rounded-full border border-slate-300 shadow-md object-cover w-10 h-10 cursor-pointer"
               />
             </button>
           </div>

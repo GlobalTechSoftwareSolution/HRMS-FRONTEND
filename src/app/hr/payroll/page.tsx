@@ -129,14 +129,14 @@ export default function HRPayrollDashboard() {
         "july", "august", "september", "october", "november", "december"
       ].indexOf(monthStr?.toLowerCase());
       const yearNum = Number(yearStr);
-      
+
       // If selectedMonth is -1, show all months for the selected year
       const monthMatch = selectedMonth === -1 || monthIndex === selectedMonth;
       const yearMatch = yearNum === selectedYear;
-      
+
       return monthMatch && yearMatch;
     });
-    
+
     // Remove duplicates by unique ID (email-period is more reliable than employeeId-period)
     const uniqueMap = new Map();
     monthFiltered.forEach((p) => {
@@ -146,7 +146,7 @@ export default function HRPayrollDashboard() {
         uniqueMap.set(key, p);
       }
     });
-    
+
     const finalResult = Array.from(uniqueMap.values());
     return finalResult;
   }, [payslips, selectedMonth, selectedYear]);
@@ -157,14 +157,14 @@ export default function HRPayrollDashboard() {
       "january": 0, "february": 1, "march": 2, "april": 3, "may": 4, "june": 5,
       "july": 6, "august": 7, "september": 8, "october": 9, "november": 10, "december": 11
     };
-    
+
     const monthIndex = months[monthName.toLowerCase()];
-    
+
     if (monthIndex === undefined) {
       console.warn(`Invalid month name: ${monthName}, using current month as fallback`);
       return new Date().getMonth();
     }
-    
+
     return monthIndex;
   };
 
@@ -180,23 +180,23 @@ export default function HRPayrollDashboard() {
 
         let presentDays = 0;
         const monthIndex = getMonthIndex(month);
-        
+
         if (Array.isArray(attendanceData)) {
           // Filter attendance for the specific month and year
           const monthAttendance = attendanceData.filter((record: Attendance) => {
             if (!record.date) return false;
             try {
               const recordDate = new Date(record.date);
-              return recordDate.getMonth() === monthIndex && 
-                     recordDate.getFullYear() === year &&
-                     record.check_in && 
-                     record.check_out;
+              return recordDate.getMonth() === monthIndex &&
+                recordDate.getFullYear() === year &&
+                record.check_in &&
+                record.check_out;
             } catch {
               return false;
             }
           });
           presentDays = monthAttendance.length;
-          
+
         } else if (attendanceData.present_days !== undefined) {
           presentDays = attendanceData.present_days;
         } else if (attendanceData.total_days !== undefined) {
@@ -233,13 +233,13 @@ export default function HRPayrollDashboard() {
 
         let lopDays = 0;
         const monthIndex = getMonthIndex(month);
-        
+
         if (Array.isArray(absentData)) {
           const monthAbsent = absentData.filter((record: AbsentData) => {
             if (!record.date) return false;
             const recordDate = new Date(record.date);
-            return recordDate.getMonth() === monthIndex && 
-                   recordDate.getFullYear() === year;
+            return recordDate.getMonth() === monthIndex &&
+              recordDate.getFullYear() === year;
           });
           lopDays = monthAbsent.length;
         } else if (absentData.absent_days !== undefined) {
@@ -284,7 +284,7 @@ export default function HRPayrollDashboard() {
     const id = Math.random().toString(36).substring(2, 9);
     const notification: Notification = { id, type, title, message };
     setNotifications(prev => [...prev, notification]);
-    
+
     setTimeout(() => {
       removeNotification(id);
     }, 5000);
@@ -304,12 +304,12 @@ export default function HRPayrollDashboard() {
       );
 
       const employeesData = employeesResponse.data;
-      
+
       // Handle both direct array and nested employees array
-      const employeesList = Array.isArray(employeesData) 
-        ? employeesData 
+      const employeesList = Array.isArray(employeesData)
+        ? employeesData
         : (employeesData.employees || []);
-      
+
       setEmployees(employeesList);
 
       // Fetch payrolls using axios
@@ -325,11 +325,11 @@ export default function HRPayrollDashboard() {
           const isValid = payroll && payroll.email && payroll.month && payroll.year;
           return isValid;
         });
-        
+
         const transformedPayslips: PayslipData[] = await Promise.all(
           validPayrolls.map(async (payroll: PayrollAPIResponse) => {
             const employee = employeesList.find((emp: Employee) => emp.email === payroll.email);
-            
+
             // Convert numeric month to month name
             const monthNames = [
               "January", "February", "March", "April", "May", "June",
@@ -337,13 +337,13 @@ export default function HRPayrollDashboard() {
             ];
             const monthIndex = typeof payroll.month === 'string' ? parseInt(payroll.month) - 1 : payroll.month - 1;
             const monthName = monthNames[monthIndex] || payroll.month.toString();
-            
+
             // Use STD and LOP from API response, fallback to fetching if not available
             const stdDays = payroll.STD ?? await fetchSTDDays(payroll.email, monthName, payroll.year);
-            const lopDays = payroll.LOP ?? await fetchLOPDays(payroll.email, monthName, payroll.year);            
+            const lopDays = payroll.LOP ?? await fetchLOPDays(payroll.email, monthName, payroll.year);
             // Calculate earnings and deductions based on basic salary
             const basicSalary = typeof payroll.basic_salary === 'string' ? parseFloat(payroll.basic_salary) : payroll.basic_salary || 0;
-            
+
             return {
               id: `${payroll.email}_${payroll.month}_${payroll.year}`,
               companyName: "GLOBAL TECH SOFTWARE SOLUTIONS",
@@ -351,7 +351,7 @@ export default function HRPayrollDashboard() {
               employeeId: employee?.emp_id?.toString() || "N/A",
               employeeName: employee?.fullname || payroll.email,
               bank: employee?.bank_name || "N/A",
-              bankAccount: employee?.account_number||  "N/A",
+              bankAccount: employee?.account_number || "N/A",
               doj: employee?.date_joined || "N/A",
               pf_no: employee?.pf_no || "N/A",
               location: employee?.residential_address || "N/A",
@@ -680,7 +680,7 @@ export default function HRPayrollDashboard() {
 
       // ===== EARNINGS & DEDUCTIONS SECTION =====
       const sectionHeaderY = y;
-      
+
       page.drawText("EARNINGS", {
         x: 60,
         y: sectionHeaderY,
@@ -702,7 +702,7 @@ export default function HRPayrollDashboard() {
       const colHeaders = ["Description", "Amount"];
       page.drawText(colHeaders[0], { x: 60, y, size: 10, font: boldFont, color: rgb(0.2, 0.2, 0.4) });
       page.drawText(colHeaders[1], { x: 250, y, size: 10, font: boldFont, color: rgb(0.2, 0.2, 0.4) });
-      
+
       page.drawText(colHeaders[0], { x: 330, y, size: 10, font: boldFont, color: rgb(0.2, 0.2, 0.4) });
       page.drawText(colHeaders[1], { x: 520, y, size: 10, font: boldFont, color: rgb(0.2, 0.2, 0.4) });
 
@@ -750,7 +750,7 @@ export default function HRPayrollDashboard() {
 
       for (let i = 0; i < maxRows; i++) {
         const rowY = y - i * 18;
-        
+
         if (i % 2 === 0) {
           page.drawRectangle({
             x: 50,
@@ -779,7 +779,7 @@ export default function HRPayrollDashboard() {
             font: font,
             color: rgb(0.1, 0.1, 0.3),
           });
-          
+
           const amountText = formatCurrency(earnings[i].amount);
           const amountWidth = font.widthOfTextAtSize(amountText, 9);
           page.drawText(amountText, {
@@ -800,7 +800,7 @@ export default function HRPayrollDashboard() {
             font: font,
             color: rgb(0.1, 0.1, 0.3),
           });
-          
+
           const amountText = formatCurrency(deductions[i].amount);
           const amountWidth = font.widthOfTextAtSize(amountText, 9);
           page.drawText(amountText, {
@@ -842,7 +842,7 @@ export default function HRPayrollDashboard() {
         font: boldFont,
         color: rgb(0.1, 0.4, 0.2),
       });
-      
+
       const grossEarningsText = formatCurrency(grossEarnings);
       const grossEarningsWidth = font.widthOfTextAtSize(grossEarningsText, 10);
       page.drawText(grossEarningsText, {
@@ -860,7 +860,7 @@ export default function HRPayrollDashboard() {
         font: boldFont,
         color: rgb(0.6, 0.1, 0.1),
       });
-      
+
       const grossDeductionsText = formatCurrency(grossDeductions);
       const grossDeductionsWidth = font.widthOfTextAtSize(grossDeductionsText, 10);
       page.drawText(grossDeductionsText, {
@@ -1026,7 +1026,7 @@ export default function HRPayrollDashboard() {
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
           </div>
         )}
-        
+
         {/* Error State */}
         {!loading && error && (
           <div className="max-w-6xl mx-auto">
@@ -1048,204 +1048,204 @@ export default function HRPayrollDashboard() {
           </div>
         )}
 
-       {/* Payslip View */}
-{!loading && !error && showPayslip && (
-  <div className="max-w-4xl mx-auto">
-    {/* Back Button */}
-    <button
-      onClick={() => setShowPayslip(false)}
-      className="mb-4 sm:mb-6 flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium text-sm sm:text-base"
-    >
-      <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-      </svg>
-      Back to Employee List
-    </button>
-
-    {selectedPayslip && (
-      <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg sm:shadow-2xl border border-gray-200 overflow-hidden">
-        <div className="p-4 sm:p-8">
-          {/* Header */}
-          <div className="text-center mb-6 sm:mb-8">
-            <h1 className="text-lg sm:text-2xl font-bold text-gray-900 mb-2">
-              {selectedPayslip.companyName}
-            </h1>
-            <h2 className="text-base sm:text-lg font-semibold text-gray-700">
-              Pay slip For {selectedPayslip.period}
-            </h2>
-          </div>
-
-          {/* Attendance Summary */}
-          <div className="mb-4 sm:mb-6 bg-blue-50 rounded-lg p-3 sm:p-4 border border-blue-200">
-            <h3 className="text-base sm:text-lg font-semibold text-blue-800 mb-2 sm:mb-3">Attendance Summary</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 text-center">
-              <div>
-                <p className="text-xs sm:text-sm text-blue-600">STD Days</p>
-                <p className="text-lg sm:text-xl font-bold text-blue-800">{selectedPayslip.stdDays}</p>
-              </div>
-              <div>
-                <p className="text-xs sm:text-sm text-red-600">LOP Days</p>
-                <p className="text-lg sm:text-xl font-bold text-red-800">{selectedPayslip.lopDays}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Employee Details */}
-          <div className="mb-6 sm:mb-8">
-            {/* Table layout for larger screens */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-xs sm:text-sm border-collapse min-w-[500px]">
-                <tbody>
-                  <tr className="border-b border-gray-200">
-                    <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50 w-1/4">Employee ID</td>
-                    <td className="py-2 px-2 sm:px-4 text-gray-900 w-1/4">{selectedPayslip.employeeId}</td>
-                    <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50 w-1/4">Name</td>
-                    <td className="py-2 px-2 sm:px-4 text-gray-900 w-1/4">{selectedPayslip.employeeName}</td>
-                  </tr>
-                  <tr className="border-b border-gray-200">
-                    <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">Bank</td>
-                    <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.bank}</td>
-                    <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">Bank A/c No.</td>
-                    <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.bankAccount}</td>
-                  </tr>
-                  <tr className="border-b border-gray-200">
-                    <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">DOJ</td>
-                    <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.doj}</td>
-                    <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">PF - UAN</td>
-                    <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.pfUan}</td>
-                  </tr>
-                  <tr className="border-b border-gray-200">
-                    <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">Location</td>
-                    <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.location}</td>
-                    <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">Department</td>
-                    <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.department}</td>
-                  </tr>
-                  <tr className="border-b border-gray-200">
-                    <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">PF Number</td>
-                    <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.pf_no}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Card layout for mobile */}
-            <div className="grid sm:hidden gap-3">
-              {[
-                ["Employee ID", selectedPayslip.employeeId],
-                ["Name", selectedPayslip.employeeName],
-                ["Bank", selectedPayslip.bank],
-                ["Bank A/c No.", selectedPayslip.bankAccount],
-                ["DOJ", selectedPayslip.doj],
-                ["PF - UAN", selectedPayslip.pfUan],
-                ["Location", selectedPayslip.location],
-                ["Department", selectedPayslip.department],
-                ["PF Number", selectedPayslip.pf_no],
-              ].map(([label, value], idx) => (
-                <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <p className="text-gray-500 text-xs">{label}</p>
-                  <p className="text-gray-900 text-sm font-semibold">{value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Earnings and Deductions */}
-          <div className="mb-6 sm:mb-8">
-            {/* Table for larger screens */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-xs sm:text-sm border-collapse border border-gray-300 min-w-[600px]">
-                <thead>
-                  <tr>
-                    <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-left">Earnings</th>
-                    <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-right">Amount in Rs.</th>
-                    <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-left">Deductions</th>
-                    <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-right">Amount in Rs.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ["BASIC", selectedPayslip.earnings.basic],
-                    ["HOUSE RENT ALLOWANCE", selectedPayslip.earnings.houseRentAllowance],
-                    ["PERSONAL ALLOWANCE", selectedPayslip.earnings.personalAllowance],
-                    ["OTHER ALLOWANCE", selectedPayslip.earnings.otherAllowance],
-                    ["ONCALL / SHIFT ALLOWANCE", selectedPayslip.earnings.oncallShiftAllowance],
-                  ].map(([label, amount], idx) => (
-                    <tr key={idx} className="border-b border-gray-300">
-                      <td className="py-2 px-4 border border-gray-300">{label}</td>
-                      <td className="py-2 px-4 border border-gray-300 text-right">{formatCurrency(Number(amount))}</td>
-                      <td className="py-2 px-4 border border-gray-300">
-                        {idx === 0 && "PROVIDENT FUND"}
-                        {idx === 1 && "PROFESSIONAL TAX"}
-                        {idx === 2 && "ESPP CONTRIBUTION DEDUCTION"}
-                      </td>
-                      <td className="py-2 px-4 border border-gray-300 text-right">
-                        {idx === 0 && formatCurrency(selectedPayslip.deductions.providentFund)}
-                        {idx === 1 && formatCurrency(selectedPayslip.deductions.professionalTax)}
-                        {idx === 2 && formatCurrency(selectedPayslip.deductions.esppContribution)}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="bg-gray-50 font-semibold">
-                    <td className="py-2 px-4 border border-gray-300">GROSS EARNINGS</td>
-                    <td className="py-2 px-4 border border-gray-300 text-right">
-                      {formatCurrency(Object.values(selectedPayslip.earnings).reduce((sum, a) => sum + Number(a || 0), 0))}
-                    </td>
-                    <td className="py-2 px-4 border border-gray-300">GROSS DEDUCTIONS</td>
-                    <td className="py-2 px-4 border border-gray-300 text-right">
-                      {formatCurrency(Object.values(selectedPayslip.deductions).reduce((sum, a) => sum + Number(a || 0), 0))}
-                    </td>
-                  </tr>
-                  <tr className="bg-blue-50 font-bold">
-                    <td className="py-2 px-4 border border-gray-300" colSpan={2}></td>
-                    <td className="py-2 px-4 border border-gray-300">NET PAY</td>
-                    <td className="py-2 px-4 border border-gray-300 text-right text-blue-700">
-                      {formatCurrency(
-                        Object.values(selectedPayslip.earnings).reduce((sum, a) => sum + Number(a || 0), 0) -
-                        Object.values(selectedPayslip.deductions).reduce((sum, a) => sum + Number(a || 0), 0)
-                      )}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Card layout for mobile */}
-            <div className="grid sm:hidden gap-3">
-              {Object.entries(selectedPayslip.earnings).map(([key, value], idx) => (
-                <div key={idx} className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <p className="text-gray-600 text-xs">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
-                  <p className="text-gray-900 text-sm font-semibold">{formatCurrency(Number(value))}</p>
-                </div>
-              ))}
-              {Object.entries(selectedPayslip.deductions).map(([key, value], idx) => (
-                <div key={`ded-${idx}`} className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-gray-600 text-xs">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
-                  <p className="text-gray-900 text-sm font-semibold">{formatCurrency(Number(value))}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-center text-gray-500 text-xs sm:text-sm border-t border-gray-200 pt-3 sm:pt-4">
-            <p>** This is a computer generated payslip and does not require signature and stamp.</p>
-          </div>
-
-          {/* Download Button */}
-          <div className="mt-6 sm:mt-8 flex justify-center">
+        {/* Payslip View */}
+        {!loading && !error && showPayslip && (
+          <div className="max-w-4xl mx-auto">
+            {/* Back Button */}
             <button
-              onClick={() => downloadPDF(selectedPayslip)}
-              className="bg-green-600 text-white px-6 sm:px-8 py-2 sm:py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center gap-2 text-sm sm:text-base"
+              onClick={() => setShowPayslip(false)}
+              className="mb-4 sm:mb-6 flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium text-sm sm:text-base"
             >
-              <Download className="h-4 w-4 sm:h-5 sm:w-5" />
-              Download PDF
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Employee List
             </button>
+
+            {selectedPayslip && (
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg sm:shadow-2xl border border-gray-200 overflow-hidden">
+                <div className="p-4 sm:p-8">
+                  {/* Header */}
+                  <div className="text-center mb-6 sm:mb-8">
+                    <h1 className="text-lg sm:text-2xl font-bold text-gray-900 mb-2">
+                      {selectedPayslip.companyName}
+                    </h1>
+                    <h2 className="text-base sm:text-lg font-semibold text-gray-700">
+                      Pay slip For {selectedPayslip.period}
+                    </h2>
+                  </div>
+
+                  {/* Attendance Summary */}
+                  <div className="mb-4 sm:mb-6 bg-blue-50 rounded-lg p-3 sm:p-4 border border-blue-200">
+                    <h3 className="text-base sm:text-lg font-semibold text-blue-800 mb-2 sm:mb-3">Attendance Summary</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 text-center">
+                      <div>
+                        <p className="text-xs sm:text-sm text-blue-600">STD Days</p>
+                        <p className="text-lg sm:text-xl font-bold text-blue-800">{selectedPayslip.stdDays}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs sm:text-sm text-red-600">LOP Days</p>
+                        <p className="text-lg sm:text-xl font-bold text-red-800">{selectedPayslip.lopDays}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Employee Details */}
+                  <div className="mb-6 sm:mb-8">
+                    {/* Table layout for larger screens */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-xs sm:text-sm border-collapse min-w-[500px]">
+                        <tbody>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50 w-1/4">Employee ID</td>
+                            <td className="py-2 px-2 sm:px-4 text-gray-900 w-1/4">{selectedPayslip.employeeId}</td>
+                            <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50 w-1/4">Name</td>
+                            <td className="py-2 px-2 sm:px-4 text-gray-900 w-1/4">{selectedPayslip.employeeName}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">Bank</td>
+                            <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.bank}</td>
+                            <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">Bank A/c No.</td>
+                            <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.bankAccount}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">DOJ</td>
+                            <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.doj}</td>
+                            <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">PF - UAN</td>
+                            <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.pfUan}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">Location</td>
+                            <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.location}</td>
+                            <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">Department</td>
+                            <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.department}</td>
+                          </tr>
+                          <tr className="border-b border-gray-200">
+                            <td className="py-2 px-2 sm:px-4 font-semibold text-gray-700 bg-gray-50">PF Number</td>
+                            <td className="py-2 px-2 sm:px-4 text-gray-900">{selectedPayslip.pf_no}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Card layout for mobile */}
+                    <div className="grid sm:hidden gap-3">
+                      {[
+                        ["Employee ID", selectedPayslip.employeeId],
+                        ["Name", selectedPayslip.employeeName],
+                        ["Bank", selectedPayslip.bank],
+                        ["Bank A/c No.", selectedPayslip.bankAccount],
+                        ["DOJ", selectedPayslip.doj],
+                        ["PF - UAN", selectedPayslip.pfUan],
+                        ["Location", selectedPayslip.location],
+                        ["Department", selectedPayslip.department],
+                        ["PF Number", selectedPayslip.pf_no],
+                      ].map(([label, value], idx) => (
+                        <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          <p className="text-gray-500 text-xs">{label}</p>
+                          <p className="text-gray-900 text-sm font-semibold">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Earnings and Deductions */}
+                  <div className="mb-6 sm:mb-8">
+                    {/* Table for larger screens */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-xs sm:text-sm border-collapse border border-gray-300 min-w-[600px]">
+                        <thead>
+                          <tr>
+                            <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-left">Earnings</th>
+                            <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-right">Amount in Rs.</th>
+                            <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-left">Deductions</th>
+                            <th className="py-3 px-4 font-semibold text-gray-700 bg-gray-100 border border-gray-300 text-right">Amount in Rs.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            ["BASIC", selectedPayslip.earnings.basic],
+                            ["HOUSE RENT ALLOWANCE", selectedPayslip.earnings.houseRentAllowance],
+                            ["PERSONAL ALLOWANCE", selectedPayslip.earnings.personalAllowance],
+                            ["OTHER ALLOWANCE", selectedPayslip.earnings.otherAllowance],
+                            ["ONCALL / SHIFT ALLOWANCE", selectedPayslip.earnings.oncallShiftAllowance],
+                          ].map(([label, amount], idx) => (
+                            <tr key={idx} className="border-b border-gray-300">
+                              <td className="py-2 px-4 border border-gray-300">{label}</td>
+                              <td className="py-2 px-4 border border-gray-300 text-right">{formatCurrency(Number(amount))}</td>
+                              <td className="py-2 px-4 border border-gray-300">
+                                {idx === 0 && "PROVIDENT FUND"}
+                                {idx === 1 && "PROFESSIONAL TAX"}
+                                {idx === 2 && "ESPP CONTRIBUTION DEDUCTION"}
+                              </td>
+                              <td className="py-2 px-4 border border-gray-300 text-right">
+                                {idx === 0 && formatCurrency(selectedPayslip.deductions.providentFund)}
+                                {idx === 1 && formatCurrency(selectedPayslip.deductions.professionalTax)}
+                                {idx === 2 && formatCurrency(selectedPayslip.deductions.esppContribution)}
+                              </td>
+                            </tr>
+                          ))}
+                          <tr className="bg-gray-50 font-semibold">
+                            <td className="py-2 px-4 border border-gray-300">GROSS EARNINGS</td>
+                            <td className="py-2 px-4 border border-gray-300 text-right">
+                              {formatCurrency(Object.values(selectedPayslip.earnings).reduce((sum, a) => sum + Number(a || 0), 0))}
+                            </td>
+                            <td className="py-2 px-4 border border-gray-300">GROSS DEDUCTIONS</td>
+                            <td className="py-2 px-4 border border-gray-300 text-right">
+                              {formatCurrency(Object.values(selectedPayslip.deductions).reduce((sum, a) => sum + Number(a || 0), 0))}
+                            </td>
+                          </tr>
+                          <tr className="bg-blue-50 font-bold">
+                            <td className="py-2 px-4 border border-gray-300" colSpan={2}></td>
+                            <td className="py-2 px-4 border border-gray-300">NET PAY</td>
+                            <td className="py-2 px-4 border border-gray-300 text-right text-blue-700">
+                              {formatCurrency(
+                                Object.values(selectedPayslip.earnings).reduce((sum, a) => sum + Number(a || 0), 0) -
+                                Object.values(selectedPayslip.deductions).reduce((sum, a) => sum + Number(a || 0), 0)
+                              )}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Card layout for mobile */}
+                    <div className="grid sm:hidden gap-3">
+                      {Object.entries(selectedPayslip.earnings).map(([key, value], idx) => (
+                        <div key={idx} className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <p className="text-gray-600 text-xs">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
+                          <p className="text-gray-900 text-sm font-semibold">{formatCurrency(Number(value))}</p>
+                        </div>
+                      ))}
+                      {Object.entries(selectedPayslip.deductions).map(([key, value], idx) => (
+                        <div key={`ded-${idx}`} className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <p className="text-gray-600 text-xs">{key.replace(/([A-Z])/g, ' $1').trim()}</p>
+                          <p className="text-gray-900 text-sm font-semibold">{formatCurrency(Number(value))}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="text-center text-gray-500 text-xs sm:text-sm border-t border-gray-200 pt-3 sm:pt-4">
+                    <p>** This is a computer generated payslip and does not require signature and stamp.</p>
+                  </div>
+
+                  {/* Download Button */}
+                  <div className="mt-6 sm:mt-8 flex justify-center">
+                    <button
+                      onClick={() => downloadPDF(selectedPayslip)}
+                      className="bg-green-600 text-white px-6 sm:px-8 py-2 sm:py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center gap-2 text-sm sm:text-base"
+                    >
+                      <Download className="h-4 w-4 sm:h-5 sm:w-5" />
+                      Download PDF
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      </div>
-    )}
-  </div>
-)}
+        )}
 
 
         {/* Main Content */}
@@ -1283,28 +1283,28 @@ export default function HRPayrollDashboard() {
             <div className="max-w-6xl mx-auto">
               <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 sm:mb-8">
                 <div className="text-center sm:text-left flex-1">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2 sm:mb-4">Employee Payslips</h1>
-                  <p className="text-gray-600 text-sm sm:text-base">
-                    {payslips.length > 0 
-                      ? "Select an employee to view and download payslip" 
+                  <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight mb-2">Employee Payslips</h1>
+                  <p className="text-slate-500 text-sm font-medium">
+                    {payslips.length > 0
+                      ? "Select an employee to view and download payslip"
                       : "No payroll data available"}
                   </p>
                 </div>
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="bg-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center gap-2 text-sm sm:text-base w-full sm:w-auto justify-center"
+                  className="bg-slate-800 text-white px-5 py-2.5 rounded-lg hover:bg-slate-700 transition-all font-semibold flex items-center gap-2 text-sm shadow-sm hover:-translate-y-0.5"
                 >
-                  <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <Plus className="h-4 w-4" />
                   Create New Payroll
                 </button>
               </div>
 
               {/* Month and Year Picker */}
-              <div className="flex justify-end items-center mb-4 gap-3">
+              <div className="flex justify-end items-center mb-6 gap-3">
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  className="border border-slate-200 bg-white shadow-sm text-slate-700 rounded-lg px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
                 >
                   <option value={-1}>All Months</option>
                   {months.map((month, index) => (
@@ -1316,7 +1316,7 @@ export default function HRPayrollDashboard() {
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  className="border border-slate-200 bg-white shadow-sm text-slate-700 rounded-lg px-4 py-2 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"
                 >
                   {years.map((year) => (
                     <option key={year} value={year}>
@@ -1344,64 +1344,63 @@ export default function HRPayrollDashboard() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredPayslips.map((payslip) => (
                     <div
                       key={payslip.id}
-                      className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6 hover:shadow-xl transition-all duration-300"
+                      className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col group hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] hover:border-slate-300 hover:-translate-y-1 transition-all duration-300"
                     >
-                      <div className="text-center mb-4">
-                        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
-                          <svg className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center gap-4 mb-5 pb-5 border-b border-slate-100">
+                        <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-blue-50 border border-blue-100 shrink-0 text-blue-600 group-hover:scale-105 transition-transform duration-300">
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
                         </div>
-                        <h3 className="text-base sm:text-lg font-semibold text-gray-800 line-clamp-1">{payslip.employeeName}</h3>
-                        <p className="text-xs sm:text-sm text-gray-600">{payslip.employeeId}</p>
-                        <p className="text-xs sm:text-sm text-blue-600 font-medium mt-1">{payslip.period}</p>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-base font-bold text-slate-800 truncate mb-1 group-hover:text-blue-600 transition-colors">{payslip.employeeName}</h3>
+                          <p className="text-xs font-semibold tracking-wider text-blue-600 uppercase">{payslip.period}</p>
+                        </div>
                       </div>
 
                       {/* Attendance Summary in Card */}
-                      <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-gray-50 rounded-lg">
-                        <div className="grid grid-cols-2 gap-2 text-center text-xs">
-                          <div>
-                            <p className="text-blue-600 font-medium">STD</p>
-                            <p className="font-bold text-blue-800 text-sm sm:text-base">{payslip.stdDays}</p>
-                          </div>
-                          <div>
-                            <p className="text-red-600 font-medium">LOP</p>
-                            <p className="font-bold text-red-800 text-sm sm:text-base">{payslip.lopDays}</p>
-                          </div>
+                      <div className="grid grid-cols-2 gap-3 mb-5">
+                        <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex flex-col justify-center items-center">
+                          <p className="text-xs font-bold text-slate-500 mb-1 tracking-wider">STD</p>
+                          <p className="font-extrabold text-blue-600 text-lg leading-none">{payslip.stdDays}</p>
+                        </div>
+                        <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex flex-col justify-center items-center">
+                          <p className="text-xs font-bold text-slate-500 mb-1 tracking-wider">LOP</p>
+                          <p className="font-extrabold text-rose-500 text-lg leading-none">{payslip.lopDays}</p>
                         </div>
                       </div>
 
-                      <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm text-gray-600 mb-4 sm:mb-6">
-                        <div className="flex justify-between">
-                          <span>Department:</span>
-                          <span className="font-medium text-right max-w-[60%] line-clamp-1">{payslip.department}</span>
+                      <div className="flex flex-col gap-2 text-sm text-slate-600 mb-6 flex-1">
+                        <div className="flex justify-between items-center bg-slate-50 rounded px-2 py-1.5">
+                          <span className="text-xs font-semibold text-slate-400">Department</span>
+                          <span className="font-medium text-slate-700 text-xs truncate max-w-[60%]">{payslip.department || 'N/A'}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span>Location:</span>
-                          <span className="font-medium text-right max-w-[60%] line-clamp-1">{payslip.location}</span>
+                        <div className="flex justify-between items-center bg-slate-50 rounded px-2 py-1.5">
+                          <span className="text-xs font-semibold text-slate-400">Location</span>
+                          <span className="font-medium text-slate-700 text-xs truncate max-w-[60%]">{payslip.location || 'N/A'}</span>
                         </div>
                       </div>
 
-                      <div className="flex gap-2 sm:gap-3">
+                      <div className="flex gap-3">
                         <button
                           onClick={() => {
                             setSelectedPayslip(payslip);
                             setShowPayslip(true);
                           }}
-                          className="flex-1 bg-blue-600 text-white py-2 px-2 sm:px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm"
+                          className="flex-1 bg-white border-2 border-slate-200 text-slate-700 py-2 px-4 rounded-xl hover:border-slate-300 hover:bg-slate-50 transition-colors font-semibold flex items-center justify-center gap-2 text-sm shadow-sm"
                         >
-                          <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <Eye className="h-4 w-4 text-slate-400" />
                           View
                         </button>
                         <button
                           onClick={() => downloadPDF(payslip)}
-                          className="flex-1 bg-green-600 text-white py-2 px-2 sm:px-4 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm"
+                          className="flex-1 bg-slate-800 text-white py-2 px-4 rounded-xl hover:bg-slate-700 transition-colors font-semibold flex items-center justify-center gap-2 text-sm shadow-sm"
                         >
-                          <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <Download className="h-4 w-4 opacity-75" />
                           PDF
                         </button>
                       </div>

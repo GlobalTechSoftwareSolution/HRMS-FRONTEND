@@ -82,7 +82,7 @@ export default function PettyCashComponent() {
       const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/list_pettycashs/`);
       const apiTransactions = Array.isArray(response.data) ? response.data : (response.data?.pettycash_records || response.data?.pettycash || response.data?.transactions || response.data?.data || []);
       setTransactions(apiTransactions);
-      
+
       // Calculate monthly funds from transactions
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
@@ -90,12 +90,12 @@ export default function PettyCashComponent() {
         const tDate = new Date(t.date);
         return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
       });
-      
+
       const totalCredits = monthTransactions.filter((t: Transaction) => t.transaction_type === "Credit")
         .reduce((sum: number, t: Transaction) => sum + parseFloat(t.amount), 0);
       const totalDebits = monthTransactions.filter((t: Transaction) => t.transaction_type === "Debit")
         .reduce((sum: number, t: Transaction) => sum + parseFloat(t.amount), 0);
-      
+
       const initialFund: MonthlyFund = {
         month: new Date(currentYear, currentMonth).toLocaleString("default", { month: "long" }),
         year: currentYear,
@@ -122,7 +122,7 @@ export default function PettyCashComponent() {
 
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate form data
     if (!formData.description || !formData.amount) {
       addNotification("error", "Validation Error", "Please fill in all required fields.");
@@ -157,7 +157,7 @@ export default function PettyCashComponent() {
       console.log("Response:", response.data);
 
       addNotification("success", "Transaction Added", `${formData.type === "credit" ? "Credit" : "Debit"} of ₹${parseFloat(formData.amount).toLocaleString()} recorded successfully.`);
-      
+
       setFormData({
         date: new Date().toISOString().split("T")[0],
         description: "",
@@ -167,7 +167,7 @@ export default function PettyCashComponent() {
         remarks: "",
       });
       setShowAddModal(false);
-      
+
       // Refresh transactions
       await fetchTransactions();
     } catch (error: unknown) {
@@ -183,7 +183,7 @@ export default function PettyCashComponent() {
 
   const filteredTransactions = transactions.filter((transaction) => {
     const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (transaction.voucher_no && transaction.voucher_no.toLowerCase().includes(searchTerm.toLowerCase()));
+      (transaction.voucher_no && transaction.voucher_no.toLowerCase().includes(searchTerm.toLowerCase()));
     const transactionTypeMatch = transaction.transaction_type.toLowerCase();
     const matchesType = filterType === "all" || transactionTypeMatch === filterType;
     const matchesCategory = filterCategory === "all" || transaction.category === filterCategory;
@@ -195,7 +195,7 @@ export default function PettyCashComponent() {
 
   const currentMonthFund = monthlyFunds.find(
     (fund) => fund.month === new Date(selectedYear, selectedMonth).toLocaleString("default", { month: "long" }) &&
-              fund.year === selectedYear
+      fund.year === selectedYear
   ) || { allocatedAmount: 0, spentAmount: 0, remainingAmount: 0 };
 
   // Calculate running balance for each transaction
@@ -252,12 +252,11 @@ export default function PettyCashComponent() {
   ];
 
   return (
-    <div className="w-full overflow-x-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-2 sm:p-3 md:p-4 lg:p-6 relative">
+    <div className="w-full overflow-x-hidden bg-slate-50 p-4 sm:p-6 md:p-8 lg:p-10 relative">
       <div className="fixed top-4 right-4 z-50 space-y-2">
         {notifications.map((notification) => (
-          <div key={notification.id} className={`flex items-start gap-3 p-4 rounded-lg shadow-lg backdrop-blur-sm border ${
-              notification.type === "success" ? "bg-green-50/90 border-green-200" :
-              notification.type === "error" ? "bg-red-50/90 border-red-200" : "bg-blue-50/90 border-blue-200"
+          <div key={notification.id} className={`flex items-start gap-3 p-4 rounded-lg shadow-lg backdrop-blur-sm border ${notification.type === "success" ? "bg-green-50/90 border-green-200" :
+            notification.type === "error" ? "bg-red-50/90 border-red-200" : "bg-blue-50/90 border-blue-200"
             } animate-slide-in-right`}>
             {getNotificationIcon(notification.type)}
             <div className="flex-1">
@@ -271,98 +270,99 @@ export default function PettyCashComponent() {
         ))}
       </div>
 
-      <div className="mb-4 sm:mb-6 md:mb-8">
-        <div className="flex items-center gap-2 sm:gap-3 mb-2">
-          <div className="p-2 sm:p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg">
+      <div className="mb-6 sm:mb-8 md:mb-10">
+        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 mb-2">
+          <div className="p-3 sm:p-4 bg-slate-800 rounded-2xl shadow-sm">
             <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
           </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">Petty Cash Ledger</h1>
-            <p className="text-xs sm:text-sm md:text-base text-gray-600">Accounting Book & Fund Management</p>
+          <div className="text-center sm:text-left">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight">Petty Cash Ledger</h1>
+            <p className="text-sm sm:text-md text-slate-500 font-medium tracking-wide">Accounting Book & Fund Management</p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
-        <div className="bg-white rounded-xl shadow-md p-4 sm:p-5 md:p-6 border-l-4 border-green-500">
-          <div className="flex items-center justify-between mb-2">
-            <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg"><Wallet className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" /></div>
-            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div className="bg-white rounded-2xl shadow-sm p-5 md:p-6 border border-slate-200 hover:-translate-y-1 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-emerald-50 rounded-xl"><Wallet className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600" /></div>
+            <TrendingUp className="h-5 w-5 text-emerald-500" />
           </div>
-          <p className="text-xs sm:text-sm text-gray-600 mb-1">Current Balance</p>
-          <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{formatCurrency(currentBalance)}</p>
+          <p className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-1">Current Balance</p>
+          <p className="text-2xl font-extrabold text-slate-800">{formatCurrency(currentBalance)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-md p-4 sm:p-5 md:p-6 border-l-4 border-blue-500">
-          <div className="flex items-center justify-between mb-2">
-            <div className="p-1.5 sm:p-2 bg-blue-100 rounded-lg"><ArrowUpRight className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" /></div>
-            <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+        <div className="bg-white rounded-2xl shadow-sm p-5 md:p-6 border border-slate-200 hover:-translate-y-1 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-blue-50 rounded-xl"><Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" /></div>
+            <ArrowUpRight className="h-5 w-5 text-blue-500" />
           </div>
-          <p className="text-xs sm:text-sm text-gray-600 mb-1">Monthly Allocation</p>
-          <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{formatCurrency(currentMonthFund.allocatedAmount)}</p>
+          <p className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-1">Monthly Allocation</p>
+          <p className="text-2xl font-extrabold text-slate-800">{formatCurrency(currentMonthFund.allocatedAmount)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-md p-4 sm:p-5 md:p-6 border-l-4 border-orange-500">
-          <div className="flex items-center justify-between mb-2">
-            <div className="p-1.5 sm:p-2 bg-orange-100 rounded-lg"><ArrowDownRight className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600" /></div>
-            <TrendingDown className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
+        <div className="bg-white rounded-2xl shadow-sm p-5 md:p-6 border border-slate-200 hover:-translate-y-1 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-rose-50 rounded-xl"><ArrowDownRight className="h-5 w-5 sm:h-6 sm:w-6 text-rose-600" /></div>
+            <TrendingDown className="h-5 w-5 text-rose-500" />
           </div>
-          <p className="text-xs sm:text-sm text-gray-600 mb-1">Total Spent</p>
-          <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{formatCurrency(currentMonthFund.spentAmount)}</p>
+          <p className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-1">Total Spent</p>
+          <p className="text-2xl font-extrabold text-slate-800">{formatCurrency(currentMonthFund.spentAmount)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-md p-4 sm:p-5 md:p-6 border-l-4 border-purple-500">
-          <div className="flex items-center justify-between mb-2">
-            <div className="p-1.5 sm:p-2 bg-purple-100 rounded-lg"><DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" /></div>
-            <Receipt className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500" />
+        <div className="bg-white rounded-2xl shadow-sm p-5 md:p-6 border border-slate-200 hover:-translate-y-1 hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-violet-50 rounded-xl"><DollarSign className="h-5 w-5 sm:h-6 sm:w-6 text-violet-600" /></div>
+            <Receipt className="h-5 w-5 text-violet-500" />
           </div>
-          <p className="text-xs sm:text-sm text-gray-600 mb-1">Remaining Fund</p>
-          <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">{formatCurrency(currentMonthFund.remainingAmount)}</p>
+          <p className="text-xs uppercase tracking-wider font-semibold text-slate-500 mb-1">Remaining Fund</p>
+          <p className="text-2xl font-extrabold text-slate-800">{formatCurrency(currentMonthFund.remainingAmount)}</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-md p-3 sm:p-4 md:p-6 mb-4 sm:mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4">
-          <div className="relative sm:col-span-2 xl:col-span-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
-            <input type="text" placeholder="Search..." value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+      <div className="bg-white rounded-2xl shadow-sm p-5 border border-slate-200 mb-6">
+        <div className="flex flex-col gap-5 justify-between">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 w-full">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input type="text" placeholder="Search..." value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none truncate">
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i} value={i}>{new Date(2024, i).toLocaleString("default", { month: "long" })}</option>
+              ))}
+            </select>
+            <select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+              {Array.from({ length: 5 }, (_, i) => {
+                const year = new Date().getFullYear() - i;
+                return <option key={year} value={year}>{year}</option>;
+              })}
+            </select>
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value as "all" | TransactionType)}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+              <option value="all">All Types</option>
+              <option value="credit">Credit</option>
+              <option value="debit">Debit</option>
+            </select>
+            <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none lg:w-48 truncate">
+              <option value="all">All Categories</option>
+              {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+            </select>
           </div>
-          <select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-            className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i} value={i}>{new Date(2024, i).toLocaleString("default", { month: "long" })}</option>
-            ))}
-          </select>
-          <select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-            {Array.from({ length: 5 }, (_, i) => {
-              const year = new Date().getFullYear() - i;
-              return <option key={year} value={year}>{year}</option>;
-            })}
-          </select>
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value as "all" | TransactionType)}
-            className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-            <option value="all">All Types</option>
-            <option value="credit">Credit</option>
-            <option value="debit">Debit</option>
-          </select>
-          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}
-            className="w-full px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-            <option value="all">All Categories</option>
-            {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-          </select>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 mt-4">
-          <button onClick={() => setShowAddModal(true)}
-            className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md text-sm sm:text-base">
-            <Plus className="h-4 w-4 sm:h-5 sm:w-5" /><span>Add Transaction</span>
-          </button>
+        <div className="flex flex-row flex-wrap justify-end gap-3 w-full border-t border-slate-100 pt-5 mt-1">
           <button onClick={exportToCSV}
-            className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-2 bg-white border-2 border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-all text-sm sm:text-base">
-            <Download className="h-4 w-4 sm:h-5 sm:w-5" /><span>Export CSV</span>
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-semibold shadow-sm text-sm">
+            <Download className="h-4 w-4" /><span>Export Data</span>
+          </button>
+          <button onClick={() => setShowAddModal(true)}
+            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-semibold shadow-sm text-sm">
+            <Plus className="h-4 w-4" /><span>Record Transaction</span>
           </button>
         </div>
       </div>
-
       {/* Mobile Card View - Hidden on md and above */}
       <div className="block md:hidden space-y-4">
         {loading && (
@@ -386,13 +386,12 @@ export default function PettyCashComponent() {
                 <p className="font-semibold text-gray-900 mt-1">{transaction.description}</p>
                 {transaction.remarks && <p className="text-xs text-gray-500 mt-1">{transaction.remarks}</p>}
               </div>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                transaction.voucher_no ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-500"
-              }`}>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${transaction.voucher_no ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-500"
+                }`}>
                 {transaction.voucher_no || "N/A"}
               </span>
             </div>
-            
+
             <div className="flex items-center gap-2 mb-3">
               <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">{transaction.category}</span>
               <span className="text-xs bg-gray-100 px-2 py-1 rounded">{transaction.email.split('@')[0]}</span>
@@ -417,16 +416,15 @@ export default function PettyCashComponent() {
               </div>
               <div className="min-w-0">
                 <p className="text-xs text-gray-500 mb-1 whitespace-nowrap">Balance</p>
-                <p className={`text-xs sm:text-sm font-bold break-all ${
-                  transaction.calculatedBalance >= 0 ? 'text-green-700' : 'text-red-700'
-                }`}>
+                <p className={`text-xs sm:text-sm font-bold break-all ${transaction.calculatedBalance >= 0 ? 'text-green-700' : 'text-red-700'
+                  }`}>
                   {formatCurrency(transaction.calculatedBalance)}
                 </p>
               </div>
             </div>
           </div>
         ))}
-        
+
         {!loading && filteredTransactions.length > 0 && (
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-md p-4 text-white">
             <p className="text-sm font-semibold mb-3">Summary</p>
@@ -457,17 +455,17 @@ export default function PettyCashComponent() {
           </div>
         )}
         {!loading && <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
-          <table className="w-full min-w-max">
-            <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+          <table className="w-full min-w-max border-collapse">
+            <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold">Date</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">Voucher No</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">Description</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">Category</th>
-                <th className="px-6 py-4 text-right text-sm font-semibold">Debit (₹)</th>
-                <th className="px-6 py-4 text-right text-sm font-semibold">Credit (₹)</th>
-                <th className="px-6 py-4 text-right text-sm font-semibold">Balance (₹)</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">Email</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Date</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Voucher No</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Description</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Category</th>
+                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Debit (₹)</th>
+                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Credit (₹)</th>
+                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Balance (₹)</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Email</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -481,18 +479,16 @@ export default function PettyCashComponent() {
                 </tr>
               ) : (
                 transactionsWithBalance.map((transaction, index) => (
-                  <tr key={transaction.id} className={`hover:bg-indigo-50 transition-colors ${
-                      index % 2 === 0 ? "bg-gray-50" : "bg-white"
+                  <tr key={transaction.id} className={`hover:bg-indigo-50 transition-colors ${index % 2 === 0 ? "bg-gray-50" : "bg-white"
                     }`}>
                     <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                       {new Date(transaction.date).toLocaleDateString("en-IN")}
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <span className={`px-3 py-1 rounded-full font-medium text-xs ${
-                        transaction.voucher_no 
-                          ? "bg-indigo-100 text-indigo-700" 
-                          : "bg-gray-100 text-gray-500"
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full font-medium text-xs ${transaction.voucher_no
+                        ? "bg-indigo-100 text-indigo-700"
+                        : "bg-gray-100 text-gray-500"
+                        }`}>
                         {transaction.voucher_no || "N/A"}
                       </span>
                     </td>
@@ -520,9 +516,8 @@ export default function PettyCashComponent() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-right whitespace-nowrap">
-                      <span className={`font-bold ${
-                        transaction.calculatedBalance >= 0 ? 'text-green-700' : 'text-red-700'
-                      }`}>
+                      <span className={`font-bold ${transaction.calculatedBalance >= 0 ? 'text-green-700' : 'text-red-700'
+                        }`}>
                         {formatCurrency(transaction.calculatedBalance)}
                       </span>
                     </td>
@@ -554,9 +549,8 @@ export default function PettyCashComponent() {
                   <td className="px-6 py-4 text-right">
                     <div className="flex flex-col items-end">
                       <span className="text-xs text-gray-500 mb-1">Net Balance</span>
-                      <span className={`font-bold ${
-                        currentBalance >= 0 ? 'text-green-700' : 'text-red-700'
-                      }`}>
+                      <span className={`font-bold ${currentBalance >= 0 ? 'text-green-700' : 'text-red-700'
+                        }`}>
                         {formatCurrency(currentBalance)}
                       </span>
                     </div>
@@ -569,73 +563,73 @@ export default function PettyCashComponent() {
         </div>}
       </div>
 
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 sm:p-6 rounded-t-xl">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg sm:text-xl md:text-2xl font-bold">Add New Transaction</h2>
-                <button onClick={() => setShowAddModal(false)} className="p-1.5 sm:p-2 hover:bg-white/20 rounded-lg transition-colors">
-                  <X className="h-5 w-5 sm:h-6 sm:w-6" />
+      {
+        showAddModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-slate-800 text-white p-5 rounded-t-xl z-10 flex items-center justify-between">
+                <h2 className="text-xl font-bold">Add New Transaction</h2>
+                <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-slate-700 rounded-lg transition-colors">
+                  <X className="h-5 w-5" />
                 </button>
               </div>
+              <form onSubmit={handleAddTransaction} className="p-4 sm:p-6 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Date <span className="text-red-500">*</span></label>
+                    <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Transaction Type <span className="text-red-500">*</span></label>
+                    <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as TransactionType })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" required>
+                      <option value="credit">Credit (Money In)</option>
+                      <option value="debit">Debit (Money Out)</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description <span className="text-red-500">*</span></label>
+                  <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Enter transaction description" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" required />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Category <span className="text-red-500">*</span></label>
+                    <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value as TransactionCategory })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" required>
+                      {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Amount (₹) <span className="text-red-500">*</span></label>
+                    <input type="number" step="0.01" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      placeholder="0.00" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" required />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Remarks (Optional)</label>
+                  <textarea value={formData.remarks} onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                    placeholder="Additional notes..." rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-200 mt-2">
+                  <button type="submit" disabled={loading}
+                    className="flex-1 px-5 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm">
+                    {loading && <Loader2 className="h-5 w-5 animate-spin" />}
+                    {loading ? "Adding..." : "Add Transaction"}
+                  </button>
+                  <button type="button" onClick={() => setShowAddModal(false)}
+                    className="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-semibold shadow-sm">
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
-            <form onSubmit={handleAddTransaction} className="p-4 sm:p-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date <span className="text-red-500">*</span></label>
-                  <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Transaction Type <span className="text-red-500">*</span></label>
-                  <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value as TransactionType })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" required>
-                    <option value="credit">Credit (Money In)</option>
-                    <option value="debit">Debit (Money Out)</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description <span className="text-red-500">*</span></label>
-                <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Enter transaction description" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" required />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category <span className="text-red-500">*</span></label>
-                  <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value as TransactionCategory })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" required>
-                    {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Amount (₹) <span className="text-red-500">*</span></label>
-                  <input type="number" step="0.01" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    placeholder="0.00" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" required />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Remarks (Optional)</label>
-                <textarea value={formData.remarks} onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                  placeholder="Additional notes..." rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <button type="submit" disabled={loading}
-                  className="flex-1 px-4 sm:px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base">
-                  {loading && <Loader2 className="h-5 w-5 animate-spin" />}
-                  {loading ? "Adding..." : "Add Transaction"}
-                </button>
-                <button type="button" onClick={() => setShowAddModal(false)}
-                  className="px-4 sm:px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all font-semibold text-sm sm:text-base">
-                  Cancel
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
+        )
+      }
     </div>
   );
 }

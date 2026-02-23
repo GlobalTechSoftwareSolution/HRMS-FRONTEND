@@ -153,7 +153,7 @@ const MonthlyReportDashboard = () => {
     overtime: [],
   });
   const [loading, setLoading] = useState(true);
-  const [employeeAttendanceData, setEmployeeAttendanceData] = useState<{[key: string]: Attendance[]}>({});
+  const [employeeAttendanceData, setEmployeeAttendanceData] = useState<{ [key: string]: Attendance[] }>({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -194,9 +194,9 @@ const MonthlyReportDashboard = () => {
         const shiftsRaw = responsesData[5];
         const overtimeRaw = responsesData[6];
 
-const holidays = Array.isArray(holidaysRaw)
-  ? holidaysRaw
-  : holidaysRaw.results || holidaysRaw.data || [];
+        const holidays = Array.isArray(holidaysRaw)
+          ? holidaysRaw
+          : holidaysRaw.results || holidaysRaw.data || [];
 
         // Process shifts data
         let shifts: ShiftRecord[] = [];
@@ -270,45 +270,45 @@ const holidays = Array.isArray(holidaysRaw)
               name: (emp.fullname as string) || 'Unknown Employee',
               position: emp.designation as string, // strictly use designation from API
               join_date: (emp.date_joined as string) || null,
-              profile_picture: emp.profile_picture && emp.profile_picture !== ''
+              profile_picture: emp.profile_picture && !(emp.profile_picture as string)?.includes('minio.globaltechsoftwaresolutions.cloud') && (emp.profile_picture as string) !== 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+'
                 ? (emp.profile_picture as string)
-                : 'https://via.placeholder.com/150?text=User'
+                : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+'
             };
 
-  // Get employee approved leaves for display, filtered by selected month and year
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const getEmployeeApprovedLeaves = (employee: Employee) => {
-    const emailLc = (employee.email || '').toLowerCase();
-    const month = selectedMonth;
-    const year = selectedYear;
-    const results: Leave[] = [];
-    data.leaves.forEach((l: Leave) => {
-      const lEmail = (l.employee_email || l.email || '').toLowerCase();
-      const status = String(l.status || '').toLowerCase();
-      if (lEmail !== emailLc || status !== 'approved') return;
-      const start = l.start_date || l.from_date || l.date;
-      if (!start) return;
-      const end = l.end_date || l.to_date || l.start_date || start;
-      const s = new Date(start as string);
-      const e = new Date(end as string);
-      // if any part of the range intersects selected month/year, include single card
-      if (
-        (s.getFullYear() === year && s.getMonth() === month) ||
-        (e.getFullYear() === year && e.getMonth() === month) ||
-        (s.getFullYear() < year || (s.getFullYear() === year && s.getMonth() < month)) &&
-        (e.getFullYear() > year || (e.getFullYear() === year && e.getMonth() > month))
-      ) {
-        results.push(l);
-      }
-    });
-    return results;
-  };
+            // Get employee approved leaves for display, filtered by selected month and year
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const getEmployeeApprovedLeaves = (employee: Employee) => {
+              const emailLc = (employee.email || '').toLowerCase();
+              const month = selectedMonth;
+              const year = selectedYear;
+              const results: Leave[] = [];
+              data.leaves.forEach((l: Leave) => {
+                const lEmail = (l.employee_email || l.email || '').toLowerCase();
+                const status = String(l.status || '').toLowerCase();
+                if (lEmail !== emailLc || status !== 'approved') return;
+                const start = l.start_date || l.from_date || l.date;
+                if (!start) return;
+                const end = l.end_date || l.to_date || l.start_date || start;
+                const s = new Date(start as string);
+                const e = new Date(end as string);
+                // if any part of the range intersects selected month/year, include single card
+                if (
+                  (s.getFullYear() === year && s.getMonth() === month) ||
+                  (e.getFullYear() === year && e.getMonth() === month) ||
+                  (s.getFullYear() < year || (s.getFullYear() === year && s.getMonth() < month)) &&
+                  (e.getFullYear() > year || (e.getFullYear() === year && e.getMonth() > month))
+                ) {
+                  results.push(l);
+                }
+              });
+              return results;
+            };
           });
         const leaves = Array.isArray(leavesRaw)
           ? leavesRaw
           : (leavesRaw.leaves || leavesRaw.results || leavesRaw.data || []);
         const reports = Array.isArray(reportsRaw) ? reportsRaw : reportsRaw.results || reportsRaw.data || [];
-        
+
         // Tasks: ensure tasks array is under tasks
         let tasks: Task[] = [];
         if (Array.isArray(tasksRaw)) {
@@ -355,7 +355,7 @@ const holidays = Array.isArray(holidaysRaw)
           const absentResp = await fetch(`${baseURL}list_absent/`);
           if (!absentResp.ok) throw new Error(`Failed to fetch list_absent/: ${absentResp.status}`);
           const absentData = await absentResp.json();
-          
+
           // Handle the API response format properly
           if (Array.isArray(absentData)) {
             absent = absentData as AbsentRecord[];
@@ -372,7 +372,7 @@ const holidays = Array.isArray(holidaysRaw)
               absent = [];
             }
           }
-          
+
         } catch (error) {
           console.warn("Failed to fetch absences:", error);
           absent = [];
@@ -399,7 +399,7 @@ const holidays = Array.isArray(holidaysRaw)
     };
 
     fetchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle employee click
@@ -425,27 +425,27 @@ const holidays = Array.isArray(holidaysRaw)
   const years = Array.from({ length: 6 }, (_, i) => currentYear - 3 + i);
 
   // Get unique departments from employees
-  const departments = ['All Departments', ...new Set(data.employees
+  const departments = ['All Departments', ...new Set((data.employees || [])
     .map(emp => emp.department)
     .filter(dept => dept && dept !== '')
   )];
 
   // Filter employees by department and search
-  const filteredEmployees = data.employees.filter(employee => {
+  const filteredEmployees = (data.employees || []).filter(employee => {
     const matchesDept = selectedDept === 'All Departments' || employee.department === selectedDept;
-    const matchesSearch = searchQuery === '' || 
+    const matchesSearch = searchQuery === '' ||
       employee.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.position?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     return matchesDept && matchesSearch;
   });
 
   // Calculate employee-specific metrics using individual attendance endpoints
   const getEmployeeMetrics = (employee: Employee) => {
     // Find tasks for this employee by email
-    const employeeTasks = data.tasks.filter(task => {
+    const employeeTasks = (data.tasks || []).filter(task => {
       return task.email === employee.email || task.assigned_to === employee.email;
     });
 
@@ -467,22 +467,22 @@ const holidays = Array.isArray(holidaysRaw)
           // Parse time strings (format: "HH:MM:SS.milliseconds")
           const [checkInTime] = record.check_in.split('.');
           const [checkOutTime] = record.check_out.split('.');
-          
+
           const [inHours, inMinutes, inSeconds] = checkInTime.split(':').map(Number);
           const [outHours, outMinutes, outSeconds] = checkOutTime.split(':').map(Number);
-          
+
           const checkInTotalMinutes = inHours * 60 + inMinutes + inSeconds / 60;
           const checkOutTotalMinutes = outHours * 60 + outMinutes + outSeconds / 60;
-          
+
           let diffMinutes = checkOutTotalMinutes - checkInTotalMinutes;
-          
+
           // Handle overnight shifts (if check_out is earlier than check_in, assume next day)
           if (diffMinutes < 0) {
             diffMinutes += 24 * 60; // Add 24 hours
           }
-          
+
           const diffHours = diffMinutes / 60;
-          
+
           // Only count reasonable work hours (0.5-16 hours per day)
           if (diffHours >= 0.5 && diffHours <= 16) {
             totalHours += diffHours;
@@ -499,7 +499,7 @@ const holidays = Array.isArray(holidaysRaw)
 
     // Total Attendance Days = unique union of: attendance days + approved leave days + all Sundays in selected month
     const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const dayKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const unionDays = new Set<string>();
     // attendance dates
     employeeAttendance.forEach((rec: Attendance) => {
@@ -544,7 +544,7 @@ const holidays = Array.isArray(holidaysRaw)
 
   // Get employee tasks for display
   const getEmployeeTasks = (employee: Employee) => {
-    return data.tasks
+    return (data.tasks || [])
       .filter(task => task.email === employee.email || task.assigned_to === employee.email)
       .map(task => ({
         ...task,
@@ -569,7 +569,7 @@ const holidays = Array.isArray(holidaysRaw)
   };
 
   // --- Helpers: Normalize leave dates and count approved leaves for employee in selected month/year ---
-  const fmtKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const fmtKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const expandLeaveDates = (leave: Leave): string[] => {
     const dates: string[] = [];
     const start = leave.start_date || leave.from_date || leave.date;
@@ -602,20 +602,20 @@ const holidays = Array.isArray(holidaysRaw)
 
   // Get employee absences for display, filtered by selected month and year
   const getEmployeeAbsences = (employee: Employee) => {
-    return data.absent.filter((absence: AbsentRecord) => {
+    return (data.absent || []).filter((absence: AbsentRecord) => {
       // Match by email or fullname
-      const matchesEmployee = absence.email === employee.email || 
-                            absence.fullname === employee.name;
-      
+      const matchesEmployee = absence.email === employee.email ||
+        absence.fullname === employee.name;
+
       if (!matchesEmployee) return false;
-      
+
       // Filter by date and selected month/year
       const dateStr = absence.date || absence.absent_date;
       if (!dateStr) return false;
-      
+
       const absenceDate = new Date(dateStr);
-      return absenceDate.getMonth() === selectedMonth && 
-             absenceDate.getFullYear() === selectedYear;
+      return absenceDate.getMonth() === selectedMonth &&
+        absenceDate.getFullYear() === selectedYear;
     });
   };
 
@@ -636,7 +636,7 @@ const holidays = Array.isArray(holidaysRaw)
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Team Performance Dashboard</h1>
         <p className="text-gray-600">
-          {data.employees.length} employees loaded • {data.absent.length} absence records • Tech team attendance and task tracking
+          {(data.employees || []).length} employees loaded • {(data.absent || []).length} absence records • Tech team attendance and task tracking
         </p>
       </div>
 
@@ -644,7 +644,7 @@ const holidays = Array.isArray(holidaysRaw)
       <div className="mb-6 flex flex-wrap gap-4">
         {/* Search Bar */}
         <div className="flex-1 min-w-[200px]">
-          <input 
+          <input
             type="text"
             placeholder="Search employees by name, position, department, or email..."
             value={searchQuery}
@@ -654,7 +654,7 @@ const holidays = Array.isArray(holidaysRaw)
         </div>
 
         {/* Department Filter */}
-        <select 
+        <select
           value={selectedDept}
           onChange={(e) => setSelectedDept(e.target.value)}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -665,9 +665,9 @@ const holidays = Array.isArray(holidaysRaw)
             </option>
           ))}
         </select>
-        
+
         {/* Month Selector */}
-        <select 
+        <select
           value={selectedMonth}
           onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -680,7 +680,7 @@ const holidays = Array.isArray(holidaysRaw)
         </select>
 
         {/* Year Selector */}
-        <select 
+        <select
           value={selectedYear}
           onChange={(e) => setSelectedYear(parseInt(e.target.value))}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -710,77 +710,76 @@ const holidays = Array.isArray(holidaysRaw)
         {filteredEmployees.map((employee: Employee) => {
           const metrics = getEmployeeMetrics(employee);
           const absences = getEmployeeAbsences(employee);
-          
+
           return (
-            <div 
+            <div
               key={`${employee.id || employee.email || Math.random()}`}
               onClick={() => handleEmployeeClick(employee)}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 cursor-pointer transition-all hover:shadow-md hover:border-blue-300"
+              className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden cursor-pointer transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 group"
             >
-              <div className="flex items-center space-x-4 mb-4">
-                <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center">
-                  <Image
-                    src={employee.profile_picture || 'https://via.placeholder.com/150?text=User'}
-                    alt={employee.name || 'Employee'}
-                    width={48}
-                    height={48}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=User';
-                    }}
-                    unoptimized
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="truncate max-w-full">
-                    <p className="text-lg font-semibold text-gray-900 truncate break-words max-w-[200px]">
-                      {employee.name || 'Unknown Employee'}
-                    </p>
+              <div className="p-6">
+                <div className="flex items-center space-x-4 mb-5">
+                  <div className="relative">
+                    <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center border-2 border-slate-100 shadow-sm group-hover:border-blue-100 transition-colors">
+                      <Image
+                        src={employee.profile_picture && employee.profile_picture !== 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+' ? employee.profile_picture : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+'}
+                        alt={employee.name || 'Employee'}
+                        width={56}
+                        height={56}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          if (target.src.includes('minio.globaltechsoftwaresolutions.cloud')) {
+                            target.src = 'https://via.placeholder.com/150?text=User';
+                          }
+                        }}
+                        unoptimized
+                      />
+                    </div>
+                    {absences.length > 0 && (
+                      <span className="absolute -bottom-1 -right-1 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white" title={`${absences.length} absences this month`}>
+                        {absences.length}
+                      </span>
+                    )}
                   </div>
-                  <div className="truncate max-w-full">
-                    <p className="text-sm text-gray-500 truncate break-words max-w-[200px]">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold text-slate-800 truncate mb-0.5 group-hover:text-blue-600 transition-colors">
+                      {employee.name || 'Unknown Employee'}
+                    </h3>
+                    <p className="text-sm text-slate-500 truncate mb-0.5">
                       {employee.position || 'No Position'}
                     </p>
-                  </div>
-                  <div className="truncate max-w-full">
-                    <p className="text-xs text-gray-400 truncate break-words max-w-[200px]">
-                      {employee.department || 'No Department'}
+                    <p className="text-xs text-slate-400 truncate">
+                      {employee.email || 'No email provided'}
                     </p>
                   </div>
-                  {employee.email && (
-                    <div className="truncate max-w-full">
-                      <p className="text-xs text-gray-400 truncate break-words max-w-[200px]">
-                        {employee.email}
-                      </p>
-                    </div>
-                  )}
-                  {absences.length > 0 && (
-                    <p className="text-xs text-red-500 font-medium mt-1">
-                      {absences.length} absence{absences.length > 1 ? 's' : ''} this month
-                    </p>
-                  )}
                 </div>
-              </div>
 
-              {/* Quick Stats */}
-              <div className="grid grid-cols-2 gap-3 text-center">
-                <div className="bg-blue-50 rounded-lg p-2">
-                  <p className="text-xs text-blue-600">Tasks</p>
-                  <p className="text-sm font-bold text-gray-900">
-                    {metrics.completedTasks}/{metrics.totalTasks}
-                  </p>
-                </div>
-                <div className="bg-green-50 rounded-lg p-2">
-                  <p className="text-xs text-green-600">Avg Hours</p>
-                  <p className="text-sm font-bold text-gray-900">{metrics.avgWorkingHours}h</p>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-2">
-                  <p className="text-xs text-purple-600">Productivity</p>
-                  <p className="text-sm font-bold text-gray-900">{metrics.productivity}%</p>
-                </div>
-                <div className="bg-yellow-50 rounded-lg p-2">
-                  <p className="text-xs text-yellow-600">Attendance</p>
-                  <p className="text-sm font-bold text-gray-900">{metrics.attendanceRecords} days</p>
+                {/* Quick Stats Grid */}
+                <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-5 border-t border-slate-100">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Tasks</span>
+                    <span className="text-sm font-bold text-slate-700">
+                      {metrics.completedTasks} <span className="text-slate-400 font-medium">/ {metrics.totalTasks}</span>
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Avg Hours</span>
+                    <span className="text-sm font-bold text-slate-700">{metrics.avgWorkingHours}h</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Productivity</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-700">{metrics.productivity}%</span>
+                      <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(100, Math.max(0, metrics.productivity))}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Attendance</span>
+                    <span className="text-sm font-bold text-slate-700">{metrics.attendanceRecords} days</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -794,7 +793,7 @@ const holidays = Array.isArray(holidaysRaw)
           <div className="text-gray-400 text-6xl mb-4">🔍</div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No employees found</h3>
           <p className="text-gray-600">
-            {searchQuery 
+            {searchQuery
               ? `No employees match "${searchQuery}" in ${selectedDept}`
               : `No employees in ${selectedDept}`
             }
@@ -814,20 +813,24 @@ const holidays = Array.isArray(holidaysRaw)
       {/* Employee Monthly Report Dialog */}
       {showEmployeeReport && selectedEmployee && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-xl">
               <div className="flex justify-between items-start">
                 <div className="flex items-center space-x-4 min-w-0">
                   <div className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0">
                     <Image
-                      src={selectedEmployee.profile_picture || 'https://via.placeholder.com/150?text=User'}
+                      src={selectedEmployee.profile_picture && !(selectedEmployee.profile_picture as string)?.includes('minio.globaltechsoftwaresolutions.cloud') && (selectedEmployee.profile_picture as string) !== 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+' ? (selectedEmployee.profile_picture as string) : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZjZjZmMiPlVzZXI8L3RleHQ+PC9zdmc+'}
                       alt={selectedEmployee.name || 'Employee'}
                       width={64}
                       height={64}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=User';
+                        const target = e.target as HTMLImageElement;
+                        // Try fallback to default profile if MinIO fails
+                        if (target.src.includes('minio.globaltechsoftwaresolutions.cloud')) {
+                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzY0YzVjZiIgZHg9IjAiIHk9IjAiPjx0ZXh0IHg9IjUwJSIgeT0iMzAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiNmZmNmZmYiPlVzZXI8L3RleHQ+PC9zdmc+';
+                        }
                       }}
                       unoptimized
                     />
@@ -835,18 +838,18 @@ const holidays = Array.isArray(holidaysRaw)
                   <div className="min-w-0 flex-1">
                     <h2 className="text-xl font-bold text-white truncate">{selectedEmployee.name || 'Employee'}</h2>
                     {selectedEmployee.email && (
-                      <p className="text-blue-100 text-sm truncate">{selectedEmployee.email}</p>
+                      <p className="text-blue-100 text-sm break-all truncate">{selectedEmployee.email}</p>
                     )}
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={closeEmployeeReport}
                   className="text-white hover:text-gray-200 text-2xl font-bold ml-2"
                 >
                   ×
                 </button>
               </div>
-              
+
               <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
                   <p className="text-sm text-blue-200">Employee</p>
@@ -862,7 +865,7 @@ const holidays = Array.isArray(holidaysRaw)
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-blue-200">Email</p>
-                  <p className="font-semibold text-xs truncate max-w-[180px] mx-auto break-words">{selectedEmployee.email || 'N/A'}</p>
+                  <p className="font-semibold text-xs break-all truncate max-w-[180px] mx-auto">{selectedEmployee.email || 'N/A'}</p>
                 </div>
               </div>
             </div>
@@ -876,7 +879,7 @@ const holidays = Array.isArray(holidaysRaw)
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Email:</span>
-                      <span className="font-medium truncate overflow-hidden text-ellipsis break-words max-w-[200px] text-right">{selectedEmployee.email || 'N/A'}</span>
+                      <span className="font-medium break-all truncate overflow-hidden text-ellipsis max-w-[200px] text-right">{selectedEmployee.email || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Phone:</span>
@@ -917,7 +920,7 @@ const holidays = Array.isArray(holidaysRaw)
                   {(() => {
                     const metrics = getEmployeeMetrics(selectedEmployee);
                     const approvedLeavesCount = getEmployeeApprovedLeavesCount(selectedEmployee);
-                    
+
                     return (
                       <>
                         <div className="text-center p-4 bg-white rounded-lg shadow-sm">
@@ -950,24 +953,24 @@ const holidays = Array.isArray(holidaysRaw)
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 Attendance Hours (This Month)</h3>
                 {/* Interactive Chart */}
-             <AttendanceChart
-  attendance={getEmployeeAttendance(selectedEmployee)}
-  selectedMonth={selectedMonth}
-  selectedYear={selectedYear}
-  absences={getEmployeeAbsences(selectedEmployee)}
-  employeeEmail={selectedEmployee.email || ""}
-  leaves={data.leaves as {
-    id: number | string;
-    email: string;
-    start_date: string;
-    end_date: string;
-    status: string;
-    leave_type?: string;
-    reason?: string;
-  }[]}
-  shifts={data.shifts}
-  overtime={data.overtime}
-/>
+                <AttendanceChart
+                  attendance={getEmployeeAttendance(selectedEmployee)}
+                  selectedMonth={selectedMonth}
+                  selectedYear={selectedYear}
+                  absences={getEmployeeAbsences(selectedEmployee)}
+                  employeeEmail={selectedEmployee.email || ""}
+                  leaves={data.leaves as {
+                    id: number | string;
+                    email: string;
+                    start_date: string;
+                    end_date: string;
+                    status: string;
+                    leave_type?: string;
+                    reason?: string;
+                  }[]}
+                  shifts={data.shifts}
+                  overtime={data.overtime}
+                />
                 {/* Daily Calendar View */}
                 <div className="mt-6">
                   <h4 className="text-base font-semibold text-gray-800 mb-2">Daily Calendar</h4>
@@ -998,7 +1001,7 @@ const holidays = Array.isArray(holidaysRaw)
                       attendance?: Attendance;
                       shifts: ShiftRecord[];
                       overtime: OvertimeRecord[];
-                      breaks: Array<{start: string, end: string, duration: number}>;
+                      breaks: Array<{ start: string, end: string, duration: number }>;
                     }> = {};
 
                     // Initialize with attendance dates
@@ -1145,49 +1148,44 @@ const holidays = Array.isArray(holidaysRaw)
 
                                 {/* Overtime */}
                                 {dayData.overtime.map((ot, otIdx) => (
-                                  <div key={otIdx} className={`rounded-lg p-3 border ${
-                                    ot.status === 'approved'
+                                  <div key={otIdx} className={`rounded-lg p-3 border ${ot.status === 'approved'
                                       ? 'bg-purple-50 border-purple-200'
                                       : ot.status === 'rejected'
-                                      ? 'bg-red-50 border-red-200'
-                                      : 'bg-yellow-50 border-yellow-200'
-                                  }`}>
+                                        ? 'bg-red-50 border-red-200'
+                                        : 'bg-yellow-50 border-yellow-200'
+                                    }`}>
                                     <div className="flex items-center gap-2 mb-2">
-                                      <div className={`w-3 h-3 rounded-full ${
-                                        ot.status === 'approved'
+                                      <div className={`w-3 h-3 rounded-full ${ot.status === 'approved'
                                           ? 'bg-purple-500'
                                           : ot.status === 'rejected'
-                                          ? 'bg-red-500'
-                                          : 'bg-yellow-500'
-                                      }`}></div>
-                                      <span className={`text-sm font-medium ${
-                                        ot.status === 'approved'
+                                            ? 'bg-red-500'
+                                            : 'bg-yellow-500'
+                                        }`}></div>
+                                      <span className={`text-sm font-medium ${ot.status === 'approved'
                                           ? 'text-purple-900'
                                           : ot.status === 'rejected'
-                                          ? 'text-red-900'
-                                          : 'text-yellow-900'
-                                      }`}>Overtime</span>
+                                            ? 'text-red-900'
+                                            : 'text-yellow-900'
+                                        }`}>Overtime</span>
                                     </div>
-                                    <div className={`space-y-1 text-xs ${
-                                      ot.status === 'approved'
+                                    <div className={`space-y-1 text-xs ${ot.status === 'approved'
                                         ? 'text-purple-800'
                                         : ot.status === 'rejected'
-                                        ? 'text-red-800'
-                                        : 'text-yellow-800'
-                                    }`}>
+                                          ? 'text-red-800'
+                                          : 'text-yellow-800'
+                                      }`}>
                                       <div>Hours: <span className="font-mono">{ot.hours.toFixed(2)}h</span></div>
                                       {ot.ot_start && ot.ot_end && (
                                         <div>Time: <span className="font-mono">
                                           {new Date(ot.ot_start).toLocaleTimeString()} - {new Date(ot.ot_end).toLocaleTimeString()}
                                         </span></div>
                                       )}
-                                      <div className={`font-medium ${
-                                        ot.status === 'approved'
+                                      <div className={`font-medium ${ot.status === 'approved'
                                           ? 'text-purple-700'
                                           : ot.status === 'rejected'
-                                          ? 'text-red-700'
-                                          : 'text-yellow-700'
-                                      }`}>
+                                            ? 'text-red-700'
+                                            : 'text-yellow-700'
+                                        }`}>
                                         {ot.status.toUpperCase()}
                                       </div>
                                     </div>
@@ -1275,7 +1273,7 @@ const holidays = Array.isArray(holidaysRaw)
                           (s.getFullYear() === year && s.getMonth() === month) ||
                           (e.getFullYear() === year && e.getMonth() === month) ||
                           ((s.getFullYear() < year || (s.getFullYear() === year && s.getMonth() < month)) &&
-                           (e.getFullYear() > year || (e.getFullYear() === year && e.getMonth() > month)))
+                            (e.getFullYear() > year || (e.getFullYear() === year && e.getMonth() > month)))
                         );
                       });
                     if (leavesList.length === 0) {
@@ -1326,18 +1324,17 @@ const holidays = Array.isArray(holidaysRaw)
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900 truncate overflow-hidden text-ellipsis break-words max-w-[200px]">{task.displayName}</p>
                           <p className="text-sm text-gray-500 truncate overflow-hidden text-ellipsis break-words max-w-[200px]">
-                            Status: <span className={`font-medium ${
-                              (task.status || '').toLowerCase() === 'completed' ? 'text-green-600' :
-                              (task.status || '').toLowerCase() === 'in progress' ? 'text-blue-600' :
-                              (task.status || '').toLowerCase() === 'pending' ? 'text-yellow-600' : 'text-gray-600'
-                            }`}>
+                            Status: <span className={`font-medium ${(task.status || '').toLowerCase() === 'completed' ? 'text-green-600' :
+                                (task.status || '').toLowerCase() === 'in progress' ? 'text-blue-600' :
+                                  (task.status || '').toLowerCase() === 'pending' ? 'text-yellow-600' : 'text-gray-600'
+                              }`}>
                               {task.status || 'Unknown'}
                             </span>
                           </p>
                         </div>
                         <span className="text-xs text-gray-500 whitespace-nowrap ml-4 truncate overflow-hidden text-ellipsis max-w-[80px]">
-                          {task.displayDate ? 
-                            new Date(task.displayDate).toLocaleDateString("en-GB") : 
+                          {task.displayDate ?
+                            new Date(task.displayDate).toLocaleDateString("en-GB") :
                             'No date'
                           }
                         </span>
@@ -1575,20 +1572,20 @@ const AttendanceChart = ({
               const barHeight = d.absent
                 ? 160
                 : isLeaveDay
-                ? 160
-                : d.isSunday
-                ? 100 // fixed height for Sundays to ensure visibility
-                : Math.min((d.hours / maxHours) * 160, 160);
+                  ? 160
+                  : d.isSunday
+                    ? 100 // fixed height for Sundays to ensure visibility
+                    : Math.min((d.hours / maxHours) * 160, 160);
               const barColor =
                 d.absent
                   ? "bg-red-600 hover:bg-red-800"
                   : isLeaveDay
-                  ? "bg-green-500 hover:bg-green-700"
-                  : d.isSunday
-                  ? "bg-orange-500 hover:bg-orange-700"
-                  : d.present
-                  ? "bg-blue-600 hover:bg-blue-800"
-                  : "bg-gray-300";
+                    ? "bg-green-500 hover:bg-green-700"
+                    : d.isSunday
+                      ? "bg-orange-500 hover:bg-orange-700"
+                      : d.present
+                        ? "bg-blue-600 hover:bg-blue-800"
+                        : "bg-gray-300";
 
               return (
                 <div
@@ -1602,27 +1599,25 @@ const AttendanceChart = ({
 
                   {hoverIdx === idx && (
                     <div
-                      className={`fixed z-50 left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg px-3 py-2 text-xs ${
-                        d.absent
+                      className={`fixed z-50 left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg px-3 py-2 text-xs ${d.absent
                           ? "border-red-300"
                           : isLeaveDay
-                          ? "border-green-300"
-                          : d.isSunday
-                          ? "border-orange-300"
-                          : "border-blue-200"
-                      } max-w-xs break-words`}
+                            ? "border-green-300"
+                            : d.isSunday
+                              ? "border-orange-300"
+                              : "border-blue-200"
+                        } max-w-xs break-words`}
                       style={{ top: `${(window?.scrollY || 0) + 120}px` }}
                     >
                       <div
-                        className={`font-semibold mb-2 ${
-                          d.absent
+                        className={`font-semibold mb-2 ${d.absent
                             ? "text-red-700"
                             : isLeaveDay
-                            ? "text-green-700"
-                            : d.isSunday
-                            ? "text-orange-700"
-                            : "text-blue-700"
-                        } break-words`}
+                              ? "text-green-700"
+                              : d.isSunday
+                                ? "text-orange-700"
+                                : "text-blue-700"
+                          } break-words`}
                       >
                         {d.dateStr}
                       </div>

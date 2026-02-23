@@ -126,7 +126,7 @@ export default function HrAttendencePage() {
           let hours = { hrs: 0, mins: 0, secs: 0 };
           let currentHours = { hrs: 0, mins: 0, secs: 0 };
           let isCurrentlyWorking = false;
-          
+
           if (a.check_in && a.check_out) {
             // Completed shift
             const inTime = new Date(`${a.date}T${a.check_in}`).getTime();
@@ -149,7 +149,7 @@ export default function HrAttendencePage() {
               secs: Math.round(diffInSeconds % 60),
             };
           }
-          
+
           return {
             email: a.email,
             fullname: a.fullname,
@@ -320,7 +320,7 @@ export default function HrAttendencePage() {
       "January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December"
     ];
-    
+
     return (
       <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-3">
         <div className="flex items-center gap-2 sm:gap-3">
@@ -360,122 +360,122 @@ export default function HrAttendencePage() {
   };
 
   // ---------------- PDF Generation ----------------
- const downloadPDF = async () => {
-  const jsPDFModule = (await import("jspdf")).default;
-  const autoTableModule = (await import("jspdf-autotable")).default;
+  const downloadPDF = async () => {
+    const jsPDFModule = (await import("jspdf")).default;
+    const autoTableModule = (await import("jspdf-autotable")).default;
 
-  const doc = new jsPDFModule({
-    orientation: "portrait",
-    unit: "pt",
-    format: "A4",
-  });
+    const doc = new jsPDFModule({
+      orientation: "portrait",
+      unit: "pt",
+      format: "A4",
+    });
 
-  // --- ADD COMPANY LOGO AND NAME ---
-  const companyName = "Global Tech Software Solutions";
-  const logoUrl = "/logo/Global.jpg"; // replace with your image path or URL
+    // --- ADD COMPANY LOGO AND NAME ---
+    const companyName = "Global Tech Software Solutions";
+    const logoUrl = "/logo/Global.jpg"; // replace with your image path or URL
 
-  // Load image as base64
-  const imgData = await fetch(logoUrl)
-    .then((res) => res.blob())
-    .then(
-      (blob) =>
-        new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        })
+    // Load image as base64
+    const imgData = await fetch(logoUrl)
+      .then((res) => res.blob())
+      .then(
+        (blob) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          })
+      );
+
+    // Draw logo (left-top corner)
+    doc.addImage(imgData, "PNG", 40, 20, 50, 50);
+
+    // Draw company name (centered at top)
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text(companyName, doc.internal.pageSize.getWidth() / 2, 50, {
+      align: "center",
+    });
+
+    // --- ATTENDANCE REPORT TITLE ---
+    doc.setFontSize(20);
+    // Format selected date for display
+    const formattedSelectedDate = new Date(selectedDate).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    doc.text(
+      `Attendance Report for ${formattedSelectedDate}`,
+      doc.internal.pageSize.getWidth() / 2,
+      90,
+      { align: "center" }
     );
 
-  // Draw logo (left-top corner)
-  doc.addImage(imgData, "PNG", 40, 20, 50, 50);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    const reportDateStr = new Date(selectedDate).toLocaleDateString();
+    doc.text(`Date: ${reportDateStr}`, doc.internal.pageSize.getWidth() / 2, 110, {
+      align: "center",
+    });
 
-  // Draw company name (centered at top)
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.text(companyName, doc.internal.pageSize.getWidth() / 2, 50, {
-    align: "center",
-  });
+    // --- TABLE ---
+    const tableColumn = [
+      "ID",
+      "Employee Name",
+      "Email",
+      "Department",
+      "Check-in",
+      "Check-out",
+      "Hours",
+    ];
+    const tableRows: (string | number)[][] = [];
 
-  // --- ATTENDANCE REPORT TITLE ---
-  doc.setFontSize(20);
-  // Format selected date for display
-  const formattedSelectedDate = new Date(selectedDate).toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-  
-  doc.text(
-    `Attendance Report for ${formattedSelectedDate}`,
-    doc.internal.pageSize.getWidth() / 2,
-    90,
-    { align: "center" }
-  );
+    selectedDateAttendance.forEach((rec, idx) => {
+      tableRows.push([
+        idx + 1,
+        rec.fullname || "Unknown",
+        rec.email || "-",
+        rec.department || "-",
+        rec.check_in
+          ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
+          : "Pending",
+        rec.check_out
+          ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
+          : "Pending",
+        `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`,
+      ]);
+    });
 
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "normal");
-  const reportDateStr = new Date(selectedDate).toLocaleDateString();
-  doc.text(`Date: ${reportDateStr}`, doc.internal.pageSize.getWidth() / 2, 110, {
-    align: "center",
-  });
+    autoTableModule(doc, {
+      startY: 130,
+      head: [tableColumn],
+      body: tableRows,
+      theme: "striped",
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: [255, 255, 255],
+        fontSize: 12,
+      },
+      bodyStyles: {
+        fontSize: 10,
+        cellPadding: 6,
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245],
+      },
+      styles: {
+        lineColor: [44, 62, 80],
+        lineWidth: 0.2,
+      },
+    });
 
-  // --- TABLE ---
-  const tableColumn = [
-    "ID",
-    "Employee Name",
-    "Email",
-    "Department",
-    "Check-in",
-    "Check-out",
-    "Hours",
-  ];
-  const tableRows: (string | number)[][] = [];
-
-  selectedDateAttendance.forEach((rec, idx) => {
-    tableRows.push([
-      idx + 1,
-      rec.fullname || "Unknown",
-      rec.email || "-",
-      rec.department || "-",
-      rec.check_in
-        ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString()
-        : "Pending",
-      rec.check_out
-        ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString()
-        : "Pending",
-      `${rec.hours.hrs}h ${rec.hours.mins}m ${rec.hours.secs}s`,
-    ]);
-  });
-
-  autoTableModule(doc, {
-    startY: 130,
-    head: [tableColumn],
-    body: tableRows,
-    theme: "striped",
-    headStyles: {
-      fillColor: [41, 128, 185],
-      textColor: [255, 255, 255],
-      fontSize: 12,
-    },
-    bodyStyles: {
-      fontSize: 10,
-      cellPadding: 6,
-    },
-    alternateRowStyles: {
-      fillColor: [245, 245, 245],
-    },
-    styles: {
-      lineColor: [44, 62, 80],
-      lineWidth: 0.2,
-    },
-  });
-
-  // Format selected date for filename
+    // Format selected date for filename
     const fileNameDateStr = new Date(selectedDate).toLocaleDateString();
     doc.save(`Attendance-Report-${fileNameDateStr}.pdf`);
-};
+  };
 
   // Week Days Header Component
   const WeekDaysHeader = () => {
@@ -525,27 +525,25 @@ export default function HrAttendencePage() {
       days.push(
         <div
           key={day}
-          className={`h-12 sm:h-16 md:h-20 border border-gray-200 p-0.5 sm:p-1 cursor-pointer transition-all ${
-            isSelected
-              ? "bg-blue-500 text-white"
-              : isSunday
-                ? "bg-red-200 text-red-800 border-red-300 hover:bg-red-300"
-                : isToday
-                  ? hasAttendance
-                    ? "bg-green-500 text-white border-green-600"
-                    : "bg-blue-100 border-blue-300"
-                  : hasAttendance
-                    ? "bg-green-500 text-white border-green-600 hover:bg-green-600"
-                    : "bg-white hover:bg-gray-50"
-          }`}
+          className={`h-12 sm:h-16 md:h-20 border border-gray-200 p-0.5 sm:p-1 cursor-pointer transition-all ${isSelected
+            ? "bg-blue-500 text-white"
+            : isSunday
+              ? "bg-red-200 text-red-800 border-red-300 hover:bg-red-300"
+              : isToday
+                ? hasAttendance
+                  ? "bg-green-500 text-white border-green-600"
+                  : "bg-blue-100 border-blue-300"
+                : hasAttendance
+                  ? "bg-green-500 text-white border-green-600 hover:bg-green-600"
+                  : "bg-white hover:bg-gray-50"
+            }`}
           onClick={() => setSelectedDate(dateStr)}
         >
-          <div className={`text-[10px] sm:text-xs font-medium ${
-            isSelected ? "text-white" :
+          <div className={`text-[10px] sm:text-xs font-medium ${isSelected ? "text-white" :
             isSunday ? "text-white font-bold" :
-            isToday ? (hasAttendance ? "text-white font-bold" : "text-blue-600 font-bold") :
-            hasAttendance ? "text-white font-bold" : "text-gray-700"
-          }`}>
+              isToday ? (hasAttendance ? "text-white font-bold" : "text-blue-600 font-bold") :
+                hasAttendance ? "text-white font-bold" : "text-gray-700"
+            }`}>
             {day}
           </div>
         </div>
@@ -562,9 +560,9 @@ export default function HrAttendencePage() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 text-gray-800"
+          className="text-2xl font-bold mb-6 text-slate-800 tracking-tight"
         >
-          HR Attendance Dashboard 
+          HR Attendance Dashboard
         </motion.h1>
 
         {/* KPI Cards */}
@@ -575,18 +573,27 @@ export default function HrAttendencePage() {
           transition={{ duration: 0.5, delay: 0.2 }}
         >
           {[
-            { title: "Total Employees", value: totalEmployees, color: "bg-gradient-to-r from-blue-400 to-blue-600" },
-            { title: "Checked In", value: checkedIn, color: "bg-gradient-to-r from-green-400 to-green-600" },
-            { title: "Currently Working", value: currentlyWorking, color: "bg-gradient-to-r from-emerald-400 to-emerald-600" },
-            { title: "Absent", value: absent, color: "bg-gradient-to-r from-red-400 to-red-600" },
-            { title: "Total Hours", value: totalHoursTodayDisplay, color: "bg-gradient-to-r from-purple-400 to-purple-600" },
+            { title: "Total Employees", value: totalEmployees, gradient: "from-blue-50/80 to-white", borderColor: "border-blue-100/80", iconBg: "bg-blue-100", iconColor: "text-blue-600", iconPath: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" },
+            { title: "Checked In", value: checkedIn, gradient: "from-emerald-50/80 to-white", borderColor: "border-emerald-100/80", iconBg: "bg-emerald-100", iconColor: "text-emerald-600", iconPath: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
+            { title: "Currently Working", value: currentlyWorking, gradient: "from-teal-50/80 to-white", borderColor: "border-teal-100/80", iconBg: "bg-teal-100", iconColor: "text-teal-600", iconPath: "M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
+            { title: "Absent", value: absent, gradient: "from-rose-50/80 to-white", borderColor: "border-rose-100/80", iconBg: "bg-rose-100", iconColor: "text-rose-600", iconPath: "M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" },
+            { title: "Total Hours", value: totalHoursTodayDisplay, gradient: "from-violet-50/80 to-white", borderColor: "border-violet-100/80", iconBg: "bg-violet-100", iconColor: "text-violet-600", iconPath: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
           ].map((kpi) => (
             <motion.div
               key={kpi.title}
-              className={`rounded-2xl p-4 sm:p-6 text-white shadow-lg flex flex-col justify-between hover:scale-105 transition-transform duration-300 ${kpi.color}`}
+              className={`relative bg-gradient-to-br ${kpi.gradient} rounded-2xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border ${kpi.borderColor} flex flex-col justify-between hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 transition-all duration-300 group`}
             >
-              <p className="text-sm sm:text-base font-medium opacity-90">{kpi.title}</p>
-              <p className="text-xl sm:text-2xl md:text-3xl font-bold">{kpi.value}</p>
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 tracking-wider uppercase mb-2">{kpi.title}</p>
+                  <p className="text-3xl font-extrabold text-slate-800 tracking-tight">{kpi.value}</p>
+                </div>
+                <div className={`p-3 rounded-xl ${kpi.iconBg} shadow-inner group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300`}>
+                  <svg className={`w-6 h-6 ${kpi.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={kpi.iconPath} />
+                  </svg>
+                </div>
+              </div>
             </motion.div>
           ))}
         </motion.div>
@@ -603,7 +610,7 @@ export default function HrAttendencePage() {
           </h2>
           <button
             onClick={downloadPDF}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg sm:mt-5 sm:mb-5 hover:bg-blue-700"
+            className="px-4 py-2 bg-slate-800 text-white font-medium text-sm rounded-lg sm:mt-5 sm:mb-5 hover:bg-slate-700 transition"
           >
             Download PDF
           </button>
@@ -647,16 +654,14 @@ export default function HrAttendencePage() {
                     <p className="text-xs text-gray-400">Check-in / Check-out</p>
                     <div className="flex gap-2 mt-1 flex-wrap">
                       <span
-                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                          rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                        }`}
+                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${rec.check_in ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                          }`}
                       >
                         {rec.check_in ? new Date(`${rec.date}T${rec.check_in}`).toLocaleTimeString() : "Pending"}
                       </span>
                       <span
-                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                          rec.check_out ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
-                        }`}
+                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${rec.check_out ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                          }`}
                       >
                         {rec.check_out ? new Date(`${rec.date}T${rec.check_out}`).toLocaleTimeString() : "Pending"}
                       </span>
@@ -692,60 +697,60 @@ export default function HrAttendencePage() {
                       const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
                       return otDate === rec.date && ot.email === rec.email;
                     }).length > 0 && (
-                      <div className="bg-orange-50 rounded-lg p-2">
-                        <div className="flex items-center gap-1 mb-1">
-                          <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                          </svg>
-                          <span className="text-xs font-medium text-orange-700">Overtime</span>
+                        <div className="bg-orange-50 rounded-lg p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                            </svg>
+                            <span className="text-xs font-medium text-orange-700">Overtime</span>
+                          </div>
+                          {otRecords.filter(ot => {
+                            const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
+                            return otDate === rec.date && ot.email === rec.email;
+                          }).map((ot, idx) => {
+                            const startTime = new Date(ot.ot_start);
+                            const endTime = new Date(ot.ot_end);
+                            const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+                            return (
+                              <div key={idx} className="text-xs text-orange-600 truncate">
+                                {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({Math.abs(hours).toFixed(1)}h)
+                              </div>
+                            );
+                          })}
                         </div>
-                        {otRecords.filter(ot => {
-                          const otDate = new Date(ot.ot_start).toISOString().split('T')[0];
-                          return otDate === rec.date && ot.email === rec.email;
-                        }).map((ot, idx) => {
-                          const startTime = new Date(ot.ot_start);
-                          const endTime = new Date(ot.ot_end);
-                          const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-                          return (
-                            <div key={idx} className="text-xs text-orange-600 truncate">
-                              {startTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {endTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ({Math.abs(hours).toFixed(1)}h)
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                      )}
 
                     {/* Breaks */}
                     {breaks.filter(br => {
                       const breakDate = new Date(br.break_start).toISOString().split('T')[0];
                       return breakDate === rec.date && br.email === rec.email;
                     }).length > 0 && (
-                      <div className="bg-green-50 rounded-lg p-2">
-                        <div className="flex items-center gap-1 mb-1">
-                          <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z M9 3v1m6-1v1m-7 5h8m-4 4v.01" />
-                          </svg>
-                          <span className="text-xs font-medium text-green-700">Breaks</span>
+                        <div className="bg-green-50 rounded-lg p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z M9 3v1m6-1v1m-7 5h8m-4 4v.01" />
+                            </svg>
+                            <span className="text-xs font-medium text-green-700">Breaks</span>
+                          </div>
+                          {breaks.filter(br => {
+                            const breakDate = new Date(br.break_start).toISOString().split('T')[0];
+                            return breakDate === rec.date && br.email === rec.email;
+                          }).map((br, idx) => {
+                            const breakStart = new Date(br.break_start);
+                            const breakEnd = br.break_end ? new Date(br.break_end) : null;
+                            const duration = breakEnd ? (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60 * 60) : 0;
+                            return (
+                              <div key={idx} className="text-xs text-green-600 truncate">
+                                {formatTime(breakStart.toISOString().split('T')[1].substring(0, 8))}
+                                {breakEnd && ` - ${formatTime(breakEnd.toISOString().split('T')[1].substring(0, 8))}`}
+                                {breakEnd && ` (${Math.abs(duration).toFixed(1)}h)`}
+                              </div>
+                            );
+                          })}
                         </div>
-                        {breaks.filter(br => {
-                          const breakDate = new Date(br.break_start).toISOString().split('T')[0];
-                          return breakDate === rec.date && br.email === rec.email;
-                        }).map((br, idx) => {
-                          const breakStart = new Date(br.break_start);
-                          const breakEnd = br.break_end ? new Date(br.break_end) : null;
-                          const duration = breakEnd ? (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60 * 60) : 0;
-                          return (
-                            <div key={idx} className="text-xs text-green-600 truncate">
-                              {formatTime(breakStart.toISOString().split('T')[1].substring(0, 8))}
-                              {breakEnd && ` - ${formatTime(breakEnd.toISOString().split('T')[1].substring(0, 8))}`}
-                              {breakEnd && ` (${Math.abs(duration).toFixed(1)}h)`}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                      )}
                   </div>
-                  
+
                   {/* Check-in/Check-out Images */}
                   <div className="flex gap-3 mb-3 justify-center">
                     {rec.check_in_photo ? (
@@ -786,7 +791,7 @@ export default function HrAttendencePage() {
                         </div>
                       </div>
                     )}
-                    
+
                     {rec.check_out_photo ? (
                       <div className="flex flex-col items-center">
                         <span className="text-xs text-gray-500 mb-1">Check-out</span>
@@ -826,7 +831,7 @@ export default function HrAttendencePage() {
                       </div>
                     )}
                   </div>
-                  
+
                   <div>
                     <p className="text-xs sm:text-sm text-gray-400 mb-1">
                       {rec.isCurrentlyWorking ? 'Working Hours' : 'Worked Hours'}
@@ -835,23 +840,22 @@ export default function HrAttendencePage() {
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{
-                          width: `${
-                            Math.min(
-                              (((rec.isCurrentlyWorking ? (rec.currentHours?.hrs || 0) + (rec.currentHours?.mins || 0) / 60 + (rec.currentHours?.secs || 0) / 3600 : rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) || 0) / 8) * 100,
-                              100
-                            )
-                          }%`
+                          width: `${Math.min(
+                            (((rec.isCurrentlyWorking ? (rec.currentHours?.hrs || 0) + (rec.currentHours?.mins || 0) / 60 + (rec.currentHours?.secs || 0) / 3600 : rec.hours.hrs + rec.hours.mins / 60 + rec.hours.secs / 3600) || 0) / 8) * 100,
+                            100
+                          )
+                            }%`
                         }}
                         transition={{ duration: 1 }}
                         className={`h-2 rounded-full ${rec.isCurrentlyWorking ? 'bg-green-500' : 'bg-blue-500'}`}
                       />
                     </div>
                     <p className="text-xs sm:text-sm text-center text-gray-600 mt-1 flex items-center justify-center">
-                      {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.hrs || 0}h 
-                      {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.mins || 0}m 
+                      {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.hrs || 0}h
+                      {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.mins || 0}m
                       {(rec.isCurrentlyWorking ? rec.currentHours : rec.hours)?.secs || 0}s
                       {rec.isCurrentlyWorking && (
-                        <motion.span 
+                        <motion.span
                           className="ml-2 w-2 h-2 rounded-full bg-green-500"
                           animate={{ opacity: [0, 1, 0] }}
                           transition={{ repeat: Infinity, duration: 1.5 }}
@@ -869,12 +873,12 @@ export default function HrAttendencePage() {
           )}
         </motion.div>
 
-{/* Calendar Section */}
+        {/* Calendar Section */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
           <CalendarHeader />
           <WeekDaysHeader />
           <CalendarGrid />
-          
+
           {/* Selected Date Info */}
           <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-200">
             <div className="text-sm font-semibold text-gray-800">
